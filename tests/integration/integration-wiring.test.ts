@@ -284,7 +284,9 @@ describe("API Routes — dashboard and tool consumers", () => {
     assert.match(globals, /--color-card:\s+#ffffff/);
     assert.match(globals, /--color-card:\s+#161b22/);
     assert.match(globals, /--color-card:\s+var\(--color-card\)/);
-    assert.match(requestLogger, /bg-black\/5 dark:bg-black\/20/);
+    const tableStyles = readProjectFile("src/shared/components/logTableStyles.ts");
+    assert.match(requestLogger, /LOG_TABLE_HEADER_BG_STYLE/);
+    assert.match(tableStyles, /backgroundColor:\s+"var\(--color-bg, #fff\)"/);
     assert.doesNotMatch(requestLogger, /\/api\/logs\/active/);
   });
 
