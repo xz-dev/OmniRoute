@@ -36,7 +36,7 @@ endpoint with environment variables (it has no `--base-url` flag):
 |----------|---------|
 | `ANTHROPIC_BASE_URL` | Gateway root URL (Claude Code appends `/v1/messages`). **No `/v1` suffix.** |
 | `ANTHROPIC_AUTH_TOKEN` | Sent as `Authorization: Bearer …` — use your OmniRoute access token / API key |
-| `ANTHROPIC_API_KEY` | Alternative: sent as `x-api-key`. If both set, `AUTH_TOKEN` wins |
+| `ANTHROPIC_API_KEY` | Alternative: sent as `x-api-key`. If both set, `ANTHROPIC_AUTH_TOKEN` wins |
 | `ANTHROPIC_MODEL` | Force a specific model (overrides the `/model` picker default) |
 | `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY` | `1` → the native `/model` picker lists `claude*`/`anthropic*` models from `/v1/models` |
 | `CLAUDE_CODE_MAX_OUTPUT_TOKENS` | Cap output tokens per response (e.g. `65536`) |
