@@ -16,6 +16,12 @@
  * Registration: call registerCodexQuotaFetcher() once at server startup.
  */
 
+import {
+  CODEX_SPARK_QUOTA_SESSION,
+  CODEX_SPARK_QUOTA_WEEKLY,
+  getCodexModelScope,
+  isCodexSparkLimitDescriptor,
+} from "../config/codexQuotaScopes.ts";
 import { registerQuotaFetcher, registerQuotaWindows, type QuotaInfo } from "./quotaPreflight.ts";
 import { registerMonitorFetcher } from "./quotaMonitor.ts";
 
@@ -41,6 +47,8 @@ export interface CodexDualWindowQuota extends QuotaInfo {
   window5h: { percentUsed: number; resetAt: string | null };
   window7d: { percentUsed: number; resetAt: string | null };
   limitReached: boolean;
+  /** All known Codex quota windows, including Spark when the upstream exposes it. */
+  allWindows?: Record<string, { percentUsed: number; resetAt: string | null }>;
 }
 
 interface CacheEntry {
@@ -89,16 +97,35 @@ export function registerCodexConnection(connectionId: string, meta: CodexConnect
   if (!connectionRegistry.has(connectionId) && connectionRegistry.size >= MAX_CONNECTIONS) {
     const oldestKey = connectionRegistry.keys().next().value;
     if (oldestKey !== undefined) {
-      quotaCache.delete(oldestKey);
+      deleteQuotaCacheForConnection(oldestKey);
       connectionRegistry.delete(oldestKey);
     }
   }
   connectionRegistry.set(connectionId, meta);
 }
 
-export function unregisterCodexConnection(connectionId: string): void {
+function getQuotaCacheKey(connectionId: string, requestedModel?: string | null): string {
+  return `${connectionId}:${getCodexModelScope(requestedModel)}`;
+}
+
+function deleteQuotaCacheForConnection(connectionId: string): void {
   quotaCache.delete(connectionId);
+  for (const key of quotaCache.keys()) {
+    if (key === connectionId || key.startsWith(`${connectionId}:`)) quotaCache.delete(key);
+  }
+}
+
+export function unregisterCodexConnection(connectionId: string): void {
+  deleteQuotaCacheForConnection(connectionId);
   connectionRegistry.delete(connectionId);
+}
+
+function getRequestedModel(connection?: Record<string, unknown>): string | null {
+  if (!connection || typeof connection !== "object") return null;
+  const directModel = connection.requestedModel ?? connection.model;
+  return typeof directModel === "string" && directModel.trim().length > 0
+    ? directModel.trim()
+    : null;
 }
 
 function getCodexConnectionMeta(
@@ -127,7 +154,7 @@ function getCodexConnectionMeta(
       if (!connectionRegistry.has(connectionId) && connectionRegistry.size >= MAX_CONNECTIONS) {
         const oldestKey = connectionRegistry.keys().next().value;
         if (oldestKey !== undefined) {
-          quotaCache.delete(oldestKey);
+          deleteQuotaCacheForConnection(oldestKey);
           connectionRegistry.delete(oldestKey);
         }
       }
@@ -165,8 +192,11 @@ export async function fetchCodexQuota(
   connectionId: string,
   connection?: Record<string, unknown>
 ): Promise<CodexDualWindowQuota | null> {
+  const requestedModel = getRequestedModel(connection);
+  const cacheKey = getQuotaCacheKey(connectionId, requestedModel);
+
   // Check cache first
-  const cached = quotaCache.get(connectionId);
+  const cached = quotaCache.get(cacheKey);
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
     return cached.quota;
   }
@@ -200,14 +230,14 @@ export async function fetchCodexQuota(
       // Return null to proceed (fail-open — don't block on API errors).
       if (response.status === 401 || response.status === 403) {
         // Token expired — remove from cache so next call re-fetches
-        quotaCache.delete(connectionId);
+        deleteQuotaCacheForConnection(connectionId);
         connectionRegistry.delete(connectionId);
       }
       return null;
     }
 
     const data = await response.json();
-    const quota = parseCodexUsageResponse(data);
+    const quota = parseCodexUsageResponse(data, requestedModel);
 
     if (!quota) return null;
 
@@ -216,7 +246,7 @@ export async function fetchCodexQuota(
       const oldestCacheKey = quotaCache.keys().next().value;
       if (oldestCacheKey !== undefined) quotaCache.delete(oldestCacheKey);
     }
-    quotaCache.set(connectionId, { quota, fetchedAt: Date.now() });
+    quotaCache.set(cacheKey, { quota, fetchedAt: Date.now() });
     return quota;
   } catch {
     // Network error, timeout, etc. — fail open
@@ -256,52 +286,121 @@ function parseWindowReset(window: Record<string, unknown>): string | null {
   return null;
 }
 
-function parseCodexUsageResponse(data: unknown): CodexDualWindowQuota | null {
+function parseCodexWindow(
+  window: Record<string, unknown> | null | undefined
+): { percentUsed: number; resetAt: string | null } | null {
+  if (!window || Object.keys(window).length === 0) return null;
+  const percentUsed = toNumber(window["used_percent"] ?? window["usedPercent"], 0) / 100;
+  return { percentUsed, resetAt: parseWindowReset(window) };
+}
+
+function findSparkRateLimit(data: Record<string, unknown>): Record<string, unknown> | null {
+  const additional = data["additional_rate_limits"] ?? data["additionalRateLimits"];
+  if (!Array.isArray(additional)) return null;
+
+  for (const entryValue of additional) {
+    const entry = toRecord(entryValue);
+    if (
+      !isCodexSparkLimitDescriptor(
+        entry["limit_name"],
+        entry["limitName"],
+        entry["metered_feature"],
+        entry["meteredFeature"],
+        entry["limit_id"],
+        entry["limitId"],
+        entry["id"],
+        entry["name"],
+        entry["title"],
+        entry["model"],
+        entry["model_id"],
+        entry["modelId"]
+      )
+    ) {
+      continue;
+    }
+    return toRecord(entry["rate_limit"] ?? entry["rateLimit"]);
+  }
+
+  return null;
+}
+
+function parseCodexUsageResponse(
+  data: unknown,
+  requestedModel?: string | null
+): CodexDualWindowQuota | null {
   const obj = toRecord(data);
-  const rateLimit = toRecord(obj["rate_limit"] ?? obj["rateLimit"]);
-  const primaryWindow = toRecord(rateLimit["primary_window"] ?? rateLimit["primaryWindow"]);
-  const secondaryWindow = toRecord(rateLimit["secondary_window"] ?? rateLimit["secondaryWindow"]);
+  const normalRateLimit = toRecord(obj["rate_limit"] ?? obj["rateLimit"]);
+  const sparkRateLimit = findSparkRateLimit(obj);
+  const requestedScope = getCodexModelScope(requestedModel);
+  const useSparkWindows = requestedScope === "spark";
+  if (useSparkWindows && !sparkRateLimit) return null;
+  const selectedRateLimit = useSparkWindows
+    ? (sparkRateLimit as Record<string, unknown>)
+    : normalRateLimit;
 
-  // Require at least one window to be present
-  const hasPrimary = Object.keys(primaryWindow).length > 0;
-  const hasSecondary = Object.keys(secondaryWindow).length > 0;
-  if (!hasPrimary && !hasSecondary) return null;
+  const primaryWindow = toRecord(
+    selectedRateLimit["primary_window"] ?? selectedRateLimit["primaryWindow"]
+  );
+  const secondaryWindow = toRecord(
+    selectedRateLimit["secondary_window"] ?? selectedRateLimit["secondaryWindow"]
+  );
 
-  // Parse 5h window
-  const usedPercent5h = hasPrimary
-    ? toNumber(primaryWindow["used_percent"] ?? primaryWindow["usedPercent"], 0)
-    : 0;
-  const resetAt5h = hasPrimary ? parseWindowReset(primaryWindow) : null;
+  // Require at least one window to be present for the requested scope.
+  const parsedPrimary = parseCodexWindow(primaryWindow);
+  const parsedSecondary = parseCodexWindow(secondaryWindow);
+  if (!parsedPrimary && !parsedSecondary) return null;
 
-  // Parse 7d window
-  const usedPercent7d = hasSecondary
-    ? toNumber(secondaryWindow["used_percent"] ?? secondaryWindow["usedPercent"], 0)
-    : 0;
-  const resetAt7d = hasSecondary ? parseWindowReset(secondaryWindow) : null;
+  const window5h = parsedPrimary ?? { percentUsed: 0, resetAt: null };
+  const window7d = parsedSecondary ?? { percentUsed: 0, resetAt: null };
+  const worstPercentUsed = Math.max(window5h.percentUsed, window7d.percentUsed);
+  const limitReached = Boolean(
+    selectedRateLimit["limit_reached"] ?? selectedRateLimit["limitReached"]
+  );
 
-  // Worst-case across both windows (triggers switch when EITHER is at 95%)
-  const worstPercentUsed = Math.max(usedPercent5h, usedPercent7d);
-  const percentUsedNormalized = worstPercentUsed / 100; // QuotaInfo uses 0..1
+  const windows: Record<string, { percentUsed: number; resetAt: string | null }> = {
+    ...(parsedPrimary
+      ? { [useSparkWindows ? CODEX_SPARK_QUOTA_SESSION : CODEX_WINDOW_SESSION]: window5h }
+      : {}),
+    ...(parsedSecondary
+      ? { [useSparkWindows ? CODEX_SPARK_QUOTA_WEEKLY : CODEX_WINDOW_WEEKLY]: window7d }
+      : {}),
+  };
+  const allWindows: Record<string, { percentUsed: number; resetAt: string | null }> = {
+    ...windows,
+  };
 
-  const limitReached = Boolean(rateLimit["limit_reached"] ?? rateLimit["limitReached"]);
-
-  const window5h = { percentUsed: usedPercent5h / 100, resetAt: resetAt5h };
-  const window7d = { percentUsed: usedPercent7d / 100, resetAt: resetAt7d };
+  if (!useSparkWindows && sparkRateLimit) {
+    const sparkPrimary = parseCodexWindow(
+      toRecord(sparkRateLimit["primary_window"] ?? sparkRateLimit["primaryWindow"])
+    );
+    const sparkSecondary = parseCodexWindow(
+      toRecord(sparkRateLimit["secondary_window"] ?? sparkRateLimit["secondaryWindow"])
+    );
+    if (sparkPrimary) allWindows[CODEX_SPARK_QUOTA_SESSION] = sparkPrimary;
+    if (sparkSecondary) allWindows[CODEX_SPARK_QUOTA_WEEKLY] = sparkSecondary;
+  } else if (useSparkWindows) {
+    const normalPrimary = parseCodexWindow(
+      toRecord(normalRateLimit["primary_window"] ?? normalRateLimit["primaryWindow"])
+    );
+    const normalSecondary = parseCodexWindow(
+      toRecord(normalRateLimit["secondary_window"] ?? normalRateLimit["secondaryWindow"])
+    );
+    if (normalPrimary) allWindows[CODEX_WINDOW_SESSION] = normalPrimary;
+    if (normalSecondary) allWindows[CODEX_WINDOW_WEEKLY] = normalSecondary;
+  }
 
   return {
-    used: worstPercentUsed,
+    used: Math.round(worstPercentUsed * 100),
     total: 100,
-    percentUsed: percentUsedNormalized,
+    percentUsed: worstPercentUsed,
     resetAt: getDominantResetAt({ window5h, window7d }),
-    // Per-window breakdown for the preflight evaluator. Keys match what the
-    // dashboard renders (session = 5h, weekly = 7d) so user-set cutoffs and
-    // displayed quotas refer to the same windows.
-    windows: {
-      ...(hasPrimary ? { [CODEX_WINDOW_SESSION]: window5h } : {}),
-      ...(hasSecondary ? { [CODEX_WINDOW_WEEKLY]: window7d } : {}),
-    },
+    // Per-window breakdown for the preflight evaluator. For Spark requests this
+    // intentionally contains ONLY Spark windows, so Spark exhaustion does not
+    // preflight-block normal Codex requests (and vice versa).
+    windows,
+    allWindows,
     // Legacy fields preserved for existing consumers (quotaMonitor, cooldown
-    // computation in accountFallback). These mirror the new windows entries
+    // computation in accountFallback). These mirror the selected scope entries
     // but keep the historical names — do not remove without checking callers.
     window5h,
     window7d,
@@ -348,7 +447,7 @@ export function getCodexQuotaCooldownMs(quota: CodexDualWindowQuota, threshold =
  * Ensures the next preflight call fetches fresh data.
  */
 export function invalidateCodexQuotaCache(connectionId: string): void {
-  quotaCache.delete(connectionId);
+  deleteQuotaCacheForConnection(connectionId);
 }
 
 // ─── Registration ─────────────────────────────────────────────────────────────
@@ -360,5 +459,10 @@ export function invalidateCodexQuotaCache(connectionId: string): void {
 export function registerCodexQuotaFetcher(): void {
   registerQuotaFetcher("codex", fetchCodexQuota);
   registerMonitorFetcher("codex", fetchCodexQuota);
-  registerQuotaWindows("codex", [CODEX_WINDOW_SESSION, CODEX_WINDOW_WEEKLY]);
+  registerQuotaWindows("codex", [
+    CODEX_WINDOW_SESSION,
+    CODEX_WINDOW_WEEKLY,
+    CODEX_SPARK_QUOTA_SESSION,
+    CODEX_SPARK_QUOTA_WEEKLY,
+  ]);
 }

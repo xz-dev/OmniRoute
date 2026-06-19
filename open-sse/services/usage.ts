@@ -12,6 +12,12 @@ import {
   toClientAntigravityQuotaModelId,
 } from "../config/antigravityModelAliases.ts";
 import { isUserCallableAgyModelId } from "../config/agyModels.ts";
+import {
+  CODEX_SPARK_DISPLAY_NAME,
+  CODEX_SPARK_QUOTA_SESSION,
+  CODEX_SPARK_QUOTA_WEEKLY,
+  isCodexSparkLimitDescriptor,
+} from "../config/codexQuotaScopes.ts";
 import { getGlmQuotaUrl } from "../config/glmProvider.ts";
 import { getGitHubCopilotInternalUserHeaders } from "../config/providerHeaderProfiles.ts";
 import { safePercentage } from "@/shared/utils/formatting";
@@ -2899,34 +2905,32 @@ async function getCodexUsage(
       return null;
     };
 
+    const buildPercentageQuota = (
+      window: Record<string, unknown>,
+      displayName?: string
+    ): UsageQuota => {
+      const usedPercent = toNumber(getFieldValue(window, "used_percent", "usedPercent"), 0);
+      return {
+        used: usedPercent,
+        total: 100,
+        remaining: 100 - usedPercent,
+        resetAt: parseWindowReset(window),
+        unlimited: false,
+        ...(displayName ? { displayName } : {}),
+      };
+    };
+
     // Build quota windows
     const quotas: Record<string, UsageQuota> = {};
 
     // Primary window (5-hour)
     if (Object.keys(primaryWindow).length > 0) {
-      const usedPercent = toNumber(getFieldValue(primaryWindow, "used_percent", "usedPercent"), 0);
-      quotas.session = {
-        used: usedPercent,
-        total: 100,
-        remaining: 100 - usedPercent,
-        resetAt: parseWindowReset(primaryWindow),
-        unlimited: false,
-      };
+      quotas.session = buildPercentageQuota(primaryWindow);
     }
 
     // Secondary window (weekly)
     if (Object.keys(secondaryWindow).length > 0) {
-      const usedPercent = toNumber(
-        getFieldValue(secondaryWindow, "used_percent", "usedPercent"),
-        0
-      );
-      quotas.weekly = {
-        used: usedPercent,
-        total: 100,
-        remaining: 100 - usedPercent,
-        resetAt: parseWindowReset(secondaryWindow),
-        unlimited: false,
-      };
+      quotas.weekly = buildPercentageQuota(secondaryWindow);
     }
 
     // Code review rate limit (3rd window — differs per plan: Plus/Pro/Team)
@@ -2945,14 +2949,54 @@ async function getCodexUsage(
       "remainingCount"
     );
     if (codeReviewUsedRaw !== null || codeReviewRemainingRaw !== null) {
-      const codeReviewUsedPercent = toNumber(codeReviewUsedRaw, 0);
-      quotas.code_review = {
-        used: codeReviewUsedPercent,
-        total: 100,
-        remaining: 100 - codeReviewUsedPercent,
-        resetAt: parseWindowReset(codeReviewWindow),
-        unlimited: false,
-      };
+      quotas.code_review = buildPercentageQuota(codeReviewWindow);
+    }
+
+    const additionalRateLimits = getFieldValue(
+      data,
+      "additional_rate_limits",
+      "additionalRateLimits"
+    );
+    if (Array.isArray(additionalRateLimits)) {
+      for (const entryValue of additionalRateLimits) {
+        const entry = toRecord(entryValue);
+        if (
+          !isCodexSparkLimitDescriptor(
+            getFieldValue(entry, "limit_name", "limitName"),
+            getFieldValue(entry, "metered_feature", "meteredFeature"),
+            getFieldValue(entry, "limit_id", "limitId"),
+            entry.id,
+            entry.name,
+            entry.title,
+            entry.model,
+            getFieldValue(entry, "model_id", "modelId")
+          )
+        ) {
+          continue;
+        }
+
+        const sparkRateLimit = toRecord(getFieldValue(entry, "rate_limit", "rateLimit"));
+        const sparkPrimaryWindow = toRecord(
+          getFieldValue(sparkRateLimit, "primary_window", "primaryWindow")
+        );
+        const sparkSecondaryWindow = toRecord(
+          getFieldValue(sparkRateLimit, "secondary_window", "secondaryWindow")
+        );
+
+        if (Object.keys(sparkPrimaryWindow).length > 0) {
+          quotas[CODEX_SPARK_QUOTA_SESSION] = buildPercentageQuota(
+            sparkPrimaryWindow,
+            CODEX_SPARK_DISPLAY_NAME
+          );
+        }
+        if (Object.keys(sparkSecondaryWindow).length > 0) {
+          quotas[CODEX_SPARK_QUOTA_WEEKLY] = buildPercentageQuota(
+            sparkSecondaryWindow,
+            `${CODEX_SPARK_DISPLAY_NAME} Weekly`
+          );
+        }
+        break;
+      }
     }
 
     return {
