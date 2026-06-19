@@ -113,15 +113,24 @@ test("loadTransparentAddon loads the addon from the cwd-relative standalone path
   assert.equal(addon, fake);
 });
 
-test("isTransparentSocketAvailable returns a boolean (false in CI — addon not built)", () => {
+test("isTransparentSocketAvailable returns a boolean", () => {
   assert.equal(typeof isTransparentSocketAvailable(), "boolean");
-  assert.equal(isTransparentSocketAvailable(), false);
 });
 
-test("createTransparentListenerFd throws a clear, actionable error when unavailable", () => {
+test("createTransparentListenerFd throws a clear, actionable error when unavailable", (t) => {
+  if (isTransparentSocketAvailable()) {
+    t.skip("transparent-socket addon is available in this environment");
+    return;
+  }
+
   assert.throws(() => createTransparentListenerFd("0.0.0.0", 8443), /not available|Linux|build/i);
 });
 
-test("setSocketMark throws when the addon is unavailable", () => {
+test("setSocketMark throws when the addon is unavailable", (t) => {
+  if (isTransparentSocketAvailable()) {
+    t.skip("transparent-socket addon is available in this environment");
+    return;
+  }
+
   assert.throws(() => setSocketMark(7, 0x539), /not available/i);
 });
