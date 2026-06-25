@@ -3231,6 +3231,7 @@ export const USAGE_SUPPORTED_PROVIDERS = [
   "crof",
   "nanogpt",
   "deepseek",
+  "siliconflow",
   "xiaomi-mimo",
   "vertex",
   "vertex-partner",

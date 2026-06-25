@@ -109,6 +109,7 @@ import {
 import { registerBailianCodingPlanQuotaFetcher } from "@omniroute/open-sse/services/bailianQuotaFetcher.ts";
 import { registerCrofUsageFetcher } from "@omniroute/open-sse/services/crofUsageFetcher.ts";
 import { registerDeepseekQuotaFetcher } from "@omniroute/open-sse/services/deepseekQuotaFetcher.ts";
+import { registerSiliconFlowQuotaFetcher } from "@omniroute/open-sse/services/siliconflowQuotaFetcher.ts";
 import { registerOpencodeQuotaFetcher } from "@omniroute/open-sse/services/opencodeQuotaFetcher.ts";
 import { registerGenericQuotaFetchers } from "@omniroute/open-sse/services/genericQuotaFetcher.ts";
 import {
@@ -133,6 +134,10 @@ registerCrofUsageFetcher();
 // Register DeepSeek balance quota fetcher.
 // Hooks into quotaPreflight + quotaMonitor so combos can switch accounts before balance is exhausted.
 registerDeepseekQuotaFetcher();
+
+// Register SiliconFlow balance quota fetcher.
+// Hooks into quotaPreflight + quotaMonitor so combos can switch accounts before balance is exhausted.
+registerSiliconFlowQuotaFetcher();
 
 // Register OpenCode quota fetcher (opencode-go / opencode / opencode-zen).
 // Surfaces the $12/5h, $30/wk, $60/mo windows in the limits page and enables

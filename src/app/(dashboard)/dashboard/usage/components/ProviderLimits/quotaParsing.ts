@@ -133,7 +133,7 @@ function parseGeminiCli(data: any) {
   );
 }
 
-function parseDeepseekQuota(quotaKey: string, quota: any) {
+function parseCreditBalanceQuota(quotaKey: string, quota: any) {
   const match = quotaKey.match(/^credits(?:_([a-z]{3}))?$/);
   if (!match) return normalizeQuotaEntry(quotaKey, quota);
   const remaining = Number(quota?.remaining ?? 0);
@@ -143,8 +143,8 @@ function parseDeepseekQuota(quotaKey: string, quota: any) {
   });
 }
 
-function parseDeepseek(data: any) {
-  return quotaEntries(data).map(([quotaKey, quota]) => parseDeepseekQuota(quotaKey, quota));
+function parseCreditBalances(data: any) {
+  return quotaEntries(data).map(([quotaKey, quota]) => parseCreditBalanceQuota(quotaKey, quota));
 }
 
 function parseProviderQuotas(providerId: string, data: any) {
@@ -154,7 +154,7 @@ function parseProviderQuotas(providerId: string, data: any) {
   if (providerId === "codex") return parseCodex(data);
   if (providerId === "claude") return parseClaude(data);
   if (providerId === "gemini-cli") return parseGeminiCli(data);
-  if (providerId === "deepseek") return parseDeepseek(data);
+  if (providerId === "deepseek" || providerId === "siliconflow") return parseCreditBalances(data);
   return parseGeneric(data);
 }
 

@@ -19,6 +19,7 @@ import { safePercentage } from "@/shared/utils/formatting";
 import { getDbInstance } from "@/lib/db/core";
 import { fetchBailianQuota, type BailianTripleWindowQuota } from "./bailianQuotaFetcher.ts";
 import { fetchDeepseekQuota, type DeepseekQuota } from "./deepseekQuotaFetcher.ts";
+import { fetchSiliconFlowQuota, type SiliconFlowQuota } from "./siliconflowQuotaFetcher.ts";
 import { fetchOpencodeQuota, type OpencodeTripleWindowQuota } from "./opencodeQuotaFetcher.ts";
 import { getOllamaCloudUsage, getOpenCodeGoUsage } from "./opencodeOllamaUsage.ts";
 import {
@@ -970,6 +971,60 @@ async function getDeepseekUsage(connectionId: string, apiKey: string) {
   }
 }
 
+/**
+ * SiliconFlow Usage
+ * Fetches balance from SiliconFlow's /user/info API on the configured region.
+ */
+async function getSiliconFlowUsage(
+  connectionId: string,
+  apiKey: string,
+  providerSpecificData?: Record<string, unknown>
+) {
+  try {
+    const connection = { apiKey, providerSpecificData };
+    const quota = await fetchSiliconFlowQuota(connectionId, connection);
+
+    if (!quota) {
+      return { message: "SiliconFlow API key not available. Add a key to view usage." };
+    }
+
+    const siliconFlowQuota = quota as SiliconFlowQuota;
+    const { balance, isAvailable, limitReached, accountStatus } = siliconFlowQuota;
+    const quotaKey = `credits_${balance.currency.toLowerCase()}`;
+
+    const chargeBalance =
+      typeof balance.chargeBalance === "number" && Number.isFinite(balance.chargeBalance)
+        ? balance.chargeBalance
+        : undefined;
+
+    const quotas: Record<string, UsageQuota> = {
+      [quotaKey]: {
+        used: 0,
+        total: 0,
+        remaining: balance.totalBalance,
+        remainingPercentage: balance.totalBalance > 0 ? 100 : 0,
+        resetAt: null,
+        unlimited: true,
+        currency: balance.currency,
+        toppedUpBalance: chargeBalance,
+      },
+    };
+
+    const plan =
+      isAvailable && !limitReached ? "SiliconFlow" : "SiliconFlow (Insufficient Balance)";
+
+    return {
+      plan,
+      quotas,
+      isAvailable,
+      limitReached,
+      accountStatus,
+    };
+  } catch (error) {
+    return { message: `SiliconFlow error: ${(error as Error).message}` };
+  }
+}
+
 // Xiaomi MiMo Token Plan monthly limit (tokens). Keep in sync with the
 // "xiaomi-mimo" preset in src/lib/quota/planRegistry.ts.
 const XIAOMI_MIMO_MONTHLY_TOKEN_LIMIT = 4_100_000_000;
@@ -1327,6 +1382,7 @@ export const USAGE_FETCHER_PROVIDERS = [
   "bailian-coding-plan",
   "nanogpt",
   "deepseek",
+  "siliconflow",
   "opencode",
   "opencode-zen",
   "xiaomi-mimo",
@@ -1405,6 +1461,8 @@ export async function getUsageForProvider(
       return await getNanoGptUsage(apiKey || "");
     case "deepseek":
       return await getDeepseekUsage(id || "", apiKey || "");
+    case "siliconflow":
+      return await getSiliconFlowUsage(id || "", apiKey || "", providerSpecificData);
     case "opencode":
     case "opencode-zen":
       return await getOpencodeUsage(id || "", apiKey || "");

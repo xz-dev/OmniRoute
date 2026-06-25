@@ -150,10 +150,32 @@ test("quota labels normalize session and weekly windows while preserving readabl
   assert.equal(providerLimitUtils.formatQuotaLabel("mcp_monthly"), "Monthly");
 });
 
-test("MiniMax providers are exposed to the limits dashboard support list", () => {
+test("MiniMax and SiliconFlow providers are exposed to the limits dashboard support list", () => {
   assert.ok(providerConstants.USAGE_SUPPORTED_PROVIDERS.includes("zai"));
   assert.ok(providerConstants.USAGE_SUPPORTED_PROVIDERS.includes("minimax"));
   assert.ok(providerConstants.USAGE_SUPPORTED_PROVIDERS.includes("minimax-cn"));
+  assert.ok(providerConstants.USAGE_SUPPORTED_PROVIDERS.includes("siliconflow"));
+});
+
+test("SiliconFlow balance payloads render as currency credits", () => {
+  const parsed = providerLimitUtils.parseQuotaData("siliconflow", {
+    quotas: {
+      credits_cny: {
+        used: 0,
+        total: 0,
+        remaining: 88.88,
+        remainingPercentage: 100,
+        unlimited: true,
+        currency: "CNY",
+      },
+    },
+  });
+
+  assert.equal(parsed.length, 1);
+  assert.equal(parsed[0].isCredits, true);
+  assert.equal(parsed[0].name, "CNY");
+  assert.equal(parsed[0].currency, "CNY");
+  assert.equal(parsed[0].creditCount, 88.88);
 });
 
 test("MiniMax quota payloads use generic provider parsing and stale resets still refill", () => {

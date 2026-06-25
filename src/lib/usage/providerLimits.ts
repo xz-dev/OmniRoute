@@ -69,6 +69,7 @@ const PROVIDER_LIMITS_APIKEY_PROVIDERS = new Set([
   "crof",
   "nanogpt",
   "deepseek",
+  "siliconflow",
   "xiaomi-mimo",
   "vertex",
   "vertex-partner",

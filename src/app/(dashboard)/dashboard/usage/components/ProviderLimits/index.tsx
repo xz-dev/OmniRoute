@@ -53,6 +53,7 @@ const PROVIDER_LABEL: Record<string, string> = {
   "minimax-cn": "MiniMax CN",
   nanogpt: "NanoGPT",
   deepseek: "DeepSeek",
+  siliconflow: "SiliconFlow",
 };
 
 // Group ordering — single source of truth for provider placement.
@@ -72,6 +73,8 @@ const PROVIDER_ORDER: Record<string, number> = {
   minimax: 13,
   "minimax-cn": 14,
   nanogpt: 15,
+  deepseek: 16,
+  siliconflow: 17,
 };
 
 const TIER_FILTERS = [
