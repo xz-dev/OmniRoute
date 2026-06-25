@@ -36,7 +36,6 @@ import { onUsageRecorded } from "./usageEvents";
 
 type JsonRecord = Record<string, unknown>;
 type SyncSource = "manual" | "scheduled";
-
 interface ProviderConnectionLike {
   id: string;
   provider: string;

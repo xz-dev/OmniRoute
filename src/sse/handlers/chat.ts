@@ -131,12 +131,7 @@ registerBailianCodingPlanQuotaFetcher();
 // opt-in) when the active bucket reaches zero.
 registerCrofUsageFetcher();
 
-// Register DeepSeek balance quota fetcher.
-// Hooks into quotaPreflight + quotaMonitor so combos can switch accounts before balance is exhausted.
 registerDeepseekQuotaFetcher();
-
-// Register SiliconFlow balance quota fetcher.
-// Hooks into quotaPreflight + quotaMonitor so combos can switch accounts before balance is exhausted.
 registerSiliconFlowQuotaFetcher();
 
 // Register OpenCode quota fetcher (opencode-go / opencode / opencode-zen).

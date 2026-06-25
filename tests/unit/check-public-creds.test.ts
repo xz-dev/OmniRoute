@@ -170,7 +170,7 @@ test("6A.8 stale: known literal that was removed from the codebase is detected a
 });
 
 test("6A.8: open-sse/services/usage.ts FP — function-signature apiKey is suppressed by allowlist", () => {
-  // open-sse/services/usage.ts L543: `getMiniMaxUsage(apiKey: string, provider: "minimax" | "minimax-cn")`
+  // open-sse/services/usage.ts L500: `getMiniMaxUsage(apiKey: string, provider: "minimax" | "minimax-cn")`
   // The CRED_KEY_RE matches `apiKey:` in the TypeScript function-parameter type annotation.
   // "minimax" and "minimax-cn" are provider-name strings in the type, NOT credentials.
   // Frozen in KNOWN_LITERAL_CREDS as FPs by file:line:value key.
