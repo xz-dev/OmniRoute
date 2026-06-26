@@ -78,30 +78,38 @@ test("getUsageForProvider handles siliconflow China endpoint as CNY", async () =
   invalidateSiliconFlowQuotaCache("sf-usage-cn");
 });
 
-test("getUsageForProvider handles siliconflow insufficient balance", async () => {
+test("getUsageForProvider does not label normal siliconflow accounts insufficient from API balance alone", async () => {
   globalThis.fetch = async () =>
     new Response(
       JSON.stringify({
         code: 20000,
         status: true,
-        data: { balance: "0.00", totalBalance: "0.00", status: "normal" },
+        data: {
+          balance: "0",
+          chargeBalance: "-240.9806",
+          totalBalance: "-240.9806",
+          status: "normal",
+        },
       }),
       { status: 200, headers: { "content-type": "application/json" } }
     );
 
   const result = await getUsageForProvider({
-    id: "sf-usage-zero",
+    id: "sf-usage-normal-nonpositive",
     provider: "siliconflow",
     apiKey: "sf-key",
   });
 
-  assert.equal(result.plan, "SiliconFlow (Insufficient Balance)");
-  assert.equal(result.isAvailable, false);
-  assert.equal(result.limitReached, true);
+  assert.equal(result.plan, "SiliconFlow");
+  assert.equal(result.isAvailable, true);
+  assert.equal(result.limitReached, false);
   assert.ok(result.quotas?.credits_usd);
   assert.equal(result.quotas.credits_usd.remaining, 0);
+  assert.equal(result.quotas.credits_usd.apiBalance, 0);
+  assert.equal(result.quotas.credits_usd.totalBalance, -240.9806);
+  assert.equal(result.quotas.credits_usd.toppedUpBalance, -240.9806);
 
-  invalidateSiliconFlowQuotaCache("sf-usage-zero");
+  invalidateSiliconFlowQuotaCache("sf-usage-normal-nonpositive");
 });
 
 test("getUsageForProvider treats false top-level status as insufficient balance", async () => {

@@ -143,6 +143,8 @@ type UsageQuota = {
   currency?: string;
   grantedBalance?: number;
   toppedUpBalance?: number;
+  apiBalance?: number;
+  totalBalance?: number;
 };
 type UsageProviderConnection = JsonRecord & {
   id?: string;
@@ -1001,12 +1003,14 @@ async function getSiliconFlowUsage(
       [quotaKey]: {
         used: 0,
         total: 0,
-        remaining: balance.totalBalance,
-        remainingPercentage: balance.totalBalance > 0 ? 100 : 0,
+        remaining: balance.displayBalance,
+        remainingPercentage: balance.displayBalance > 0 ? 100 : 0,
         resetAt: null,
         unlimited: true,
         currency: balance.currency,
         toppedUpBalance: chargeBalance,
+        apiBalance: balance.balance,
+        totalBalance: balance.totalBalance,
       },
     };
 

@@ -190,19 +190,29 @@ test("fetchSiliconFlowQuota marks exhausted for non-normal account status", asyn
   invalidateSiliconFlowQuotaCache(connectionId);
 });
 
-test("fetchSiliconFlowQuota marks exhausted when balance is zero", async () => {
-  const connectionId = `siliconflow-zero-${Date.now()}`;
+test("fetchSiliconFlowQuota keeps normal accounts available when API balance is non-positive", async () => {
+  const connectionId = `siliconflow-normal-nonpositive-${Date.now()}`;
 
   globalThis.fetch = async () =>
     new Response(
-      JSON.stringify({ status: true, data: { totalBalance: "0.00", status: "normal" } }),
+      JSON.stringify({
+        status: true,
+        data: {
+          balance: "0",
+          chargeBalance: "-240.9806",
+          totalBalance: "-240.9806",
+          status: "normal",
+        },
+      }),
       { status: 200, headers: { "content-type": "application/json" } }
     );
 
   const quota = await fetchSiliconFlowQuota(connectionId, { apiKey: "sf-key" });
 
-  assert.equal(quota?.limitReached, true);
-  assert.equal(quota?.percentUsed, 1);
+  assert.equal(quota?.limitReached, false);
+  assert.equal(quota?.percentUsed, 0);
+  assert.equal((quota as any)?.balance?.totalBalance, -240.9806);
+  assert.equal((quota as any)?.balance?.chargeBalance, -240.9806);
 
   invalidateSiliconFlowQuotaCache(connectionId);
 });
@@ -254,7 +264,7 @@ test("registerSiliconFlowQuotaFetcher exposes SiliconFlow quota to preflight and
 
   globalThis.fetch = async () =>
     new Response(
-      JSON.stringify({ status: true, data: { totalBalance: "0.00", status: "normal" } }),
+      JSON.stringify({ status: false, data: { totalBalance: "9.00", status: "normal" } }),
       { status: 200, headers: { "content-type": "application/json" } }
     );
 

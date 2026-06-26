@@ -20,9 +20,10 @@
  *     }
  *   }
  *
- * We prefer totalBalance when available, falling back to balance. When the
- * balance is zero, the top-level status is false, or the account status is a
- * known non-active value, the account quota is considered exhausted.
+ * The public API exposes legacy credit-balance fields. SiliconFlow's dashboard
+ * has moved pre-2025-11-30 credits into vouchers, so totalBalance can be
+ * negative while the account remains normal and has usable voucher balance.
+ * Treat only explicit API/account status failures as exhausted.
  *
  * Cache: in-memory TTL (60s) to avoid hammering the user-info API on every request.
  *
@@ -40,6 +41,7 @@ export interface SiliconFlowBalanceInfo {
   balance: number;
   chargeBalance: number | null;
   totalBalance: number;
+  displayBalance: number;
   accountStatus: string | null;
 }
 
@@ -154,8 +156,10 @@ function parseSiliconFlowQuotaResponse(data: unknown, currency: string): Silicon
   const rootStatusOk = root.status !== false;
   const accountStatus = typeof payload.status === "string" ? payload.status : null;
   const accountStatusOk = isHealthyAccountStatus(accountStatus);
-  const limitReached = !rootStatusOk || !accountStatusOk || effectiveBalance <= 0;
+  const limitReached = !rootStatusOk || !accountStatusOk;
   const percentUsed = limitReached ? 1 : 0;
+  const displayBalance =
+    effectiveBalance < 0 && !limitReached ? Math.max(balance ?? 0, 0) : effectiveBalance;
 
   return {
     used: percentUsed * 100,
@@ -167,6 +171,7 @@ function parseSiliconFlowQuotaResponse(data: unknown, currency: string): Silicon
       balance: balance ?? effectiveBalance,
       chargeBalance,
       totalBalance: effectiveBalance,
+      displayBalance,
       accountStatus,
     },
     isAvailable: !limitReached,
