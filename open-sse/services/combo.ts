@@ -119,6 +119,7 @@ import {
   waitForCooldownAwareRetry,
 } from "../../src/sse/services/cooldownAwareRetry.ts";
 import { handleFusionChat, type FusionTuning } from "./fusion.ts";
+import { handlePipelineChat, type PipelineStep } from "./pipeline.ts";
 import {
   TRANSIENT_FOR_SEMAPHORE,
   MAX_FALLBACK_WAIT_MS,
@@ -794,6 +795,37 @@ export async function handleComboChat({
       comboName: combo.name,
       judgeModel,
       tuning,
+    });
+  }
+
+  // Pipeline strategy: sequential chain — each step's output feeds the next step's
+  // input, only the final step's response is returned. Handled in a separate module
+  // because it neither iterates targets as fallbacks nor needs the failover/retry
+  // machinery below — it runs targets in order, threading output → input. The step
+  // list is `combo.models` (in order); an optional per-step `prompt` is read off the
+  // target object (comboModelStepInputSchema.prompt).
+  if (strategy === "pipeline") {
+    const pipelineSteps = (combo.models || [])
+      .map((m): PipelineStep | null => {
+        if (typeof m === "string") return { model: m };
+        if (m && typeof m === "object") {
+          const obj = m as Record<string, unknown>;
+          if (typeof obj.model === "string") {
+            return {
+              model: obj.model,
+              prompt: typeof obj.prompt === "string" ? obj.prompt : undefined,
+            };
+          }
+        }
+        return null;
+      })
+      .filter((s): s is PipelineStep => Boolean(s));
+    return handlePipelineChat({
+      body,
+      steps: pipelineSteps,
+      handleSingleModel: handleSingleModelWithTimeout,
+      log,
+      comboName: combo.name,
     });
   }
 
