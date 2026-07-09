@@ -93,7 +93,7 @@ export default function ComboDefaultsTab() {
     retryDelayMs: 2000,
     maxComboDepth: 3,
     trackMetrics: true,
-    reasoningTokenBufferEnabled: false,
+    reasoningTokenBufferEnabled: true,
     handoffThreshold: 0.85,
     handoffModel: "",
     maxMessagesForSummary: 30,
@@ -689,11 +689,11 @@ export default function ComboDefaultsTab() {
               </p>
             </div>
             <Toggle
-              checked={comboDefaults.reasoningTokenBufferEnabled === true}
+              checked={comboDefaults.reasoningTokenBufferEnabled !== false}
               onChange={() =>
                 setComboDefaults((prev) => ({
                   ...prev,
-                  reasoningTokenBufferEnabled: prev.reasoningTokenBufferEnabled !== true,
+                  reasoningTokenBufferEnabled: prev.reasoningTokenBufferEnabled === false,
                 }))
               }
             />

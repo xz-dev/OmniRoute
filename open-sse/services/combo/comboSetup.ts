@@ -116,7 +116,7 @@ export function phaseComboSetup(ctx: ComboContext): ComboSetup {
     FETCH_TIMEOUT_MS,
     DEFAULT_COMBO_TARGET_TIMEOUT_MS
   );
-  const reasoningTokenBufferEnabled = config.reasoningTokenBufferEnabled === true;
+  const reasoningTokenBufferEnabled = config.reasoningTokenBufferEnabled !== false;
 
   return {
     strategy,

@@ -2869,7 +2869,7 @@ test("handleComboChat aborts combo when 503 response does NOT contain the unavai
   );
 });
 
-test("#3587 reasoning model gets max_tokens buffer applied when explicitly enabled", async () => {
+test("#3587 reasoning model gets max_tokens buffer applied", async () => {
   saveModelsDevCapabilities({
     openai: {
       "gpt-4o-reasoning": capabilityEntry(12000, { reasoning: true, limit_output: 12000 }),
@@ -2882,7 +2882,6 @@ test("#3587 reasoning model gets max_tokens buffer applied when explicitly enabl
     combo: {
       name: "reasoning-buffer",
       models: ["openai/gpt-4o-reasoning"],
-      config: { reasoningTokenBufferEnabled: true },
     },
     handleSingleModel: async (body: Record<string, unknown>) => {
       bodies.push(body);
@@ -2935,7 +2934,6 @@ test("#3587 reasoning buffer preserves max_tokens when the full buffer exceeds m
     combo: {
       name: "reasoning-buffer-near-cap",
       models: ["openai/gemini-high-cap"],
-      config: { reasoningTokenBufferEnabled: true },
     },
     handleSingleModel: async (body: Record<string, unknown>) => {
       bodies.push(body);
@@ -2985,7 +2983,7 @@ test("#3587 reasoning buffer is disabled without explicit model capability data"
   );
 });
 
-test("#3588 reasoning token buffer is disabled by default and preserves client max_tokens", async () => {
+test("#3588 reasoning token buffer feature flag preserves client max_tokens", async () => {
   saveModelsDevCapabilities({
     openai: {
       "flagged-reasoning": capabilityEntry(12000, { reasoning: true, limit_output: 12000 }),
@@ -3011,7 +3009,11 @@ test("#3588 reasoning token buffer is disabled by default and preserves client m
     },
     isModelAvailable: async () => true,
     log: createLog(),
-    settings: null,
+    settings: {
+      comboDefaults: {
+        reasoningTokenBufferEnabled: false,
+      },
+    },
     relayOptions: null,
     allCombos: null,
   });
@@ -3076,7 +3078,6 @@ test("#3587 round-robin buffer does NOT compound across reasoning models", async
       name: "rr-reasoning-no-compound",
       strategy: "round-robin",
       models: ["openai/rr-reasoning-a", "openai/rr-reasoning-b"],
-      config: { reasoningTokenBufferEnabled: true },
     },
     handleSingleModel: async (body: Record<string, unknown>, modelStr: string) => {
       seen.push({ model: modelStr, maxTokens: body.max_tokens });

@@ -2431,7 +2431,7 @@ async function handleRoundRobinCombo({
   const maxRetries = config.maxRetries ?? 1;
   const retryDelayMs = resolveDelayMs(config.retryDelayMs, 2000);
   const fallbackDelayMs = resolveDelayMs(config.fallbackDelayMs, 0);
-  const reasoningTokenBufferEnabled = config.reasoningTokenBufferEnabled === true;
+  const reasoningTokenBufferEnabled = config.reasoningTokenBufferEnabled !== false;
 
   const resilienceSettings: ResilienceSettings = settings
     ? resolveResilienceSettings(settings)

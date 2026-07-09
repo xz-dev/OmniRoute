@@ -15,11 +15,7 @@ test("createComboContext carries inputs and the body BY REFERENCE", () => {
   const body = { model: "auto", messages: [], stream: true };
   const combo = { name: "c1", models: ["a", "b"] };
   const ctx = createComboContext({ body, combo, log });
-  assert.equal(
-    ctx.body,
-    body,
-    "body must be the same reference (not copied) for byte-identical pinning"
-  );
+  assert.equal(ctx.body, body, "body must be the same reference (not copied) for byte-identical pinning");
   assert.equal(ctx.combo, combo);
   assert.equal(ctx.settings, null);
   assert.equal(ctx.relayOptions, null);
@@ -38,11 +34,7 @@ test("phaseComboSetup resolves strategy/config/stream with pinning OFF (pure, no
   assert.equal(setup.effectiveSessionId, null);
   assert.equal(setup.clientRequestedStream, true, "body.stream === true");
   assert.equal(typeof setup.comboTargetTimeoutMs, "number");
-  assert.equal(
-    setup.reasoningTokenBufferEnabled,
-    false,
-    "reasoning token buffering is opt-in by default"
-  );
+  assert.equal(typeof setup.reasoningTokenBufferEnabled, "boolean");
   assert.ok(setup.config && typeof setup.config === "object", "config cascade resolved");
   assert.ok(
     setup.resilienceSettings && typeof setup.resilienceSettings === "object",
