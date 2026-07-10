@@ -894,7 +894,9 @@ changing them requires a code edit, not an env var:
 | `CURSOR_STREAM_TIMEOUT_MS`       | `300000`            | `open-sse/executors/cursor.ts`             | Stream idle timeout (ms) for the Cursor executor.                                            |
 | `CURSOR_TOOL_DIRECTIVE`          | enabled (`!== "0"`) | `open-sse/executors/cursor.ts`             | Tool-commit directive that makes composer-2.5 reliably issue tool calls. Set `0` to disable. |
 | `CURSOR_IMAGE_FETCH_TIMEOUT_MS`  | `15000`             | `open-sse/utils/cursorImages.ts`           | Per-image fetch timeout (ms) for remote `image_url` vision input.                            |
-| `CURSOR_STATE_DB_PATH`           | _(probed)_          | `open-sse/utils/cursorVersionDetector.ts`  | Override the Cursor state DB lookup used for version detection.                              |
+| `CURSOR_STATE_DB_PATH`           | _(probed)_          | `open-sse/utils/cursorVersionDetector.ts`  | Override the Cursor IDE state DB lookup used for IDE version detection.                      |
+| `CURSOR_AGENT_CLI_VERSION`       | _(detect / pin)_    | `open-sse/utils/cursorAgentCliVersion.ts`  | Agent CLI build id (`YYYY.MM.DD-<hash>`) for `x-cursor-client-version: cli-…` on Agent Run.   |
+| `CURSOR_DATA_DIR`                | _(probed)_          | `open-sse/utils/cursorAgentCliVersion.ts`  | Override Cursor Agent CLI data dir (`…/versions/<id>`); same var the official agent uses.    |
 | `CURSOR_TOKEN`                   | _(unset)_           | `scripts/ad-hoc/cursor-tap.cjs`            | Direct Cursor bearer token used by developer tooling.                                        |
 | `OMNIROUTE_LOG_REQUEST_SHAPE`    | enabled (`!== "0"`) | `src/app/api/v1/chat/completions/route.ts` | Log content-type/length markers for large chat payloads. Set `"0"` to silence.               |
 | `DEBUG_RESPONSES_SSE_TO_JSON`    | _(unset)_           | `open-sse/handlers/responseTranslator.ts`  | Set `true` to log Responses API SSE→JSON translation details.                                |
@@ -990,6 +992,7 @@ Limits and safety knobs applied when the Skills framework (`src/lib/skills/`) ex
 | `SKILLS_SANDBOX_NETWORK_ENABLED`  | `false`                                       | `src/lib/skills/builtins.ts` | Set `1`/`true` to allow outbound network from inside the sandbox. Defaults to **isolated** for safety.             |
 | `SKILLS_ALLOWED_SANDBOX_IMAGES`   | _(empty)_                                     | `src/lib/skills/builtins.ts` | Comma-separated allowlist of container images permitted for sandbox execution. Empty means built-in default only.  |
 | `SKILLS_SANDBOX_DOCKER_IMAGE`     | _(built-in default)_                          | `src/lib/skills/`            | Container image used when spawning a Docker-backed sandbox. Override to pin a custom hardened base image.          |
+| `SKILLS_SANDBOX_RUNTIME`          | `auto`                                        | `src/lib/skills/sandbox.ts`, `src/lib/skills/containerProvider.ts` | Container runtime for skill sandboxing: `auto` \| `docker` \| `apple` \| `wsl` \| `orbstack` \| `podman`. `auto` picks the best installed runtime per host OS (Apple Container/OrbStack on macOS, WSL Container on Windows, Podman on Linux), falling back to Docker. |
 
 > [!CAUTION]
 > Enabling `SKILLS_SANDBOX_NETWORK_ENABLED=true` opens an egress path from arbitrary skill code. Pair with `OUTBOUND_SSRF_GUARD_ENABLED=true` and a strict `CORS_ORIGIN`/proxy policy in shared deployments.
