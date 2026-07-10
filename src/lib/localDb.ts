@@ -95,7 +95,6 @@ export * from "./db/compressionCacheStats";
 export * from "./db/compressionCombos";
 export * from "./db/compressionRunTelemetry";
 export * from "./db/modelContextOverrides";
-export * from "./db/modelCapabilityOverrides";
 
 export {
   // API Keys

@@ -7,7 +7,7 @@ import {
   removeModelCapabilityOverride,
   setModelCapabilityOverride,
   type ModelCapabilityOverrideKey,
-} from "@/lib/localDb";
+} from "@/lib/db/modelCapabilityOverrides";
 
 const overrideKeySchema = z.enum(["max_token"]);
 
