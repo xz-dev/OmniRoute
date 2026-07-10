@@ -348,7 +348,7 @@ export function getExplicitModelOutputCap(input: CapabilityInput): number | null
     resolved.model,
     resolved.rawModel
   );
-  if (synced) return typeof synced.limit_output === "number" ? synced.limit_output : null;
+  if (synced && typeof synced.limit_output === "number") return synced.limit_output;
 
   const registryModel = getRegistryModel(resolved.provider, resolved.model);
   if (typeof registryModel?.maxOutputTokens === "number") return registryModel.maxOutputTokens;

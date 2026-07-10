@@ -54,7 +54,15 @@ test.before(() => {
   saveModelsDevCapabilities({
     zhipu: {
       "glm-5.2": capabilityEntry(200000, { reasoning: true, limit_output: 65536 }),
-      "glm-5.2-no-output-cap": capabilityEntry(200000, { reasoning: true, limit_output: null }),
+      // Deliberately NOT prefixed with a real MODEL_SPECS key (e.g. "glm-5.2") —
+      // getStaticSpec()/getCanonicalModelSpecId() does prefix matching (#6714),
+      // so a fixture id like "glm-5.2-no-output-cap" would silently fall through
+      // to the real glm-5.2 static spec's 131072 cap and defeat this fixture's
+      // "no cap anywhere" premise.
+      "totally-fictitious-model-6714-no-output-cap": capabilityEntry(200000, {
+        reasoning: true,
+        limit_output: null,
+      }),
       "glm-5.2-output-cap-40000": capabilityEntry(200000, {
         reasoning: true,
         limit_output: 40000,
@@ -98,7 +106,7 @@ test("#6274 reasoning buffer does not inflate probe-sized max_tokens", () => {
 
 test("reasoning buffer requires an explicit cap and preserves near-cap budgets", () => {
   assert.equal(
-    resolveReasoningBufferedMaxTokens("zhipu/glm-5.2-no-output-cap", 32000),
+    resolveReasoningBufferedMaxTokens("zhipu/totally-fictitious-model-6714-no-output-cap", 32000),
     null,
     "missing model output cap should disable heuristic token inflation"
   );
