@@ -1,11 +1,13 @@
 name: Publish Fork Image to GHCR
 
 on:
-  push:
-    branches: [main]
-    tags:
-      - "v*"
   workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "GHCR image tag to publish"
+        required: true
+        type: string
+        default: "3.8.47"
 
 # Least-privilege default: read-only at the top level; the build job that pushes to
 # GHCR grants packages: write itself (Scorecard TokenPermissions).
@@ -13,12 +15,12 @@ permissions:
   contents: read
 
 env:
-  IMAGE_NAME: ghcr.io/kang-heewon/omniroute
+  IMAGE_NAME: ghcr.io/xz-dev/omniroute
 
 jobs:
   build:
     name: Build and Push Fork Image
-    if: github.repository == 'kang-heewon/OmniRoute'
+    if: github.repository == 'xz-dev/OmniRoute'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -28,9 +30,6 @@ jobs:
         uses: actions/checkout@v7
         with:
           persist-credentials: false
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -42,30 +41,24 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@v6
-        with:
-          images: ${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,prefix=sha-
-            type=ref,event=tag
-          labels: |
-            org.opencontainers.image.title=omniroute
-            org.opencontainers.image.description=Unified AI proxy/router — fork image
-            org.opencontainers.image.url=https://github.com/kang-heewon/OmniRoute
-            org.opencontainers.image.source=https://github.com/kang-heewon/OmniRoute
-            org.opencontainers.image.licenses=MIT
-
       - name: Build and push
         uses: docker/build-push-action@v7
         with:
           context: .
           target: runner-base
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ inputs.image_tag }}
+            ${{ env.IMAGE_NAME }}:release-v${{ inputs.image_tag }}
+            ${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.title=omniroute
+            org.opencontainers.image.description=Unified AI proxy/router — xz-dev fork image
+            org.opencontainers.image.url=https://github.com/xz-dev/OmniRoute
+            org.opencontainers.image.source=https://github.com/xz-dev/OmniRoute
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ inputs.image_tag }}
+            org.opencontainers.image.licenses=MIT
           cache-from: type=gha
           cache-to: type=gha,mode=max
