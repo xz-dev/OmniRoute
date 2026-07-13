@@ -292,9 +292,31 @@ function localCatalogModelToCodexDiscoveryModel(
   };
 }
 
+const PINNED_GPT_5_6_CODEX_MODEL_ID =
+  /^gpt-5\.6-(?:sol|terra|luna)(?:-(?:low|medium|high|xhigh|max|ultra))?$/;
+
+function mergeLiveAndLocalCodexModel(
+  liveModel: CodexDiscoveryModel,
+  localModel: CodexDiscoveryModel
+): CodexDiscoveryModel {
+  const merged = { ...localModel, ...liveModel };
+  if (!PINNED_GPT_5_6_CODEX_MODEL_ID.test(localModel.id)) return merged;
+
+  return {
+    ...merged,
+    ...(typeof localModel.inputTokenLimit === "number"
+      ? { inputTokenLimit: localModel.inputTokenLimit }
+      : {}),
+    ...(typeof localModel.outputTokenLimit === "number"
+      ? { outputTokenLimit: localModel.outputTokenLimit }
+      : {}),
+  };
+}
+
 /**
  * Live/GitHub discovery is the source of truth for "what exists".
  * Explicit filters (denylist / predicates) are the policy layer for "what we show".
+ * The pinned GPT-5.6 token contract remains authoritative when live metadata is stale.
  * Do NOT reintroduce curated-only allowlisting as the default path (#6862 / #6859).
  */
 export function mergeCodexLiveModelsWithLocalCatalog(
@@ -312,7 +334,10 @@ export function mergeCodexLiveModelsWithLocalCatalog(
     if (!localModel.id) continue;
     const normalizedLocal = localCatalogModelToCodexDiscoveryModel(localModel);
     const existing = merged.get(localModel.id);
-    merged.set(localModel.id, existing ? { ...normalizedLocal, ...existing } : normalizedLocal);
+    merged.set(
+      localModel.id,
+      existing ? mergeLiveAndLocalCodexModel(existing, normalizedLocal) : normalizedLocal
+    );
   }
 
   return Array.from(merged.values());
