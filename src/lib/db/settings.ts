@@ -99,7 +99,7 @@ export async function getSettings() {
     stickyRoundRobinLimit: 3,
     disableSessionStickiness: false,
     comboStrategy: "fallback",
-    comboStickyRoundRobinLimit: 1,
+    comboStickyRoundRobinLimit: null, // null = inherit stickyRoundRobinLimit (a literal default here shadows the documented batched-rotation default of 3 — #6678 regression caught by the v3.8.47 release CI)
     providerStrategies: {},
     requestRetry: 3,
     maxRetryIntervalSec: 30,

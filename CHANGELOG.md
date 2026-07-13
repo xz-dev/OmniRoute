@@ -64,6 +64,9 @@ _Living section — bullets land here as PRs merge into `release/v3.8.47` (paral
 
 ### 🐛 Bug Fixes
 
+- **fix(combo):** `comboStickyRoundRobinLimit` now defaults to inherit (`null`) instead of `1` — the literal default silently shadowed the documented batched round-robin rotation (`stickyRoundRobinLimit: 3`), flipping every round-robin combo to per-request alternation (#6678 follow-up, caught by the release CI). (thanks @diegosouzapw)
+- **fix(ws):** the standalone LiveWS startup script exited 0 without ever listening — its bootstrapped child re-spawned with the import-suppressor `OMNIROUTE_ENABLE_LIVE_WS=0` and then honored it as an operator disable (#6072 follow-up, caught by the release CI). (thanks @diegosouzapw)
+
 - **fix(api):** compression PUT schema accepts every catalog engine. ([#6792](https://github.com/diegosouzapw/OmniRoute/pull/6792) — thanks @Pitchfork-and-Torch)
 - **fix(compression):** surface fallback reasons in the preview response. ([#6461](https://github.com/diegosouzapw/OmniRoute/issues/6461), [#6519](https://github.com/diegosouzapw/OmniRoute/pull/6519) — thanks @chirag127)
 - **fix(providers):** fail fast on an empty auto-combo pool instead of a 15s timeout. ([#6458](https://github.com/diegosouzapw/OmniRoute/issues/6458), [#6546](https://github.com/diegosouzapw/OmniRoute/pull/6546) — thanks @chirag127)
