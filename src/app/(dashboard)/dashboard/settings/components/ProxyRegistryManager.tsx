@@ -129,6 +129,8 @@ export default function ProxyRegistryManager({
   const [poolMembers, setPoolMembers] = useState<string[]>([]);
   const [poolAddProxyId, setPoolAddProxyId] = useState("");
   const [poolLoading, setPoolLoading] = useState(false);
+  const [poolLoaded, setPoolLoaded] = useState(false);
+  const [poolSaving, setPoolSaving] = useState(false);
 
   const editingId = useMemo(() => form.id || "", [form.id]);
 
