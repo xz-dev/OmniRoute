@@ -766,13 +766,17 @@ test("vscode tokenized tags route only exposes usable canonical chat models", as
       `tag ${tagModel.name} should be chat-capable`
     );
     assert.ok(
-      !catalogModel.api_format || catalogModel.api_format === "chat-completions",
-      `tag ${tagModel.name} should use chat-completions`
+      !catalogModel.api_format ||
+        ["chat-completions", "responses", "openai-responses"].includes(
+          catalogModel.api_format
+        ),
+      `tag ${tagModel.name} should use a text-generation API format`
     );
     assert.ok(
       !Array.isArray(catalogModel.supported_endpoints) ||
-        catalogModel.supported_endpoints.includes("chat"),
-      `tag ${tagModel.name} should support chat`
+        catalogModel.supported_endpoints.includes("chat") ||
+        catalogModel.supported_endpoints.includes("responses"),
+      `tag ${tagModel.name} should support text generation`
     );
     assert.ok(
       !Array.isArray(catalogModel.output_modalities) ||
@@ -785,8 +789,11 @@ test("vscode tokenized tags route only exposes usable canonical chat models", as
     (model: any) =>
       model.parent ||
       (typeof model.type === "string" && model.type !== "chat") ||
-      (typeof model.api_format === "string" && model.api_format !== "chat-completions") ||
-      (Array.isArray(model.supported_endpoints) && !model.supported_endpoints.includes("chat")) ||
+      (typeof model.api_format === "string" &&
+        !["chat-completions", "responses", "openai-responses"].includes(model.api_format)) ||
+      (Array.isArray(model.supported_endpoints) &&
+        !model.supported_endpoints.includes("chat") &&
+        !model.supported_endpoints.includes("responses")) ||
       (Array.isArray(model.output_modalities) && !model.output_modalities.includes("text"))
   );
   const tagNames = new Set((tagsBody.models || []).map((model: any) => model.name));
