@@ -538,7 +538,7 @@ test("OpenAI -> Cloud Code Gemini applies native request defaults", () => {
     "gemini-3-flash-preview",
     { messages: [{ role: "user", content: "Hello" }], reasoning_effort: "high" },
     true
-  ) as any;
+  ) as { generationConfig: { thinkingConfig: { thinkingBudget: number; includeThoughts: boolean } } };
   assert.equal(flash.generationConfig.thinkingConfig.thinkingBudget, 0);
   assert.equal(flash.generationConfig.thinkingConfig.includeThoughts, false);
   assert.equal(request.generationConfig.topK, undefined);

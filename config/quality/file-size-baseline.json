@@ -329,7 +329,7 @@
     "tests/unit/translator-friendly-test-bench.test.tsx": 848,
     "tests/unit/translator-helper-branches.test.ts": 870,
     "tests/unit/translator-openai-responses-req.test.ts": 1195,
-    "tests/unit/translator-openai-to-gemini.test.ts": 1541,
+    "tests/unit/translator-openai-to-gemini.test.ts": 1553,
     "tests/unit/translator-openai-to-kiro.test.ts": 1257,
     "tests/unit/translator-resp-gemini-to-openai.test.ts": 1234,
     "tests/unit/usage-service-hardening.test.ts": 1503,
