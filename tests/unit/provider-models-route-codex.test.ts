@@ -176,10 +176,11 @@ test("provider models route merges live Codex models with the local catalog then
   assert.ok(modelIds.has("gpt-5.6-sol"));
   assert.ok(modelIds.has("gpt-5.6-sol-ultra"));
   assert.ok(modelIds.has("gpt-5.6-sol-max"));
-  // Live payload wins on overlapping fields; local catalog supplies local-only variants.
+  // Live payload wins on overlapping fields except pinned GPT-5.6 token limits;
+  // the local catalog also supplies local-only variants.
   assert.equal(liveModel?.name, "GPT 5.6 Sol Live");
-  assert.equal(liveModel?.inputTokenLimit, 999999);
-  assert.equal(liveModel?.outputTokenLimit, 999999);
+  assert.equal(liveModel?.inputTokenLimit, 372000);
+  assert.equal(liveModel?.outputTokenLimit, 128000);
   assert.equal(liveModel?.apiFormat, "responses");
   assert.deepEqual(liveModel?.supportedEndpoints, ["responses"]);
   assert.equal(liveModel?.supportsThinking, true);
