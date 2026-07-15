@@ -86,6 +86,23 @@ function usesResponsesApi(model: CatalogModelEntry) {
 	);
 }
 
+function excludesChatAndResponsesEndpoints(model: CatalogModelEntry) {
+	return (
+		Array.isArray(model.supported_endpoints) &&
+		model.supported_endpoints.length > 0 &&
+		!model.supported_endpoints.includes("chat") &&
+		!model.supported_endpoints.includes("responses")
+	);
+}
+
+function excludesTextOutputModality(model: CatalogModelEntry) {
+	return (
+		Array.isArray(model.output_modalities) &&
+		model.output_modalities.length > 0 &&
+		!model.output_modalities.includes("text")
+	);
+}
+
 function isUsableChatModel(model: CatalogModelEntry) {
 	if (typeof model.owned_by === "string" && model.owned_by.trim().toLowerCase() === "combo") {
 		return false;
@@ -98,21 +115,8 @@ function isUsableChatModel(model: CatalogModelEntry) {
 	) {
 		return false;
 	}
-	if (
-		Array.isArray(model.supported_endpoints) &&
-		model.supported_endpoints.length > 0 &&
-		!model.supported_endpoints.includes("chat") &&
-		!model.supported_endpoints.includes("responses")
-	) {
-		return false;
-	}
-	if (
-		Array.isArray(model.output_modalities) &&
-		model.output_modalities.length > 0 &&
-		!model.output_modalities.includes("text")
-	) {
-		return false;
-	}
+	if (excludesChatAndResponsesEndpoints(model)) return false;
+	if (excludesTextOutputModality(model)) return false;
 
 	return true;
 }
