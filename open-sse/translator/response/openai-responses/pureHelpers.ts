@@ -165,7 +165,7 @@ export function extractResponsesReasoningSummaryText(item) {
 }
 
 const ENCRYPTED_REASONING_SUMMARY =
-  "Codex is reasoning, but the upstream Responses API exposed this reasoning block only as encrypted state. OmniRoute cannot recover the private reasoning text.";
+  "Codex is reasoning, but the upstream Responses API exposed this reasoning block only as encrypted private reasoning. OmniRoute cannot recover the plaintext.";
 
 export function ensureVisibleResponsesReasoningSummary(item) {
   if (
