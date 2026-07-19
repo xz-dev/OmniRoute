@@ -39,6 +39,7 @@ import { claudeToOpenAIResponse } from "../translator/response/claude-to-openai.
 import { geminiToOpenAIResponse } from "../translator/response/gemini-to-openai.ts";
 import { openaiResponsesToOpenAIResponse } from "../translator/response/openai-responses.ts";
 import { ZED_HEADERS, resolveZedModels, zedLlmFetch, type ZedCredentials } from "../shared/zedAuth.ts";
+import { resolveSuppressThinkClose, THINKING_MARKER_HEADER } from "../utils/thinkCloseMarker.ts";
 
 const ZED_PROVIDER = {
   anthropic: "Anthropic",
@@ -165,13 +166,20 @@ function normalizeStatus(status: unknown): Record<string, unknown> | null {
 function wrapZedCompletionStream(
   response: Response,
   provider: ZedProviderName,
-  model: string
+  model: string,
+  options?: { suppressThinkClose?: boolean }
 ): Response {
   if (!response.ok || !response.body) return response;
 
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
   const state = initProviderState(provider, model);
+  if (options?.suppressThinkClose) {
+    // Responses API clients (and UA/header-opted-out clients) must not see the
+    // textual `</think>` close marker — same policy chatCore applies (#4633 /
+    // #5245 / kimi-coding stray marker on /v1/responses).
+    state.suppressThinkClose = true;
+  }
   let buffer = "";
   let done = false;
 
@@ -272,7 +280,16 @@ export class ZedHostedExecutor extends BaseExecutor {
     }
   }
 
-  async execute({ model, body, stream, credentials, signal, log }: ExecuteInput): Promise<{
+  async execute({
+    model,
+    body,
+    stream,
+    credentials,
+    signal,
+    log,
+    clientHeaders,
+    clientResponseFormat,
+  }: ExecuteInput): Promise<{
     response: Response;
     url: string;
     headers: Record<string, string>;
@@ -307,7 +324,22 @@ export class ZedHostedExecutor extends BaseExecutor {
       },
     });
 
-    const wrapped = response.ok ? wrapZedCompletionStream(response, provider, model) : response;
+    // The Anthropic backend converts Claude events to OpenAI chunks inside
+    // wrapZedCompletionStream, bypassing chatCore's marker policy — resolve
+    // `</think>` close-marker suppression here from the client format /
+    // headers (same policy as chatCore / GLM, #5245 / kimi-coding leak).
+    const suppressThinkClose = resolveSuppressThinkClose({
+      userAgent: clientHeaders?.["user-agent"] ?? clientHeaders?.["User-Agent"] ?? null,
+      thinkingMarkerHeader:
+        clientHeaders?.[THINKING_MARKER_HEADER] ??
+        clientHeaders?.["x-omniroute-thinking-marker"] ??
+        null,
+      clientResponseFormat: clientResponseFormat ?? null,
+    });
+
+    const wrapped = response.ok
+      ? wrapZedCompletionStream(response, provider, model, { suppressThinkClose })
+      : response;
     return {
       response: wrapped,
       url: `${(this.config as Record<string, unknown>)?.llmBaseUrl || "https://cloud.zed.dev"}/completions`,

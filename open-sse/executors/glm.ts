@@ -435,6 +435,7 @@ export class GlmExecutor extends DefaultExecutor {
           clientHeaders[THINKING_MARKER_HEADER] ??
           clientHeaders["x-omniroute-thinking-marker"] ??
           null,
+        clientResponseFormat: input.clientResponseFormat ?? null,
       });
 
       const translatedResponse =
