@@ -163,6 +163,25 @@ function normalizeStatus(status: unknown): Record<string, unknown> | null {
   return null;
 }
 
+/**
+ * Resolves `</think>` close-marker suppression from the incoming client
+ * headers / response format, extracted from `ZedHostedExecutor.execute` to
+ * keep that method's cyclomatic complexity under the project cap.
+ */
+function resolveZedSuppressThinkClose(
+  clientHeaders: ExecuteInput["clientHeaders"],
+  clientResponseFormat: ExecuteInput["clientResponseFormat"]
+): boolean {
+  return resolveSuppressThinkClose({
+    userAgent: clientHeaders?.["user-agent"] ?? clientHeaders?.["User-Agent"] ?? null,
+    thinkingMarkerHeader:
+      clientHeaders?.[THINKING_MARKER_HEADER] ??
+      clientHeaders?.["x-omniroute-thinking-marker"] ??
+      null,
+    clientResponseFormat: clientResponseFormat ?? null,
+  });
+}
+
 function wrapZedCompletionStream(
   response: Response,
   provider: ZedProviderName,
@@ -328,14 +347,7 @@ export class ZedHostedExecutor extends BaseExecutor {
     // wrapZedCompletionStream, bypassing chatCore's marker policy — resolve
     // `</think>` close-marker suppression here from the client format /
     // headers (same policy as chatCore / GLM, #5245 / kimi-coding leak).
-    const suppressThinkClose = resolveSuppressThinkClose({
-      userAgent: clientHeaders?.["user-agent"] ?? clientHeaders?.["User-Agent"] ?? null,
-      thinkingMarkerHeader:
-        clientHeaders?.[THINKING_MARKER_HEADER] ??
-        clientHeaders?.["x-omniroute-thinking-marker"] ??
-        null,
-      clientResponseFormat: clientResponseFormat ?? null,
-    });
+    const suppressThinkClose = resolveZedSuppressThinkClose(clientHeaders, clientResponseFormat);
 
     const wrapped = response.ok
       ? wrapZedCompletionStream(response, provider, model, { suppressThinkClose })
