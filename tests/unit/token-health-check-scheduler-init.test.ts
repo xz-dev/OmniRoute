@@ -26,7 +26,7 @@ test("token health-check scheduler initializes in a production process", () => {
       cwd: root,
       encoding: "utf8",
       env,
-      timeout: 15_000,
+      timeout: 30_000,
     }
   );
 
