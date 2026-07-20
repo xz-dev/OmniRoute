@@ -13,6 +13,7 @@ Object.assign(process.env, {
   KIMI_CODING_OAUTH_CLIENT_ID: "17e5f671-d194-4dfb-9706-5516cb48c098",
   KIMI_CODING_DEVICE_ID: "test-kimi-device-id",
   GITHUB_OAUTH_CLIENT_ID: "Iv1.b507a08c87ecfe98",
+  GHE_COPILOT_OAUTH_CLIENT_ID: "Iv1.b507a08c87ecfe98",
 });
 
 const providersModule = await import("../../src/lib/oauth/providers/index.ts");
@@ -32,6 +33,7 @@ const {
   ZED_CONFIG,
   CURSOR_CONFIG,
   GITHUB_CONFIG,
+  GHE_COPILOT_CONFIG,
   GITLAB_DUO_CONFIG,
   GROK_CLI_CONFIG,
   KILOCODE_CONFIG,
@@ -59,6 +61,7 @@ const EXPECTED_PROVIDER_KEYS = [
   "qwen",
   "kimi-coding",
   "github",
+  "ghe-copilot",
   "gitlab-duo",
   "kiro",
   "amazon-q",
@@ -92,6 +95,7 @@ const EXPECTED_CONFIG_BY_PROVIDER = {
   qwen: QWEN_CONFIG,
   "kimi-coding": KIMI_CODING_CONFIG,
   github: GITHUB_CONFIG,
+  "ghe-copilot": GHE_COPILOT_CONFIG,
   "gitlab-duo": GITLAB_DUO_CONFIG,
   kiro: KIRO_CONFIG,
   "amazon-q": KIRO_CONFIG,
@@ -129,6 +133,7 @@ const REQUIRED_FIELDS_BY_PROVIDER = {
   qwen: ["deviceCodeUrl", "tokenUrl", "scope", "clientId"],
   "kimi-coding": ["deviceCodeUrl", "tokenUrl", "clientId"],
   github: ["deviceCodeUrl", "tokenUrl", "userInfoUrl", "copilotTokenUrl", "clientId"],
+  "ghe-copilot": ["clientId", "scopes", "apiVersion", "userAgent"],
   "gitlab-duo": [
     "baseUrl",
     "authorizeUrl",

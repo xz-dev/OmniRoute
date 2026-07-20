@@ -1,1 +1,1 @@
-- **fix(build):** Restore the token health-check scheduler interval so clean production boots no longer fail during instrumentation ([#7812](https://github.com/diegosouzapw/OmniRoute/pull/7812)) — thanks @backryun
+- **fix(build):** Restore the token health-check scheduler interval, repair batched health-check jitter and request-queue setting updates, and clear database read caches when the SQLite singleton resets ([#7812](https://github.com/diegosouzapw/OmniRoute/pull/7812)) — thanks @backryun

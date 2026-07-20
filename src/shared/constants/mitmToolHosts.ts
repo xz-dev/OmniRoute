@@ -17,6 +17,7 @@ export const MITM_TOOL_HOSTS: Record<string, string[]> = {
   ],
   kiro: ["api.anthropic.com"],
   copilot: ["api.githubcopilot.com", "copilot-proxy.githubusercontent.com"],
+  "ghe-copilot": [],
   codex: ["chatgpt.com"],
   cursor: ["api2.cursor.sh"],
   zed: ["api.zed.dev"],

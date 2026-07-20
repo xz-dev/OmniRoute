@@ -6,7 +6,7 @@ import Input from "@/shared/components/Input";
 type GheConfigStepProps = {
   gheUrl: string;
   setGheUrl: (value: string) => void;
-  error: unknown;
+  error: string | null;
   setError: (value: string) => void;
   startOAuthFlow: () => void;
 };

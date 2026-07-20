@@ -383,6 +383,7 @@ export async function initializeRateLimits() {
 }
 
 export async function applyRequestQueueSettings(nextSettings: RequestQueueSettings) {
+  currentRequestQueueSettings = { ...nextSettings };
   const { getCachedProviderConnections } = await import("@/lib/localDb");
   const connections = await getCachedProviderConnections();
   reconcileEnabledConnections(connections as unknown[], currentRequestQueueSettings);
