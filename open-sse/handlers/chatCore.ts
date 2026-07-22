@@ -2730,7 +2730,8 @@ export async function handleChatCore({
                   `429 on connection ${String(failedConnectionId).slice(0, 8)} (attempt ${attempts + 1}/${maxAttempts}), rotating account`
                 );
 
-                // Mark only the current Codex model scope as rate-limited.
+                // Mark only the current Codex model scope as rate-limited. A connection-wide
+                // cooldown here would let a Spark limit suppress independent Sol/Terra traffic.
                 if (failedConnectionId) {
                   await markCodexScopeRateLimited({
                     failedConnectionId: String(failedConnectionId),
@@ -2738,21 +2739,6 @@ export async function handleChatCore({
                     rateLimitedUntil: new Date(Date.now() + (retryAfterMs || 60_000)).toISOString(),
                     credentials,
                   });
-                  // Fix B: also persist the cooldown to
-                  // `provider_connections.rate_limited_until`. Without this,
-                  // the Codex 429 cascade survives the current request (via
-                  // `markCodexScopeRateLimited`'s in-memory Map) but is lost
-                  // on process restart — the same exhausted Codex key is
-                  // re-picked on the very next request. Mirrors
-                  // `open-sse/executors/antigravity.ts:343`.
-                  // Best-effort: never crash the chat path on DB write failure.
-                  try {
-                    const { setConnectionRateLimitUntil } = await import("@/lib/db/providers");
-                    const untilMs = Date.now() + (retryAfterMs || 60_000);
-                    setConnectionRateLimitUntil(String(failedConnectionId), untilMs);
-                  } catch {
-                    // ignore — best effort
-                  }
                   if (!codexExcludedIds.includes(String(failedConnectionId))) {
                     codexExcludedIds.push(String(failedConnectionId));
                   }
