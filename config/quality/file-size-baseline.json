@@ -169,7 +169,7 @@
     "_rebaseline_2026_06_28_5237_impersonation_ua_refresh": "PR #5237 (refresh impersonation UAs): grok-web.ts 1871->1873 (+2), muse-spark-web.ts 1284->1302 (+18), perplexity-web.ts 1013->1032 (+19). Net semantic change in each file is a single User-Agent constant (Chrome 147->149 for grok/muse; perplexity kept at Firefox 148 to stay matched with the firefox_148 TLS profile — the contributor's 152 bump was reverted to avoid a UA-vs-JA3 mismatch, #2459). The growth is Prettier reflow that lint-staged unavoidably applies to these grandfathered long-line files the moment they are touched; not extractable. src/sse/services/auth.ts 2336->2401 in the same reconcile is #5222's antigravity-LRU-retry growth that merged via --admin without a baseline bump.",
     "open-sse/executors/duckduckgo-web.ts": 925,
     "open-sse/executors/grok-web.ts": 1873,
-    "open-sse/executors/muse-spark-web.ts": 1388,
+    "open-sse/executors/muse-spark-web.ts": 1394,
     "open-sse/executors/perplexity-web.ts": 1032,
     "open-sse/handlers/audioSpeech.ts": 1061,
     "open-sse/handlers/chatCore.ts": 5125,
