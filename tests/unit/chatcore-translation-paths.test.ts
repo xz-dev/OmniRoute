@@ -1892,6 +1892,62 @@ test("chatCore does not inject fallback user for Qwen API key requests", async (
   assert.equal("user" in call.body, false);
 });
 
+test("chatCore keeps a Codex Spark 429 scoped so Sol remains selectable", async () => {
+  const connection = await providersDb.createProviderConnection({
+    provider: "codex",
+    authType: "oauth",
+    email: "codex-scope@example.com",
+    accessToken: "codex-scope-token",
+    isActive: true,
+    providerSpecificData: {},
+  });
+
+  const { result } = await invokeChatCore({
+    provider: "codex",
+    model: "gpt-5.3-codex-spark",
+    endpoint: "/v1/responses",
+    connectionId: connection.id,
+    credentials: {
+      accessToken: "codex-scope-token",
+      connectionId: connection.id,
+      providerSpecificData: {},
+    },
+    body: {
+      model: "gpt-5.3-codex-spark",
+      input: "scope this cooldown",
+      stream: false,
+    },
+    responseFactory() {
+      return new Response(
+        JSON.stringify({ error: { message: "The usage limit has been reached" } }),
+        {
+          status: 429,
+          headers: {
+            "Content-Type": "application/json",
+            "Retry-After": "60",
+          },
+        }
+      );
+    },
+  });
+
+  const updated = await providersDb.getProviderConnectionById(connection.id);
+  const sparkSelected = await auth.getProviderCredentials(
+    "codex",
+    null,
+    null,
+    "gpt-5.3-codex-spark"
+  );
+  const solSelected = await auth.getProviderCredentials("codex", null, null, "gpt-5.6-sol");
+
+  assert.equal(result.success, false);
+  assert.equal(result.status, 429);
+  assert.equal(updated.rateLimitedUntil, undefined);
+  assert.equal(typeof updated.providerSpecificData.codexScopeRateLimitedUntil.spark, "string");
+  assert.equal(sparkSelected.allRateLimited, true);
+  assert.equal(solSelected.connectionId, connection.id);
+});
+
 test("chatCore preserves Codex dual-window scope cooldowns on 429 responses", async () => {
   const connection = await providersDb.createProviderConnection({
     provider: "codex",
