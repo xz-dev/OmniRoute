@@ -30,7 +30,7 @@ export async function markCodexScopeRateLimited(params: {
     },
   };
 
-  updateProviderConnection(params.failedConnectionId, {
+  await updateProviderConnection(params.failedConnectionId, {
     ...(connection ? { providerSpecificData: nextProviderData } : {}),
     lastError: "429 rate limited — codex account rotation",
     errorCode: 429,
