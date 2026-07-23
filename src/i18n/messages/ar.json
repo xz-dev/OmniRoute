@@ -6357,7 +6357,16 @@
     "autoFetchModelsPartialFailure": "تم تحديث بعض الاتصالات، لكن نموذج المصدر التلقائي لم يتغير في كل مكان",
     "resetToUpstreamDefaults": "استعادة الإعدادات الافتراضية للمصدر",
     "resetToUpstreamDefaultsSuccess": "تم استعادة إعدادات النموذج الافتراضية من المصدر",
-    "resetToUpstreamDefaultsFailed": "فشل في استعادة إعدادات النموذج الافتراضية من المصدر"
+    "resetToUpstreamDefaultsFailed": "فشل في استعادة إعدادات النموذج الافتراضية من المصدر",
+    "codexQuotaPools": "مجموعات حصص Codex",
+    "codexPoolAvailable": "متاح",
+    "codexPoolPartiallyLimited": "محدود جزئيًا",
+    "codexPoolFullyLimited": "محدود بالكامل",
+    "codexPoolLimited": "{count} محدود",
+    "codexPoolQuotaExhausted": "نفدت الحصة",
+    "codexPoolCoolingDown": "في فترة تهدئة",
+    "codexPoolUsed": "مُستخدم",
+    "codexPoolUntil": "حتى {value}"
   },
   "settings": {
     "title": "الإعدادات",

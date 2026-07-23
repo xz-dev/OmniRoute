@@ -6357,7 +6357,16 @@
     "overridesUpstreamModelHint": "ההגדרות שלך עוקפות את המודל העליון הזה",
     "resetToUpstreamDefaults": "שחזר את ברירות המחדל של ה-upstream",
     "resetToUpstreamDefaultsFailed": "נכשל בשחזור ברירות המחדל של המודל העליון",
-    "resetToUpstreamDefaultsSuccess": "שוחזרו ברירות המחדל של המודל העליון"
+    "resetToUpstreamDefaultsSuccess": "שוחזרו ברירות המחדל של המודל העליון",
+    "codexQuotaPools": "מאגרי מכסות Codex",
+    "codexPoolAvailable": "זמין",
+    "codexPoolPartiallyLimited": "מוגבל חלקית",
+    "codexPoolFullyLimited": "מוגבל לחלוטין",
+    "codexPoolLimited": "{count} מוגבלים",
+    "codexPoolQuotaExhausted": "המכסה נוצלה",
+    "codexPoolCoolingDown": "בתקופת המתנה",
+    "codexPoolUsed": "בשימוש",
+    "codexPoolUntil": "עד {value}"
   },
   "settings": {
     "title": "הגדרות",

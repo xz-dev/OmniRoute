@@ -6357,7 +6357,16 @@
     "overridesUpstreamModelHint": "Tetapan anda mengatasi model hulu ini",
     "resetToUpstreamDefaults": "Pulihkan tetapan asal upstream",
     "resetToUpstreamDefaultsFailed": "Gagal untuk memulihkan tetapan lalai model upstream",
-    "resetToUpstreamDefaultsSuccess": "Mengembalikan tetapan lalai model upstream"
+    "resetToUpstreamDefaultsSuccess": "Mengembalikan tetapan lalai model upstream",
+    "codexQuotaPools": "Kumpulan kuota Codex",
+    "codexPoolAvailable": "Tersedia",
+    "codexPoolPartiallyLimited": "Dihadkan sebahagian",
+    "codexPoolFullyLimited": "Dihadkan sepenuhnya",
+    "codexPoolLimited": "{count} dihadkan",
+    "codexPoolQuotaExhausted": "Kuota telah habis",
+    "codexPoolCoolingDown": "Dalam tempoh menunggu",
+    "codexPoolUsed": "digunakan",
+    "codexPoolUntil": "Sehingga {value}"
   },
   "settings": {
     "title": "tetapan",

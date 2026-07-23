@@ -6357,7 +6357,16 @@
     "resetToUpstreamDefaults": "Ripristina le impostazioni predefinite upstream",
     "resetToUpstreamDefaultsSuccess": "Ripristinati i valori predefiniti del modello upstream",
     "resetToUpstreamDefaultsFailed": "Impossibile ripristinare le impostazioni predefinite del modello upstream",
-    "autoFetchModelsEnabled": "Modello upstream auto-fetch abilitato"
+    "autoFetchModelsEnabled": "Modello upstream auto-fetch abilitato",
+    "codexQuotaPools": "Pool di quote Codex",
+    "codexPoolAvailable": "Disponibile",
+    "codexPoolPartiallyLimited": "Parzialmente limitato",
+    "codexPoolFullyLimited": "Completamente limitato",
+    "codexPoolLimited": "{count} limitati",
+    "codexPoolQuotaExhausted": "Quota esaurita",
+    "codexPoolCoolingDown": "In attesa",
+    "codexPoolUsed": "utilizzato",
+    "codexPoolUntil": "Fino a {value}"
   },
   "settings": {
     "title": "Impostazioni",

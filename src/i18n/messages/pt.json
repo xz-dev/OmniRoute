@@ -6357,7 +6357,16 @@
     "autoFetchModelsPartialFailure": "Algumas ligações foram atualizadas, mas a busca automática do modelo upstream não foi alterada em todos os lugares",
     "resetToUpstreamDefaults": "Restaurar as definições padrão do upstream",
     "resetToUpstreamDefaultsSuccess": "Restaurados os valores padrão do modelo upstream",
-    "resetToUpstreamDefaultsFailed": "Falha ao restaurar as definições padrão do modelo upstream"
+    "resetToUpstreamDefaultsFailed": "Falha ao restaurar as definições padrão do modelo upstream",
+    "codexQuotaPools": "Pools de quotas do Codex",
+    "codexPoolAvailable": "Disponível",
+    "codexPoolPartiallyLimited": "Parcialmente limitado",
+    "codexPoolFullyLimited": "Totalmente limitado",
+    "codexPoolLimited": "{count} limitados",
+    "codexPoolQuotaExhausted": "Quota esgotada",
+    "codexPoolCoolingDown": "Em período de espera",
+    "codexPoolUsed": "utilizado",
+    "codexPoolUntil": "Até {value}"
   },
   "settings": {
     "title": "Configurações",

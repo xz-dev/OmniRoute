@@ -6357,7 +6357,16 @@
     "savedModelEndpointSettings": "已保存的模型端点设置",
     "searchByModelAria": "按型号搜索",
     "selectSupportedEndpoint": "请选择至少一个支持的端点",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "codexQuotaPools": "Codex 配额池",
+    "codexPoolAvailable": "可用",
+    "codexPoolPartiallyLimited": "部分受限",
+    "codexPoolFullyLimited": "全部受限",
+    "codexPoolLimited": "{count} 个受限",
+    "codexPoolQuotaExhausted": "配额已用尽",
+    "codexPoolCoolingDown": "冷却中",
+    "codexPoolUsed": "已使用",
+    "codexPoolUntil": "截至 {value}"
   },
   "settings": {
     "title": "设置",

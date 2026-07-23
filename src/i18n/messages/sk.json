@@ -6357,7 +6357,16 @@
     "autoFetchModelsPartialFailure": "Niektoré pripojenia boli aktualizované, ale automatické načítanie modelu upstream nebolo zmenené všade",
     "resetToUpstreamDefaultsSuccess": "Obnovené predvolené nastavenia upstream modelu",
     "resetToUpstreamDefaults": "Obnoviť predvolené nastavenia upstream",
-    "resetToUpstreamDefaultsFailed": "Obnovenie predvolených nastavení modelu upstream zlyhalo"
+    "resetToUpstreamDefaultsFailed": "Obnovenie predvolených nastavení modelu upstream zlyhalo",
+    "codexQuotaPools": "Fondy kvót Codex",
+    "codexPoolAvailable": "Dostupný",
+    "codexPoolPartiallyLimited": "Čiastočne obmedzený",
+    "codexPoolFullyLimited": "Úplne obmedzený",
+    "codexPoolLimited": "Obmedzené: {count}",
+    "codexPoolQuotaExhausted": "Kvóta vyčerpaná",
+    "codexPoolCoolingDown": "V čakacej lehote",
+    "codexPoolUsed": "využité",
+    "codexPoolUntil": "Do {value}"
   },
   "settings": {
     "title": "Nastavenia",

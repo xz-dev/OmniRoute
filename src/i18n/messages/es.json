@@ -6357,7 +6357,16 @@
     "overridesUpstreamModelHint": "Tus configuraciones anulan este modelo de upstream",
     "resetToUpstreamDefaults": "Restaurar valores predeterminados del upstream",
     "resetToUpstreamDefaultsFailed": "No se pudo restaurar los valores predeterminados del modelo upstream",
-    "resetToUpstreamDefaultsSuccess": "Restaurados los valores predeterminados del modelo upstream"
+    "resetToUpstreamDefaultsSuccess": "Restaurados los valores predeterminados del modelo upstream",
+    "codexQuotaPools": "Grupos de cuotas de Codex",
+    "codexPoolAvailable": "Disponible",
+    "codexPoolPartiallyLimited": "Limitado parcialmente",
+    "codexPoolFullyLimited": "Limitado por completo",
+    "codexPoolLimited": "{count} limitados",
+    "codexPoolQuotaExhausted": "Cuota agotada",
+    "codexPoolCoolingDown": "En espera",
+    "codexPoolUsed": "usado",
+    "codexPoolUntil": "Hasta {value}"
   },
   "settings": {
     "title": "Configuración",

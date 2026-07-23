@@ -6357,7 +6357,16 @@
     "overridesUpstreamModelHint": "Suas configurações substituem este modelo upstream",
     "resetToUpstreamDefaults": "Restaurar padrões do upstream",
     "resetToUpstreamDefaultsFailed": "Falha ao restaurar as configurações padrão do modelo upstream",
-    "resetToUpstreamDefaultsSuccess": "Restaurados os padrões do modelo upstream"
+    "resetToUpstreamDefaultsSuccess": "Restaurados os padrões do modelo upstream",
+    "codexQuotaPools": "Pools de cotas do Codex",
+    "codexPoolAvailable": "Disponível",
+    "codexPoolPartiallyLimited": "Parcialmente limitado",
+    "codexPoolFullyLimited": "Totalmente limitado",
+    "codexPoolLimited": "{count} limitados",
+    "codexPoolQuotaExhausted": "Cota esgotada",
+    "codexPoolCoolingDown": "Em período de espera",
+    "codexPoolUsed": "usado",
+    "codexPoolUntil": "Até {value}"
   },
   "settings": {
     "title": "Configurações",

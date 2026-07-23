@@ -6357,7 +6357,16 @@
     "overridesUpstreamModelHint": "A beállításai felülírják ezt a fenti modellt",
     "resetToUpstreamDefaults": "Állítsa vissza az alapértelmezett beállításokat",
     "resetToUpstreamDefaultsSuccess": "Visszaállítottuk az upstream modell alapértelmezett beállításait",
-    "resetToUpstreamDefaultsFailed": "Nem sikerült visszaállítani a fenti modell alapértelmezett beállításait"
+    "resetToUpstreamDefaultsFailed": "Nem sikerült visszaállítani a fenti modell alapértelmezett beállításait",
+    "codexQuotaPools": "Codex-kvótakészletek",
+    "codexPoolAvailable": "Elérhető",
+    "codexPoolPartiallyLimited": "Részben korlátozott",
+    "codexPoolFullyLimited": "Teljesen korlátozott",
+    "codexPoolLimited": "{count} korlátozott",
+    "codexPoolQuotaExhausted": "A kvóta kimerült",
+    "codexPoolCoolingDown": "Várakozási időszakban",
+    "codexPoolUsed": "felhasználva",
+    "codexPoolUntil": "Eddig: {value}"
   },
   "settings": {
     "title": "Beállítások elemre",

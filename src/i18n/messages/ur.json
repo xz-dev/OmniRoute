@@ -6357,7 +6357,16 @@
     "overridesUpstreamModelHint": "آپ کی ترتیبات اس اوپر کی ماڈل کو اووررائیڈ کرتی ہیں",
     "resetToUpstreamDefaultsFailed": "اپ اسٹریم ماڈل کے ڈیفالٹس کو بحال کرنے میں ناکامی",
     "resetToUpstreamDefaultsSuccess": "اپ اسٹریم ماڈل کے ڈیفالٹس بحال کر دیے گئے ہیں",
-    "resetToUpstreamDefaults": "اپ اسٹریم ڈیفالٹس بحال کریں"
+    "resetToUpstreamDefaults": "اپ اسٹریم ڈیفالٹس بحال کریں",
+    "codexQuotaPools": "Codex کوٹا پولز",
+    "codexPoolAvailable": "دستیاب",
+    "codexPoolPartiallyLimited": "جزوی طور پر محدود",
+    "codexPoolFullyLimited": "مکمل طور پر محدود",
+    "codexPoolLimited": "{count} محدود",
+    "codexPoolQuotaExhausted": "کوٹا ختم ہو گیا",
+    "codexPoolCoolingDown": "وقفۂ انتظار میں",
+    "codexPoolUsed": "استعمال شدہ",
+    "codexPoolUntil": "{value} تک"
   },
   "settings": {
     "title": "Settings",

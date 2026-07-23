@@ -6357,7 +6357,16 @@
     "overridesUpstreamModelHint": "あなたの設定がこの上流モデルを上書きします",
     "resetToUpstreamDefaults": "アップストリームのデフォルトを復元する",
     "resetToUpstreamDefaultsFailed": "アップストリームモデルのデフォルトを復元できませんでした",
-    "resetToUpstreamDefaultsSuccess": "アップストリームモデルのデフォルトを復元しました"
+    "resetToUpstreamDefaultsSuccess": "アップストリームモデルのデフォルトを復元しました",
+    "codexQuotaPools": "Codex クォータプール",
+    "codexPoolAvailable": "利用可能",
+    "codexPoolPartiallyLimited": "一部制限中",
+    "codexPoolFullyLimited": "すべて制限中",
+    "codexPoolLimited": "{count} 件が制限中",
+    "codexPoolQuotaExhausted": "クォータを使い切りました",
+    "codexPoolCoolingDown": "クールダウン中",
+    "codexPoolUsed": "使用済み",
+    "codexPoolUntil": "{value} まで"
   },
   "settings": {
     "title": "設定",

@@ -6357,7 +6357,16 @@
     "resetToUpstreamDefaults": "Palauta upstream-oletukset",
     "resetToUpstreamDefaultsSuccess": "Palautettiin ylävirran mallin oletukset",
     "resetToUpstreamDefaultsFailed": "Palautus upstream-mallin oletusasetuksista epäonnistui",
-    "overridesUpstreamModelHint": "Asetuksesi ohittavat tämän ylävirran mallin"
+    "overridesUpstreamModelHint": "Asetuksesi ohittavat tämän ylävirran mallin",
+    "codexQuotaPools": "Codex-kiintiöpoolit",
+    "codexPoolAvailable": "Käytettävissä",
+    "codexPoolPartiallyLimited": "Osittain rajoitettu",
+    "codexPoolFullyLimited": "Täysin rajoitettu",
+    "codexPoolLimited": "{count} rajoitettua",
+    "codexPoolQuotaExhausted": "Kiintiö käytetty loppuun",
+    "codexPoolCoolingDown": "Jäähdytysjaksolla",
+    "codexPoolUsed": "käytetty",
+    "codexPoolUntil": "{value} asti"
   },
   "settings": {
     "title": "Asetukset",

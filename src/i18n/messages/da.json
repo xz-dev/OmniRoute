@@ -6357,7 +6357,16 @@
     "overridesUpstreamModel": "Overskriver upstream",
     "resetToUpstreamDefaultsSuccess": "Gendannet upstream model standardindstillinger",
     "resetToUpstreamDefaultsFailed": "Mislykkedes med at gendanne standardindstillinger for upstream-modellen",
-    "resetToUpstreamDefaults": "Gendan upstream standardindstillinger"
+    "resetToUpstreamDefaults": "Gendan upstream standardindstillinger",
+    "codexQuotaPools": "Codex-kvotepuljer",
+    "codexPoolAvailable": "Tilgængelig",
+    "codexPoolPartiallyLimited": "Delvist begrænset",
+    "codexPoolFullyLimited": "Fuldt begrænset",
+    "codexPoolLimited": "{count} begrænset",
+    "codexPoolQuotaExhausted": "Kvoten er opbrugt",
+    "codexPoolCoolingDown": "I nedkølingsperiode",
+    "codexPoolUsed": "brugt",
+    "codexPoolUntil": "Indtil {value}"
   },
   "settings": {
     "title": "Indstillinger",

@@ -6357,7 +6357,16 @@
     "resetToUpstreamDefaults": "Pulihkan pengaturan default upstream",
     "overridesUpstreamModelHint": "Pengaturan Anda menimpa model upstream ini",
     "resetToUpstreamDefaultsSuccess": "Mengembalikan pengaturan default model upstream",
-    "resetToUpstreamDefaultsFailed": "Gagal mengembalikan pengaturan model upstream ke default"
+    "resetToUpstreamDefaultsFailed": "Gagal mengembalikan pengaturan model upstream ke default",
+    "codexQuotaPools": "Kumpulan kuota Codex",
+    "codexPoolAvailable": "Tersedia",
+    "codexPoolPartiallyLimited": "Dibatasi sebagian",
+    "codexPoolFullyLimited": "Dibatasi sepenuhnya",
+    "codexPoolLimited": "{count} dibatasi",
+    "codexPoolQuotaExhausted": "Kuota habis",
+    "codexPoolCoolingDown": "Dalam masa tunggu",
+    "codexPoolUsed": "terpakai",
+    "codexPoolUntil": "Hingga {value}"
   },
   "settings": {
     "title": "Pengaturan",

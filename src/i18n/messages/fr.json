@@ -6357,7 +6357,16 @@
     "resetToUpstreamDefaults": "Restaurer les valeurs par défaut en amont",
     "resetToUpstreamDefaultsSuccess": "Modèles par défaut de l'amont restaurés",
     "autoFetchModelsPartialFailure": "Certaines connexions ont été mises à jour, mais l'auto-récupération du modèle en amont n'a pas été modifiée partout",
-    "resetToUpstreamDefaultsFailed": "Échec de la restauration des paramètres par défaut du modèle en amont"
+    "resetToUpstreamDefaultsFailed": "Échec de la restauration des paramètres par défaut du modèle en amont",
+    "codexQuotaPools": "Pools de quotas Codex",
+    "codexPoolAvailable": "Disponible",
+    "codexPoolPartiallyLimited": "Partiellement limité",
+    "codexPoolFullyLimited": "Entièrement limité",
+    "codexPoolLimited": "{count} limités",
+    "codexPoolQuotaExhausted": "Quota épuisé",
+    "codexPoolCoolingDown": "En période d'attente",
+    "codexPoolUsed": "utilisé",
+    "codexPoolUntil": "Jusqu'à {value}"
   },
   "settings": {
     "title": "Paramètres",
