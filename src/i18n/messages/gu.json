@@ -6357,7 +6357,16 @@
     "overridesUpstreamModelHint": "તમારા સેટિંગ્સ આ અપસ્ટ્રીમ મોડેલને ઓવરરાઈડ કરે છે",
     "resetToUpstreamDefaultsSuccess": "ઉપરવાળી મોડલ ડિફોલ્ટ્સ પુનઃસ્થાપિત કરવામાં આવ્યા",
     "resetToUpstreamDefaults": "અપસ્ટ્રીમ ડિફોલ્ટ્સ પુનઃસ્થાપિત કરો",
-    "resetToUpstreamDefaultsFailed": "અપસ્ટ્રીમ મોડલ ડિફોલ્ટ્સ પુનઃસ્થાપિત કરવામાં નિષ્ફળ થયું"
+    "resetToUpstreamDefaultsFailed": "અપસ્ટ્રીમ મોડલ ડિફોલ્ટ્સ પુનઃસ્થાપિત કરવામાં નિષ્ફળ થયું",
+    "codexQuotaPools": "Codex ક્વોટા પૂલ",
+    "codexPoolAvailable": "ઉપલબ્ધ",
+    "codexPoolPartiallyLimited": "આંશિક રીતે મર્યાદિત",
+    "codexPoolFullyLimited": "સંપૂર્ણ રીતે મર્યાદિત",
+    "codexPoolLimited": "{count} મર્યાદિત",
+    "codexPoolQuotaExhausted": "ક્વોટા સમાપ્ત",
+    "codexPoolCoolingDown": "વિરામ અવધિમાં",
+    "codexPoolUsed": "વપરાયેલ",
+    "codexPoolUntil": "{value} સુધી"
   },
   "settings": {
     "title": "Settings",

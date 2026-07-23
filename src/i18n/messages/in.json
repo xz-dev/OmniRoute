@@ -6357,7 +6357,16 @@
     "resetToUpstreamDefaults": "Kembalikan pengaturan default upstream",
     "resetToUpstreamDefaultsSuccess": "Mengembalikan pengaturan model upstream ke default",
     "resetToUpstreamDefaultsFailed": "Gagal mengembalikan pengaturan model upstream ke default",
-    "autoFetchModelsTooltip": "Ambil dan simpan model upstream saat diperlukan"
+    "autoFetchModelsTooltip": "Ambil dan simpan model upstream saat diperlukan",
+    "codexQuotaPools": "Kumpulan kuota Codex",
+    "codexPoolAvailable": "Tersedia",
+    "codexPoolPartiallyLimited": "Dibatasi sebagian",
+    "codexPoolFullyLimited": "Dibatasi sepenuhnya",
+    "codexPoolLimited": "{count} dibatasi",
+    "codexPoolQuotaExhausted": "Kuota habis",
+    "codexPoolCoolingDown": "Dalam masa tunggu",
+    "codexPoolUsed": "terpakai",
+    "codexPoolUntil": "Hingga {value}"
   },
   "settings": {
     "title": "Settings",

@@ -6357,7 +6357,16 @@
     "overridesUpstreamModelHint": "உங்கள் அமைப்புகள் இந்த மேல்மட்ட மாதிரியை மீறுகின்றன",
     "resetToUpstreamDefaults": "முதன்மை இயல்புகளை மீட்டமைக்கவும்",
     "resetToUpstreamDefaultsSuccess": "மீட்டமைக்கப்பட்ட மேல்நிலை மாதிரி இயல்புகள்",
-    "resetToUpstreamDefaultsFailed": "மேல்நிலை மாதிரி இயல்புகளை மீட்டெடுக்க முடியவில்லை"
+    "resetToUpstreamDefaultsFailed": "மேல்நிலை மாதிரி இயல்புகளை மீட்டெடுக்க முடியவில்லை",
+    "codexQuotaPools": "Codex ஒதுக்கீட்டுத் தொகுப்புகள்",
+    "codexPoolAvailable": "கிடைக்கிறது",
+    "codexPoolPartiallyLimited": "பகுதியளவு கட்டுப்படுத்தப்பட்டது",
+    "codexPoolFullyLimited": "முழுமையாகக் கட்டுப்படுத்தப்பட்டது",
+    "codexPoolLimited": "{count} கட்டுப்படுத்தப்பட்டவை",
+    "codexPoolQuotaExhausted": "ஒதுக்கீடு தீர்ந்தது",
+    "codexPoolCoolingDown": "காத்திருப்பு காலத்தில் உள்ளது",
+    "codexPoolUsed": "பயன்படுத்தப்பட்டது",
+    "codexPoolUntil": "{value} வரை"
   },
   "settings": {
     "title": "Settings",

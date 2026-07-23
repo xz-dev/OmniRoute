@@ -6357,7 +6357,16 @@
     "autoFetchModelsPartialFailure": "Bəzi bağlantılar yeniləndi, lakin yuxarı axın modelinin avtomatik alınması hər yerdə dəyişdirilmədi",
     "resetToUpstreamDefaults": "Yuxarı axın standartlarını bərpa et",
     "resetToUpstreamDefaultsSuccess": "Yuxarı axın modelinin standart parametrləri bərpa edildi",
-    "resetToUpstreamDefaultsFailed": "Yuxarı axın modelinin standartlarını bərpa etmək mümkün olmadı"
+    "resetToUpstreamDefaultsFailed": "Yuxarı axın modelinin standartlarını bərpa etmək mümkün olmadı",
+    "codexQuotaPools": "Codex kvota hovuzları",
+    "codexPoolAvailable": "Əlçatandır",
+    "codexPoolPartiallyLimited": "Qismən məhduddur",
+    "codexPoolFullyLimited": "Tam məhduddur",
+    "codexPoolLimited": "{count} məhduddur",
+    "codexPoolQuotaExhausted": "Kvota tükənib",
+    "codexPoolCoolingDown": "Gözləmə müddətindədir",
+    "codexPoolUsed": "istifadə edilib",
+    "codexPoolUntil": "{value} tarixinədək"
   },
   "settings": {
     "title": "Settings",

@@ -6357,7 +6357,16 @@
     "overridesUpstreamModelHint": "귀하의 설정이 이 업스트림 모델을 덮어씁니다.",
     "resetToUpstreamDefaultsSuccess": "복원된 업스트림 모델 기본값",
     "resetToUpstreamDefaults": "업스트림 기본값 복원",
-    "resetToUpstreamDefaultsFailed": "업스트림 모델 기본값을 복원하지 못했습니다."
+    "resetToUpstreamDefaultsFailed": "업스트림 모델 기본값을 복원하지 못했습니다.",
+    "codexQuotaPools": "Codex 할당량 풀",
+    "codexPoolAvailable": "사용 가능",
+    "codexPoolPartiallyLimited": "일부 제한됨",
+    "codexPoolFullyLimited": "모두 제한됨",
+    "codexPoolLimited": "{count}개 제한됨",
+    "codexPoolQuotaExhausted": "할당량 소진",
+    "codexPoolCoolingDown": "대기 시간 적용 중",
+    "codexPoolUsed": "사용됨",
+    "codexPoolUntil": "{value}까지"
   },
   "settings": {
     "title": "설정",

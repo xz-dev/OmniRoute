@@ -6357,7 +6357,16 @@
     "overridesUpstreamModelHint": "Ihre Einstellungen überschreiben dieses übergeordnete Modell",
     "resetToUpstreamDefaultsSuccess": "Ursprüngliche Standardwerte des Upstream-Modells wiederhergestellt",
     "resetToUpstreamDefaults": "Ursprüngliche Standardeinstellungen wiederherstellen",
-    "resetToUpstreamDefaultsFailed": "Wiederherstellung der Standardwerte des upstream-Modells fehlgeschlagen"
+    "resetToUpstreamDefaultsFailed": "Wiederherstellung der Standardwerte des upstream-Modells fehlgeschlagen",
+    "codexQuotaPools": "Codex-Kontingentpools",
+    "codexPoolAvailable": "Verfügbar",
+    "codexPoolPartiallyLimited": "Teilweise eingeschränkt",
+    "codexPoolFullyLimited": "Vollständig eingeschränkt",
+    "codexPoolLimited": "{count} eingeschränkt",
+    "codexPoolQuotaExhausted": "Kontingent aufgebraucht",
+    "codexPoolCoolingDown": "In Abklingzeit",
+    "codexPoolUsed": "verwendet",
+    "codexPoolUntil": "Bis {value}"
   },
   "settings": {
     "title": "Einstellungen",

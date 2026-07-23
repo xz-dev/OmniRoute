@@ -6357,7 +6357,16 @@
     "autoFetchModelsToggleFailed": "Nie udało się przełączyć automatycznego pobierania modelu upstream",
     "resetToUpstreamDefaultsSuccess": "Przywrócono domyślne ustawienia modelu upstream",
     "resetToUpstreamDefaults": "Przywróć domyślne ustawienia upstream",
-    "resetToUpstreamDefaultsFailed": "Nie udało się przywrócić domyślnych ustawień modelu upstream"
+    "resetToUpstreamDefaultsFailed": "Nie udało się przywrócić domyślnych ustawień modelu upstream",
+    "codexQuotaPools": "Pule limitów Codex",
+    "codexPoolAvailable": "Dostępna",
+    "codexPoolPartiallyLimited": "Częściowo ograniczona",
+    "codexPoolFullyLimited": "Całkowicie ograniczona",
+    "codexPoolLimited": "Ograniczone: {count}",
+    "codexPoolQuotaExhausted": "Limit wyczerpany",
+    "codexPoolCoolingDown": "W okresie oczekiwania",
+    "codexPoolUsed": "wykorzystano",
+    "codexPoolUntil": "Do {value}"
   },
   "settings": {
     "title": "Ustawienia",

@@ -6357,7 +6357,16 @@
     "resetToUpstreamDefaults": "Възстановяване на настройки по подразбиране на upstream",
     "resetToUpstreamDefaultsSuccess": "Възстановени настройки по подразбиране на upstream модела",
     "resetToUpstreamDefaultsFailed": "Неуспешно възстановяване на подразбиращите се настройки на upstream модела",
-    "overridesUpstreamModelHint": "Вашите настройки надвиват тази основна модел."
+    "overridesUpstreamModelHint": "Вашите настройки надвиват тази основна модел.",
+    "codexQuotaPools": "Пулове с квоти на Codex",
+    "codexPoolAvailable": "Наличен",
+    "codexPoolPartiallyLimited": "Частично ограничен",
+    "codexPoolFullyLimited": "Напълно ограничен",
+    "codexPoolLimited": "{count} ограничени",
+    "codexPoolQuotaExhausted": "Квотата е изчерпана",
+    "codexPoolCoolingDown": "В период на изчакване",
+    "codexPoolUsed": "използвано",
+    "codexPoolUntil": "До {value}"
   },
   "settings": {
     "title": "Настройки",

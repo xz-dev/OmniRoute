@@ -6357,7 +6357,16 @@
     "autoFetchModelsPartialFailure": "Деякі з'єднання оновлено, але автоматичне отримання моделі з верхнього рівня не було змінено скрізь",
     "resetToUpstreamDefaultsSuccess": "Відновлено значення за замовчуванням моделі з upstream",
     "resetToUpstreamDefaults": "Відновити значення за замовчуванням з upstream",
-    "resetToUpstreamDefaultsFailed": "Не вдалося відновити значення за замовчуванням моделі upstream"
+    "resetToUpstreamDefaultsFailed": "Не вдалося відновити значення за замовчуванням моделі upstream",
+    "codexQuotaPools": "Пули квот Codex",
+    "codexPoolAvailable": "Доступний",
+    "codexPoolPartiallyLimited": "Частково обмежений",
+    "codexPoolFullyLimited": "Повністю обмежений",
+    "codexPoolLimited": "Обмежено: {count}",
+    "codexPoolQuotaExhausted": "Квоту вичерпано",
+    "codexPoolCoolingDown": "У періоді очікування",
+    "codexPoolUsed": "використано",
+    "codexPoolUntil": "До {value}"
   },
   "settings": {
     "title": "Налаштування",

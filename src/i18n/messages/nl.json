@@ -6357,7 +6357,16 @@
     "autoFetchModelsPartialFailure": "Sommige verbindingen zijn bijgewerkt, maar het automatisch ophalen van het upstream-model is niet overal gewijzigd",
     "resetToUpstreamDefaults": "Herstel upstream standaardinstellingen",
     "resetToUpstreamDefaultsSuccess": "Herstelde standaardinstellingen van upstream-model",
-    "resetToUpstreamDefaultsFailed": "Het is niet gelukt om de standaardinstellingen van het upstream-model te herstellen"
+    "resetToUpstreamDefaultsFailed": "Het is niet gelukt om de standaardinstellingen van het upstream-model te herstellen",
+    "codexQuotaPools": "Codex-quotapools",
+    "codexPoolAvailable": "Beschikbaar",
+    "codexPoolPartiallyLimited": "Gedeeltelijk beperkt",
+    "codexPoolFullyLimited": "Volledig beperkt",
+    "codexPoolLimited": "{count} beperkt",
+    "codexPoolQuotaExhausted": "Quota opgebruikt",
+    "codexPoolCoolingDown": "In afkoelperiode",
+    "codexPoolUsed": "gebruikt",
+    "codexPoolUntil": "Tot {value}"
   },
   "settings": {
     "title": "Instellingen",

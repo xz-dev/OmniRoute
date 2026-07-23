@@ -6357,7 +6357,16 @@
     "resetToUpstreamDefaults": "بازگرداندن تنظیمات پیش‌فرض upstream",
     "overridesUpstreamModelHint": "تنظیمات شما این مدل بالادستی را نادیده می‌گیرند",
     "resetToUpstreamDefaultsSuccess": "تنظیمات پیش‌فرض مدل بالادستی بازیابی شد",
-    "resetToUpstreamDefaultsFailed": "بازگردانی پیش‌فرض‌های مدل upstream ناموفق بود"
+    "resetToUpstreamDefaultsFailed": "بازگردانی پیش‌فرض‌های مدل upstream ناموفق بود",
+    "codexQuotaPools": "مخزن‌های سهمیه Codex",
+    "codexPoolAvailable": "در دسترس",
+    "codexPoolPartiallyLimited": "تا حدی محدود",
+    "codexPoolFullyLimited": "کاملاً محدود",
+    "codexPoolLimited": "{count} مورد محدود",
+    "codexPoolQuotaExhausted": "سهمیه تمام شده است",
+    "codexPoolCoolingDown": "در دوره انتظار",
+    "codexPoolUsed": "مصرف‌شده",
+    "codexPoolUntil": "تا {value}"
   },
   "settings": {
     "title": "Settings",

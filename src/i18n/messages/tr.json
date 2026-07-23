@@ -6357,7 +6357,16 @@
     "overridesUpstreamModelHint": "Ayarlarınız bu üst modelin üzerine yazıyor.",
     "resetToUpstreamDefaults": "Varsayılan ayarları geri yükle",
     "resetToUpstreamDefaultsSuccess": "Yukarı akış model varsayılanları geri yüklendi",
-    "resetToUpstreamDefaultsFailed": "Üst akış model varsayılanlarını geri yükleme başarısız oldu"
+    "resetToUpstreamDefaultsFailed": "Üst akış model varsayılanlarını geri yükleme başarısız oldu",
+    "codexQuotaPools": "Codex kota havuzları",
+    "codexPoolAvailable": "Kullanılabilir",
+    "codexPoolPartiallyLimited": "Kısmen sınırlı",
+    "codexPoolFullyLimited": "Tamamen sınırlı",
+    "codexPoolLimited": "{count} sınırlı",
+    "codexPoolQuotaExhausted": "Kota tükendi",
+    "codexPoolCoolingDown": "Bekleme süresinde",
+    "codexPoolUsed": "kullanıldı",
+    "codexPoolUntil": "{value} tarihine kadar"
   },
   "settings": {
     "title": "Ayarlar",

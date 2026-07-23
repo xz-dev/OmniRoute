@@ -6357,7 +6357,16 @@
     "overridesUpstreamModelHint": "您的設定覆蓋了此上游模型",
     "resetToUpstreamDefaults": "恢復上游預設值",
     "resetToUpstreamDefaultsSuccess": "已恢復上游模型預設值",
-    "resetToUpstreamDefaultsFailed": "無法恢復上游模型的預設值"
+    "resetToUpstreamDefaultsFailed": "無法恢復上游模型的預設值",
+    "codexQuotaPools": "Codex 配額集區",
+    "codexPoolAvailable": "可用",
+    "codexPoolPartiallyLimited": "部分受限",
+    "codexPoolFullyLimited": "全部受限",
+    "codexPoolLimited": "{count} 個受限",
+    "codexPoolQuotaExhausted": "配額已用盡",
+    "codexPoolCoolingDown": "冷卻中",
+    "codexPoolUsed": "已使用",
+    "codexPoolUntil": "截至 {value}"
   },
   "settings": {
     "title": "設定",

@@ -6357,7 +6357,16 @@
     "autoFetchModelsPartialFailure": "కొన్ని కనెక్షన్లు నవీకరించబడ్డాయి, కానీ అప్‌స్ట్రీమ్ మోడల్ ఆటో-ఫెచ్ ప్రతి చోట మారలేదు",
     "resetToUpstreamDefaultsSuccess": "అప్‌స్ట్రీమ్ మోడల్ డిఫాల్ట్స్ పునరుద్ధరించబడ్డాయి",
     "resetToUpstreamDefaults": "అప్‌స్ట్రీమ్ డిఫాల్ట్స్‌ను పునరుద్ధరించండి",
-    "resetToUpstreamDefaultsFailed": "అప్‌స్ట్రీమ్ మోడల్ డిఫాల్ట్స్‌ను పునరుద్ధరించడంలో విఫలమైంది"
+    "resetToUpstreamDefaultsFailed": "అప్‌స్ట్రీమ్ మోడల్ డిఫాల్ట్స్‌ను పునరుద్ధరించడంలో విఫలమైంది",
+    "codexQuotaPools": "Codex కోటా పూల్‌లు",
+    "codexPoolAvailable": "అందుబాటులో ఉంది",
+    "codexPoolPartiallyLimited": "పాక్షికంగా పరిమితం",
+    "codexPoolFullyLimited": "పూర్తిగా పరిమితం",
+    "codexPoolLimited": "{count} పరిమితం",
+    "codexPoolQuotaExhausted": "కోటా అయిపోయింది",
+    "codexPoolCoolingDown": "నిరీక్షణ వ్యవధిలో ఉంది",
+    "codexPoolUsed": "ఉపయోగించబడింది",
+    "codexPoolUntil": "{value} వరకు"
   },
   "settings": {
     "title": "Settings",

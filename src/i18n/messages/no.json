@@ -6357,7 +6357,16 @@
     "overridesUpstreamModelHint": "Dine innstillinger overstyrer denne upstream-modellen",
     "resetToUpstreamDefaultsSuccess": "Gjenopprettet upstream-modellinnstillinger",
     "resetToUpstreamDefaults": "Gjenopprett upstream-standardinnstillinger",
-    "resetToUpstreamDefaultsFailed": "Kunne ikke gjenopprette standardinnstillinger for upstream-modellen"
+    "resetToUpstreamDefaultsFailed": "Kunne ikke gjenopprette standardinnstillinger for upstream-modellen",
+    "codexQuotaPools": "Codex-kvotepuljer",
+    "codexPoolAvailable": "Tilgjengelig",
+    "codexPoolPartiallyLimited": "Delvis begrenset",
+    "codexPoolFullyLimited": "Fullstendig begrenset",
+    "codexPoolLimited": "{count} begrenset",
+    "codexPoolQuotaExhausted": "Kvoten er oppbrukt",
+    "codexPoolCoolingDown": "I nedkjølingsperiode",
+    "codexPoolUsed": "brukt",
+    "codexPoolUntil": "Til {value}"
   },
   "settings": {
     "title": "Innstillinger",
