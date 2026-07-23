@@ -62,6 +62,7 @@ import {
   createCodexAccountPool,
   getEarliestCodexChildCooldown,
   inspectCodexAccount,
+  persistCodexChildCooldown,
   resolveCodexAccount,
   type CodexAccountPool,
 } from "@omniroute/open-sse/services/codexAccount/index.ts";
@@ -2180,7 +2181,6 @@ export async function markAccountUnavailable(
       conn
     ) {
       const scope = getCodexModelScope(model);
-      const existingScopeMap = asRecord(conn.providerSpecificData.codexScopeRateLimitedUntil);
       const codexPool = createCodexAccountPool(conn);
       const codexAccount = resolveCodexAccount(codexPool, model);
       const codexState = inspectCodexAccount(codexPool, codexAccount);
@@ -2188,19 +2188,10 @@ export async function markAccountUnavailable(
       const scopeRateLimitedUntil = persistedScopeUntil || getUnavailableUntil(cooldownMs);
       const scopeCooldownMs = Math.max(new Date(scopeRateLimitedUntil).getTime() - Date.now(), 0);
 
-      await updateProviderConnection(connectionId, {
-        testStatus: "unavailable",
-        lastError: errorMsg,
-        errorCode: status,
-        lastErrorAt: new Date().toISOString(),
-        backoffLevel: newBackoffLevel ?? backoffLevel,
-        providerSpecificData: {
-          ...conn.providerSpecificData,
-          codexScopeRateLimitedUntil: {
-            ...existingScopeMap,
-            [scope]: scopeRateLimitedUntil,
-          },
-        },
+      await persistCodexChildCooldown({
+        connectionId,
+        model,
+        rateLimitedUntil: scopeRateLimitedUntil,
       });
 
       if (scopeCooldownMs > 0) {
@@ -2212,6 +2203,12 @@ export async function markAccountUnavailable(
       }
 
       return { shouldFallback: true, cooldownMs: scopeCooldownMs };
+    }
+
+    // A Codex quota response without a model cannot be assigned to either virtual child.
+    // Preserve failover without inventing a third parent-level quota/cooldown state.
+    if (provider === "codex" && status === 429) {
+      return { shouldFallback: true, cooldownMs };
     }
 
     const baseUpdate = {

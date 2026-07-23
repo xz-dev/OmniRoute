@@ -110,7 +110,10 @@ import {
 } from "../services/modelStrip.ts";
 import { resolveModelAlias } from "../services/modelDeprecation.ts";
 import { normalizeMimoThinking } from "../services/mimoThinking.ts";
-import { isOpencodeGoProvider, stripBooleanReasoning } from "../services/opencodeReasoningSanitizer.ts";
+import {
+  isOpencodeGoProvider,
+  stripBooleanReasoning,
+} from "../services/opencodeReasoningSanitizer.ts";
 import { normalizeClaudeAdaptiveThinking } from "../services/claudeAdaptiveThinking.ts";
 import { normalizeClaudeHaikuConstraints } from "../services/claudeHaikuConstraints.ts";
 import { applyDefaultReasoningEffort } from "../services/defaultReasoningEffort.ts";
@@ -2665,7 +2668,7 @@ export async function handleChatCore({
                     failedConnectionId: String(failedConnectionId),
                     model: modelToCall || model || requestedModel || null,
                     rateLimitedUntil: new Date(Date.now() + (retryAfterMs || 60_000)).toISOString(),
-                    credentials,
+                    credentials: execCreds || credentials,
                   });
                   if (!codexExcludedIds.includes(String(failedConnectionId))) {
                     codexExcludedIds.push(String(failedConnectionId));
