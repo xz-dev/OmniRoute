@@ -6137,7 +6137,16 @@
     "apiProtocolHint": "一些提供者通过多种协议发布相同的模型。除非您需要备选协议，否则请保留默认设置。",
     "apiProtocolLabel": "API 协议",
     "upstreamProxyManagedTitle": "通过上游代理设置管理",
-    "upstreamProxyManagedDescription": "CLIProxyAPI 作为上游代理层配置，而非直接提供者连接。在 CLI 工具中管理二进制/运行时，并通过提供者代理控件在每个提供者上启用代理路由。"
+    "upstreamProxyManagedDescription": "CLIProxyAPI 作为上游代理层配置，而非直接提供者连接。在 CLI 工具中管理二进制/运行时，并通过提供者代理控件在每个提供者上启用代理路由。",
+    "codexQuotaPools": "Codex 配额池",
+    "codexPoolAvailable": "可用",
+    "codexPoolPartiallyLimited": "部分受限",
+    "codexPoolFullyLimited": "全部受限",
+    "codexPoolLimited": "{count} 个受限",
+    "codexPoolQuotaExhausted": "配额已用尽",
+    "codexPoolCoolingDown": "冷却中",
+    "codexPoolUsed": "已使用",
+    "codexPoolUntil": "截至 {value}"
   },
   "settings": {
     "title": "设置",

@@ -6078,7 +6078,16 @@
     "anonymousFallbackDesc": "當所有配置的連接耗盡（配額、積分或到期）時，暫時使用此提供者的無密鑰層級。關閉以跳過此提供者，而不是發送匿名請求 — 當無密鑰層級拒絕它們（401）時建議這樣做。",
     "anonymousFallbackEnabled": "為 {provider} 啟用匿名後備",
     "anonymousFallbackDisabled": "已禁用 {provider} 的匿名後備 — 耗盡的連接將跳過此提供者",
-    "anonymousFallbackUpdateFailed": "無法更新匿名回退設置"
+    "anonymousFallbackUpdateFailed": "無法更新匿名回退設置",
+    "codexQuotaPools": "Codex 配額集區",
+    "codexPoolAvailable": "可用",
+    "codexPoolPartiallyLimited": "部分受限",
+    "codexPoolFullyLimited": "全部受限",
+    "codexPoolLimited": "{count} 個受限",
+    "codexPoolQuotaExhausted": "配額已用盡",
+    "codexPoolCoolingDown": "冷卻中",
+    "codexPoolUsed": "已使用",
+    "codexPoolUntil": "截至 {value}"
   },
   "settings": {
     "title": "設定",

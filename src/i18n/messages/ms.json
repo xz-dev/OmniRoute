@@ -6077,7 +6077,16 @@
     "anonymousFallbackDesc": "Apabila semua sambungan yang dikonfigurasikan habis (kuota, kredit, atau tamat tempoh), gunakan sementara tier tanpa kunci penyedia ini. Matikan untuk mengabaikan penyedia ini daripada menghantar permintaan tanpa nama — disyorkan apabila tier tanpa kunci menolak permintaan tersebut (401).",
     "anonymousFallbackEnabled": "Fallback tanpa nama diaktifkan untuk {provider}",
     "anonymousFallbackDisabled": "Fallback tanpa nama dinyahaktifkan untuk {provider} — sambungan yang habis akan melangkau penyedia ini",
-    "anonymousFallbackUpdateFailed": "Gagal mengemas kini tetapan fallback tanpa nama"
+    "anonymousFallbackUpdateFailed": "Gagal mengemas kini tetapan fallback tanpa nama",
+    "codexQuotaPools": "Kumpulan kuota Codex",
+    "codexPoolAvailable": "Tersedia",
+    "codexPoolPartiallyLimited": "Dihadkan sebahagian",
+    "codexPoolFullyLimited": "Dihadkan sepenuhnya",
+    "codexPoolLimited": "{count} dihadkan",
+    "codexPoolQuotaExhausted": "Kuota telah habis",
+    "codexPoolCoolingDown": "Dalam tempoh menunggu",
+    "codexPoolUsed": "digunakan",
+    "codexPoolUntil": "Sehingga {value}"
   },
   "settings": {
     "title": "tetapan",

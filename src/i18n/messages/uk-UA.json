@@ -6077,7 +6077,16 @@
     "anonymousFallbackDesc": "Коли всі налаштовані з'єднання вичерпані (квота, кредити або термін дії), тимчасово використовуйте безключовий рівень цього постачальника. Вимкніть, щоб пропустити цього постачальника замість надсилання анонімних запитів — рекомендовано, коли безключовий рівень їх відхиляє (401).",
     "anonymousFallbackEnabled": "Анонімний резервний варіант увімкнено для {provider}",
     "anonymousFallbackDisabled": "Анонімний резервний варіант вимкнено для {provider} — вичерпані з'єднання пропустять цього постачальника",
-    "anonymousFallbackUpdateFailed": "Не вдалося оновити налаштування анонімного резервного копіювання"
+    "anonymousFallbackUpdateFailed": "Не вдалося оновити налаштування анонімного резервного копіювання",
+    "codexQuotaPools": "Пули квот Codex",
+    "codexPoolAvailable": "Доступний",
+    "codexPoolPartiallyLimited": "Частково обмежений",
+    "codexPoolFullyLimited": "Повністю обмежений",
+    "codexPoolLimited": "Обмежено: {count}",
+    "codexPoolQuotaExhausted": "Квоту вичерпано",
+    "codexPoolCoolingDown": "У періоді очікування",
+    "codexPoolUsed": "використано",
+    "codexPoolUntil": "До {value}"
   },
   "settings": {
     "title": "Налаштування",

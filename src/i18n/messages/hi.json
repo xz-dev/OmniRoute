@@ -6077,7 +6077,16 @@
     "anonymousFallbackDesc": "जब सभी कॉन्फ़िगर की गई कनेक्शन समाप्त हो जाते हैं (कोटा, क्रेडिट, या समाप्ति), तो अस्थायी रूप से इस प्रदाता की कीलेस श्रेणी का उपयोग करें। इस प्रदाता को छोड़ने के लिए बंद करें बजाय गुमनाम अनुरोध भेजने के — जब कीलेस श्रेणी उन्हें अस्वीकार करती है (401) तो यह अनुशंसित है।",
     "anonymousFallbackEnabled": "{name} के लिए गुमनाम फॉलबैक सक्षम किया गया",
     "anonymousFallbackDisabled": "{provider} के लिए गुमनाम फॉलबैक बंद कर दिया गया है — समाप्त कनेक्शन इस प्रदाता को छोड़ देंगे",
-    "anonymousFallbackUpdateFailed": "गुमनाम फॉलबैक सेटिंग को अपडेट करने में विफल"
+    "anonymousFallbackUpdateFailed": "गुमनाम फॉलबैक सेटिंग को अपडेट करने में विफल",
+    "codexQuotaPools": "Codex कोटा पूल",
+    "codexPoolAvailable": "उपलब्ध",
+    "codexPoolPartiallyLimited": "आंशिक रूप से सीमित",
+    "codexPoolFullyLimited": "पूरी तरह सीमित",
+    "codexPoolLimited": "{count} सीमित",
+    "codexPoolQuotaExhausted": "कोटा समाप्त",
+    "codexPoolCoolingDown": "कूलडाउन जारी",
+    "codexPoolUsed": "उपयोग किया गया",
+    "codexPoolUntil": "{value} तक"
   },
   "settings": {
     "title": "सेटिंग्स",

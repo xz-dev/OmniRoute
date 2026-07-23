@@ -6077,7 +6077,16 @@
     "anonymousFallbackDesc": "Wakati muunganisho wote uliowekwa umepita (kikomo, mikopo, au muda wa kumalizika), tumia muda huu kiwango kisicho na funguo cha mtoa huduma huyu. Zima ili kupuuza mtoa huduma huyu badala ya kutuma maombi yasiyo na utambulisho — inapendekezwa wakati kiwango kisicho na funguo kinapokataa maombi hayo (401).",
     "anonymousFallbackEnabled": "Fallback isiyojulikana imewezeshwa kwa {provider}",
     "anonymousFallbackDisabled": "Fallback ya kutotambulika imezimwa kwa {provider} — muunganisho uliochoka utaepuka mtoa huduma huyu",
-    "anonymousFallbackUpdateFailed": "Imeshindikana kuboresha mipangilio ya kurudi nyuma isiyo na jina"
+    "anonymousFallbackUpdateFailed": "Imeshindikana kuboresha mipangilio ya kurudi nyuma isiyo na jina",
+    "codexQuotaPools": "Makundi ya mgao wa Codex",
+    "codexPoolAvailable": "Inapatikana",
+    "codexPoolPartiallyLimited": "Imewekewa kikomo kwa sehemu",
+    "codexPoolFullyLimited": "Imewekewa kikomo kikamilifu",
+    "codexPoolLimited": "{count} zimewekewa kikomo",
+    "codexPoolQuotaExhausted": "Mgao umeisha",
+    "codexPoolCoolingDown": "Katika kipindi cha kusubiri",
+    "codexPoolUsed": "imetumika",
+    "codexPoolUntil": "Hadi {value}"
   },
   "settings": {
     "title": "Settings",

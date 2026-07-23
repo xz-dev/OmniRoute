@@ -6077,7 +6077,16 @@
     "anonymousFallbackDesc": "Quando todas as conexões configuradas estiverem esgotadas (quota, créditos ou expiração), use temporariamente o nível sem chave deste fornecedor. Desative para ignorar este fornecedor em vez de enviar pedidos anónimos — recomendado quando o nível sem chave os rejeita (401).",
     "anonymousFallbackEnabled": "Fallback anónimo ativado para {provider}",
     "anonymousFallbackDisabled": "Fallback anónimo desativado para {provider} — conexões esgotadas irão ignorar este provedor",
-    "anonymousFallbackUpdateFailed": "Falha ao atualizar a configuração de fallback anónimo"
+    "anonymousFallbackUpdateFailed": "Falha ao atualizar a configuração de fallback anónimo",
+    "codexQuotaPools": "Pools de quotas do Codex",
+    "codexPoolAvailable": "Disponível",
+    "codexPoolPartiallyLimited": "Parcialmente limitado",
+    "codexPoolFullyLimited": "Totalmente limitado",
+    "codexPoolLimited": "{count} limitados",
+    "codexPoolQuotaExhausted": "Quota esgotada",
+    "codexPoolCoolingDown": "Em período de espera",
+    "codexPoolUsed": "utilizado",
+    "codexPoolUntil": "Até {value}"
   },
   "settings": {
     "title": "Configurações",

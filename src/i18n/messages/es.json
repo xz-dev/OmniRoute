@@ -6077,7 +6077,16 @@
     "anonymousFallbackDesc": "Cuando todas las conexiones configuradas están agotadas (cuota, créditos o expiración), utiliza temporalmente el nivel sin clave de este proveedor. Desactiva para omitir este proveedor en lugar de enviar solicitudes anónimas — recomendado cuando el nivel sin clave las rechaza (401).",
     "anonymousFallbackEnabled": "Fallback anónimo habilitado para {provider}",
     "anonymousFallbackDisabled": "El retroceso anónimo está deshabilitado para {provider} — las conexiones agotadas omitirán este proveedor",
-    "anonymousFallbackUpdateFailed": "Error al actualizar la configuración de respaldo anónimo"
+    "anonymousFallbackUpdateFailed": "Error al actualizar la configuración de respaldo anónimo",
+    "codexQuotaPools": "Grupos de cuotas de Codex",
+    "codexPoolAvailable": "Disponible",
+    "codexPoolPartiallyLimited": "Limitado parcialmente",
+    "codexPoolFullyLimited": "Limitado por completo",
+    "codexPoolLimited": "{count} limitados",
+    "codexPoolQuotaExhausted": "Cuota agotada",
+    "codexPoolCoolingDown": "En espera",
+    "codexPoolUsed": "usado",
+    "codexPoolUntil": "Hasta {value}"
   },
   "settings": {
     "title": "Configuración",

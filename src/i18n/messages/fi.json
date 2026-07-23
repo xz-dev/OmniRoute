@@ -6077,7 +6077,16 @@
     "anonymousFallbackDesc": "Kun kaikki määritetyt yhteydet on käytetty loppuun (kiintiö, krediitit tai vanhentuminen), käytä väliaikaisesti tämän tarjoajan avaimettomaa tasoa. Poista käytöstä tämän tarjoajan ohittamiseksi sen sijaan, että lähetät nimettömiä pyyntöjä — suositellaan, kun avaimeton taso hylkää ne (401).",
     "anonymousFallbackEnabled": "Anonyymi varajärjestelmä käytössä {provider} varten",
     "anonymousFallbackDisabled": "Anonyymi varayhteys pois käytöstä {provider} — loppuneet yhteydet ohittavat tämän tarjoajan",
-    "anonymousFallbackUpdateFailed": "Anonyymin varasetuksen päivittäminen epäonnistui"
+    "anonymousFallbackUpdateFailed": "Anonyymin varasetuksen päivittäminen epäonnistui",
+    "codexQuotaPools": "Codex-kiintiöpoolit",
+    "codexPoolAvailable": "Käytettävissä",
+    "codexPoolPartiallyLimited": "Osittain rajoitettu",
+    "codexPoolFullyLimited": "Täysin rajoitettu",
+    "codexPoolLimited": "{count} rajoitettua",
+    "codexPoolQuotaExhausted": "Kiintiö käytetty loppuun",
+    "codexPoolCoolingDown": "Jäähdytysjaksolla",
+    "codexPoolUsed": "käytetty",
+    "codexPoolUntil": "{value} asti"
   },
   "settings": {
     "title": "Asetukset",

@@ -6324,7 +6324,16 @@
 "rerankEndpoint": "Rerank",
 "savedModelEndpointSettings": "Đã lưu cài đặt endpoint mô hình",
 "searchByModelAria": "Tìm kiếm theo mô hình",
-"selectSupportedEndpoint": "Chọn ít nhất một endpoint được hỗ trợ"
+"selectSupportedEndpoint": "Chọn ít nhất một endpoint được hỗ trợ",
+"codexQuotaPools": "Nhóm hạn mức Codex",
+"codexPoolAvailable": "Khả dụng",
+"codexPoolPartiallyLimited": "Bị giới hạn một phần",
+"codexPoolFullyLimited": "Bị giới hạn hoàn toàn",
+"codexPoolLimited": "{count} mục bị giới hạn",
+"codexPoolQuotaExhausted": "Đã hết hạn mức",
+"codexPoolCoolingDown": "Đang trong thời gian chờ",
+"codexPoolUsed": "đã dùng",
+"codexPoolUntil": "Đến {value}"
   },
   "settings": {
     "title": "Cài đặt",

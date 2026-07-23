@@ -6077,7 +6077,16 @@
     "anonymousFallbackDesc": "Ketika semua koneksi yang dikonfigurasi habis (kuota, kredit, atau masa berlaku), gunakan sementara tingkat tanpa kunci penyedia ini. Matikan untuk melewati penyedia ini alih-alih mengirim permintaan anonim — disarankan ketika tingkat tanpa kunci menolak permintaan tersebut (401).",
     "anonymousFallbackEnabled": "Fallback anonim diaktifkan untuk {provider}",
     "anonymousFallbackDisabled": "Fallback anonim dinonaktifkan untuk {provider} — koneksi yang habis akan melewati penyedia ini",
-    "anonymousFallbackUpdateFailed": "Gagal memperbarui pengaturan fallback anonim"
+    "anonymousFallbackUpdateFailed": "Gagal memperbarui pengaturan fallback anonim",
+    "codexQuotaPools": "Kumpulan kuota Codex",
+    "codexPoolAvailable": "Tersedia",
+    "codexPoolPartiallyLimited": "Dibatasi sebagian",
+    "codexPoolFullyLimited": "Dibatasi sepenuhnya",
+    "codexPoolLimited": "{count} dibatasi",
+    "codexPoolQuotaExhausted": "Kuota habis",
+    "codexPoolCoolingDown": "Dalam masa tunggu",
+    "codexPoolUsed": "terpakai",
+    "codexPoolUntil": "Hingga {value}"
   },
   "settings": {
     "title": "Settings",

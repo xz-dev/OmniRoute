@@ -6327,7 +6327,16 @@
 "rerankEndpoint": "Rerank",
 "savedModelEndpointSettings": "Saved modèles endpoint paramètres",
 "searchByModelAria": "Rechercher un modèle",
-"selectSupportedEndpoint": "Sélectionnez au moins un endpoint pris en charge"
+"selectSupportedEndpoint": "Sélectionnez au moins un endpoint pris en charge",
+"codexQuotaPools": "Pools de quotas Codex",
+"codexPoolAvailable": "Disponible",
+"codexPoolPartiallyLimited": "Partiellement limité",
+"codexPoolFullyLimited": "Entièrement limité",
+"codexPoolLimited": "{count} limités",
+"codexPoolQuotaExhausted": "Quota épuisé",
+"codexPoolCoolingDown": "En période d'attente",
+"codexPoolUsed": "utilisé",
+"codexPoolUntil": "Jusqu'à {value}"
   },
   "settings": {
     "title": "Paramètres",

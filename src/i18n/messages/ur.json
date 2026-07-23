@@ -6077,7 +6077,16 @@
     "anonymousFallbackDesc": "جب تمام کنفیگر کردہ کنکشنز ختم ہو جائیں (کوٹہ، کریڈٹس، یا میعاد)، اس فراہم کنندہ کی بغیر کلید کی سطح کو عارضی طور پر استعمال کریں۔ اس فراہم کنندہ کو چھوڑنے کے لیے بند کریں بجائے اس کے کہ گمنام درخواستیں بھیجیں — جب بغیر کلید کی سطح انہیں مسترد کرتی ہے (401) تو یہ تجویز کردہ ہے۔",
     "anonymousFallbackEnabled": "{provider} کے لیے نامعلوم متبادل فعال ہے",
     "anonymousFallbackDisabled": "نامعلوم متبادل {provider} کے لیے غیر فعال — ختم شدہ کنکشن اس فراہم کنندہ کو چھوڑ دیں گے",
-    "anonymousFallbackUpdateFailed": "نامعلوم متبادل سیٹنگ کو اپ ڈیٹ کرنے میں ناکامی"
+    "anonymousFallbackUpdateFailed": "نامعلوم متبادل سیٹنگ کو اپ ڈیٹ کرنے میں ناکامی",
+    "codexQuotaPools": "Codex کوٹا پولز",
+    "codexPoolAvailable": "دستیاب",
+    "codexPoolPartiallyLimited": "جزوی طور پر محدود",
+    "codexPoolFullyLimited": "مکمل طور پر محدود",
+    "codexPoolLimited": "{count} محدود",
+    "codexPoolQuotaExhausted": "کوٹا ختم ہو گیا",
+    "codexPoolCoolingDown": "وقفۂ انتظار میں",
+    "codexPoolUsed": "استعمال شدہ",
+    "codexPoolUntil": "{value} تک"
   },
   "settings": {
     "title": "Settings",

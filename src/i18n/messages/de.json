@@ -6078,7 +6078,16 @@
     "anonymousFallbackDesc": "Wenn alle konfigurierten Verbindungen erschöpft sind (Kontingent, Guthaben oder Ablauf), verwenden Sie vorübergehend die schlüssellose Stufe dieses Anbieters. Deaktivieren Sie dies, um diesen Anbieter zu überspringen, anstatt anonyme Anfragen zu senden – empfohlen, wenn die schlüssellose Stufe diese ablehnt (401).",
     "anonymousFallbackEnabled": "Anonymer Fallback für {provider} aktiviert",
     "anonymousFallbackDisabled": "Anonymer Fallback für {provider} deaktiviert — erschöpfte Verbindungen überspringen diesen Anbieter",
-    "anonymousFallbackUpdateFailed": "Fehler beim Aktualisieren der anonymen Fallback-Einstellung"
+    "anonymousFallbackUpdateFailed": "Fehler beim Aktualisieren der anonymen Fallback-Einstellung",
+    "codexQuotaPools": "Codex-Kontingentpools",
+    "codexPoolAvailable": "Verfügbar",
+    "codexPoolPartiallyLimited": "Teilweise eingeschränkt",
+    "codexPoolFullyLimited": "Vollständig eingeschränkt",
+    "codexPoolLimited": "{count} eingeschränkt",
+    "codexPoolQuotaExhausted": "Kontingent aufgebraucht",
+    "codexPoolCoolingDown": "In Abklingzeit",
+    "codexPoolUsed": "verwendet",
+    "codexPoolUntil": "Bis {value}"
   },
   "settings": {
     "title": "Einstellungen",

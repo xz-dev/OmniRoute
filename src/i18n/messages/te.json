@@ -6077,7 +6077,16 @@
     "anonymousFallbackDesc": "అన్ని కాన్ఫిగర్ చేసిన కనెక్షన్లు ముగిసినప్పుడు (కోటా, క్రెడిట్స్, లేదా కాలం ముగిసినప్పుడు), తాత్కాలికంగా ఈ ప్రొవైడర్ యొక్క కీ లెస్ టియర్‌ను ఉపయోగించండి. అనామక అభ్యర్థనలను పంపించకుండా ఈ ప్రొవైడర్‌ను దాటించడానికి ఆపివేయండి — కీ లెస్ టియర్ వాటిని తిరస్కరించినప్పుడు (401) సిఫారసు చేయబడింది.",
     "anonymousFallbackEnabled": "{name} కోసం అనామక ఫాల్బ్యాక్ ప్రారంభించబడింది",
     "anonymousFallbackDisabled": "{provider} కోసం అనామక ఫాల్బ్యాక్ అक्षमించబడింది — ఖర్చైన కనెక్షన్లు ఈ ప్రొవైడర్‌ను దాటిస్తాయి",
-    "anonymousFallbackUpdateFailed": "అనామిక ఫాల్బాక్ సెట్టింగ్‌ను నవీకరించడంలో విఫలమైంది"
+    "anonymousFallbackUpdateFailed": "అనామిక ఫాల్బాక్ సెట్టింగ్‌ను నవీకరించడంలో విఫలమైంది",
+    "codexQuotaPools": "Codex కోటా పూల్‌లు",
+    "codexPoolAvailable": "అందుబాటులో ఉంది",
+    "codexPoolPartiallyLimited": "పాక్షికంగా పరిమితం",
+    "codexPoolFullyLimited": "పూర్తిగా పరిమితం",
+    "codexPoolLimited": "{count} పరిమితం",
+    "codexPoolQuotaExhausted": "కోటా అయిపోయింది",
+    "codexPoolCoolingDown": "నిరీక్షణ వ్యవధిలో ఉంది",
+    "codexPoolUsed": "ఉపయోగించబడింది",
+    "codexPoolUntil": "{value} వరకు"
   },
   "settings": {
     "title": "Settings",

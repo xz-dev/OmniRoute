@@ -6077,7 +6077,16 @@
     "anonymousFallbackDesc": "모든 구성된 연결이 소진되면(쿼터, 크레딧 또는 만료), 이 공급자의 키 없는 계층을 임시로 사용합니다. 익명 요청을 보내는 대신 이 공급자를 건너뛰려면 끄세요. 키 없는 계층이 요청을 거부할 때(401) 권장됩니다.",
     "anonymousFallbackEnabled": "{name}에 대한 익명 대체가 활성화되었습니다.",
     "anonymousFallbackDisabled": "{name}에 대한 익명 대체가 비활성화되었습니다 — 소진된 연결은 이 공급자를 건너뜁니다",
-    "anonymousFallbackUpdateFailed": "익명 대체 설정을 업데이트하지 못했습니다"
+    "anonymousFallbackUpdateFailed": "익명 대체 설정을 업데이트하지 못했습니다",
+    "codexQuotaPools": "Codex 할당량 풀",
+    "codexPoolAvailable": "사용 가능",
+    "codexPoolPartiallyLimited": "일부 제한됨",
+    "codexPoolFullyLimited": "모두 제한됨",
+    "codexPoolLimited": "{count}개 제한됨",
+    "codexPoolQuotaExhausted": "할당량 소진",
+    "codexPoolCoolingDown": "대기 시간 적용 중",
+    "codexPoolUsed": "사용됨",
+    "codexPoolUntil": "{value}까지"
   },
   "settings": {
     "title": "설정",

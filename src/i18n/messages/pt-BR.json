@@ -6310,7 +6310,16 @@
 "rerankEndpoint": "__MISSING__:Rerank",
 "savedModelEndpointSettings": "__MISSING__:Saved model endpoint settings",
 "searchByModelAria": "__MISSING__:Search by model",
-"selectSupportedEndpoint": "__MISSING__:Select at least one supported endpoint"
+"selectSupportedEndpoint": "__MISSING__:Select at least one supported endpoint",
+"codexQuotaPools": "Pools de cotas do Codex",
+"codexPoolAvailable": "Disponível",
+"codexPoolPartiallyLimited": "Parcialmente limitado",
+"codexPoolFullyLimited": "Totalmente limitado",
+"codexPoolLimited": "{count} limitados",
+"codexPoolQuotaExhausted": "Cota esgotada",
+"codexPoolCoolingDown": "Em período de espera",
+"codexPoolUsed": "usado",
+"codexPoolUntil": "Até {value}"
   },
   "settings": {
     "title": "Configurações",

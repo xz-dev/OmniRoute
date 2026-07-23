@@ -6077,7 +6077,16 @@
     "anonymousFallbackDesc": "Когато всички конфигурирани връзки са изчерпани (квота, кредити или изтичане), временно използвайте безключовия слой на този доставчик. Изключете, за да пропуснете този доставчик вместо да изпращате анонимни заявки — препоръчително, когато безключовият слой ги отхвърля (401).",
     "anonymousFallbackEnabled": "Анонимен резервен вариант е активиран за {provider}",
     "anonymousFallbackDisabled": "Анонимен резервен вариант деактивиран за {provider} — изчерпаните връзки ще пропуснат този доставчик",
-    "anonymousFallbackUpdateFailed": "Неуспешно обновяване на настройката за анонимен резервен вариант"
+    "anonymousFallbackUpdateFailed": "Неуспешно обновяване на настройката за анонимен резервен вариант",
+    "codexQuotaPools": "Пулове с квоти на Codex",
+    "codexPoolAvailable": "Наличен",
+    "codexPoolPartiallyLimited": "Частично ограничен",
+    "codexPoolFullyLimited": "Напълно ограничен",
+    "codexPoolLimited": "{count} ограничени",
+    "codexPoolQuotaExhausted": "Квотата е изчерпана",
+    "codexPoolCoolingDown": "В период на изчакване",
+    "codexPoolUsed": "използвано",
+    "codexPoolUntil": "До {value}"
   },
   "settings": {
     "title": "Настройки",
