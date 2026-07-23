@@ -4843,7 +4843,16 @@
     "visionCapableLabel": "__MISSING__:Vision capable",
     "visionCapableHint": "__MISSING__:Manually flag this model as vision-capable when the provider's discovery metadata doesn't report an image input modality (common for self-hosted/local backends).",
     "kimiOfficialSupporterBadge": "Official Supporter",
-    "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) is an official OmniRoute launch partner"
+    "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) is an official OmniRoute launch partner",
+    "codexQuotaPools": "Codex クォータプール",
+    "codexPoolAvailable": "利用可能",
+    "codexPoolPartiallyLimited": "一部制限中",
+    "codexPoolFullyLimited": "すべて制限中",
+    "codexPoolLimited": "{count} 件が制限中",
+    "codexPoolQuotaExhausted": "クォータを使い切りました",
+    "codexPoolCoolingDown": "クールダウン中",
+    "codexPoolUsed": "使用済み",
+    "codexPoolUntil": "{value} まで"
   },
   "settings": {
     "title": "設定",

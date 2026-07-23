@@ -4946,7 +4946,16 @@
     "bulkAddFormatHintCloudflare": "Jeden klucz na linię. Format: name|accountId|apiKey (Cloudflare account ID + API token).",
     "lmarenaWebCookieHint": "Otwórz arena.ai, zaloguj się, a następnie skopiuj pełny nagłówek Cookie z żądania Network. Dołącz arena-auth-prod-v1.0 i arena-auth-prod-v1.1 (oraz kolejne fragmenty, jeśli występują), najlepiej z cf_clearance. Nie wklejaj samego pustego cookie arena-auth-prod-v1. Opcjonalnie: providerSpecificData.recaptchaV3Token, jeśli create-evaluation nadal zwraca 403.",
     "kimiOfficialSupporterBadge": "Oficjalny wspierający",
-    "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) jest oficjalnym partnerem premiery OmniRoute"
+    "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) jest oficjalnym partnerem premiery OmniRoute",
+    "codexQuotaPools": "Pule limitów Codex",
+    "codexPoolAvailable": "Dostępna",
+    "codexPoolPartiallyLimited": "Częściowo ograniczona",
+    "codexPoolFullyLimited": "Całkowicie ograniczona",
+    "codexPoolLimited": "Ograniczone: {count}",
+    "codexPoolQuotaExhausted": "Limit wyczerpany",
+    "codexPoolCoolingDown": "W okresie oczekiwania",
+    "codexPoolUsed": "wykorzystano",
+    "codexPoolUntil": "Do {value}"
   },
   "settings": {
     "title": "Ustawienia",

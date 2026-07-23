@@ -4450,7 +4450,16 @@
     "visionCapableLabel": "يدعم الرؤية",
     "visionCapableHint": "علّم هذا النموذج يدويًا بأنه يدعم الرؤية عندما لا تذكر بيانات اكتشاف المزوّد إدخال الصور (وهو شائع في الواجهات الخلفية المحلية أو المستضافة ذاتيًا).",
     "kimiOfficialSupporterBadge": "Official Supporter",
-    "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) is an official OmniRoute launch partner"
+    "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) is an official OmniRoute launch partner",
+    "codexQuotaPools": "مجموعات حصص Codex",
+    "codexPoolAvailable": "متاح",
+    "codexPoolPartiallyLimited": "محدود جزئيًا",
+    "codexPoolFullyLimited": "محدود بالكامل",
+    "codexPoolLimited": "{count} محدود",
+    "codexPoolQuotaExhausted": "نفدت الحصة",
+    "codexPoolCoolingDown": "في فترة تهدئة",
+    "codexPoolUsed": "مُستخدم",
+    "codexPoolUntil": "حتى {value}"
   },
   "settings": {
     "title": "الإعدادات",

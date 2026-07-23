@@ -169,3 +169,77 @@ test("expired and invalid legacy timestamps are not active cooldowns", () => {
   if (sparkState.kind === "child") assert.equal(sparkState.unavailable, false);
   assert.equal(codexAccount.inspectCodexAccount(pool, pool.parent).status, "available");
 });
+
+test("projects quota exhaustion and active cooldown as distinct child facts", () => {
+  const now = Date.parse("2026-01-01T00:00:00.000Z");
+  const sparkCooldown = "2026-01-01T01:00:00.000Z";
+  const projected = codexAccount.projectCodexAccountPool(
+    {
+      id: "codex-projection",
+      provider: "codex",
+      providerSpecificData: {
+        codexScopeRateLimitedUntil: { spark: sparkCooldown },
+        codexQuotaStateByScope: {
+          codex: { usage5h: 100, limit5h: 100, observedAt: "2025-12-31T23:59:00.000Z" },
+          spark: { usage7d: 80, limit7d: 100, resetAt7d: "2026-01-02T00:00:00.000Z" },
+        },
+        codexExhaustedWindowByScope: { codex: "5h" },
+      },
+    },
+    now
+  );
+
+  assert.equal(projected.parentConnectionId, "codex-projection");
+  assert.equal(projected.aggregate.status, "fully_limited");
+  assert.equal(projected.aggregate.limitedChildCount, 2);
+  assert.deepEqual(
+    projected.children.map((child) => child.key),
+    [
+      { parentConnectionId: "codex-projection", scope: "codex" },
+      { parentConnectionId: "codex-projection", scope: "spark" },
+    ]
+  );
+  assert.equal("connectionId" in projected.children[0], false);
+  assert.deepEqual(
+    projected.children.map((child) => ({
+      unavailable: child.unavailable,
+      cooldown: child.cooldown,
+      exhaustedWindow: child.quota.exhaustedWindow,
+    })),
+    [
+      {
+        unavailable: true,
+        cooldown: { active: false, rateLimitedUntil: null },
+        exhaustedWindow: "5h",
+      },
+      {
+        unavailable: true,
+        cooldown: { active: true, rateLimitedUntil: sparkCooldown },
+        exhaustedWindow: null,
+      },
+    ]
+  );
+  assert.equal(projected.children[0].quota.windows["5h"]?.usedPercentage, 100);
+});
+
+test("projects neither exhaustion nor an expired cooldown as unavailable", () => {
+  const now = Date.parse("2026-01-01T00:00:00.000Z");
+  const projected = codexAccount.projectCodexAccountPool(
+    {
+      id: "codex-available-projection",
+      provider: "codex",
+      providerSpecificData: {
+        codexScopeRateLimitedUntil: { spark: "2025-12-31T23:59:00.000Z" },
+      },
+    },
+    now
+  );
+
+  assert.equal(projected.aggregate.status, "available");
+  assert.equal(projected.aggregate.limitedChildCount, 0);
+  assert.equal(projected.children[1].unavailable, false);
+  assert.deepEqual(projected.children[1].cooldown, {
+    active: false,
+    rateLimitedUntil: null,
+  });
+});

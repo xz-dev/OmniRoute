@@ -4450,7 +4450,16 @@
     "visionCapableLabel": "__MISSING__:Vision capable",
     "visionCapableHint": "__MISSING__:Manually flag this model as vision-capable when the provider's discovery metadata doesn't report an image input modality (common for self-hosted/local backends).",
     "kimiOfficialSupporterBadge": "Official Supporter",
-    "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) is an official OmniRoute launch partner"
+    "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) is an official OmniRoute launch partner",
+    "codexQuotaPools": "Codex కోటా పూల్‌లు",
+    "codexPoolAvailable": "అందుబాటులో ఉంది",
+    "codexPoolPartiallyLimited": "పాక్షికంగా పరిమితం",
+    "codexPoolFullyLimited": "పూర్తిగా పరిమితం",
+    "codexPoolLimited": "{count} పరిమితం",
+    "codexPoolQuotaExhausted": "కోటా అయిపోయింది",
+    "codexPoolCoolingDown": "నిరీక్షణ వ్యవధిలో ఉంది",
+    "codexPoolUsed": "ఉపయోగించబడింది",
+    "codexPoolUntil": "{value} వరకు"
   },
   "settings": {
     "title": "Settings",

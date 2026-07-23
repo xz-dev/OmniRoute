@@ -4450,7 +4450,16 @@
     "visionCapableLabel": "__MISSING__:Vision capable",
     "visionCapableHint": "__MISSING__:Manually flag this model as vision-capable when the provider's discovery metadata doesn't report an image input modality (common for self-hosted/local backends).",
     "kimiOfficialSupporterBadge": "Official Supporter",
-    "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) is an official OmniRoute launch partner"
+    "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) is an official OmniRoute launch partner",
+    "codexQuotaPools": "Codex ક્વોટા પૂલ",
+    "codexPoolAvailable": "ઉપલબ્ધ",
+    "codexPoolPartiallyLimited": "આંશિક રીતે મર્યાદિત",
+    "codexPoolFullyLimited": "સંપૂર્ણ રીતે મર્યાદિત",
+    "codexPoolLimited": "{count} મર્યાદિત",
+    "codexPoolQuotaExhausted": "ક્વોટા સમાપ્ત",
+    "codexPoolCoolingDown": "વિરામ અવધિમાં",
+    "codexPoolUsed": "વપરાયેલ",
+    "codexPoolUntil": "{value} સુધી"
   },
   "settings": {
     "title": "Settings",
