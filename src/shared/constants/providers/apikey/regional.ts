@@ -453,4 +453,29 @@ export const APIKEY_PROVIDERS_REGIONAL = {
     authHint:
       "Register and create an API key at the Ant Ling API console (https://chat.ant-ling.com/open), then paste it here. OmniRoute routes chat traffic to https://api.ant-ling.com/v1/chat/completions; the provider is OpenAI-compatible and also exposes an Anthropic-compatible surface.",
   },
+  sarvam: {
+    id: "sarvam",
+    alias: "sarvam",
+    name: "Sarvam AI",
+    icon: "public",
+    color: "#0EA5E9",
+    textIcon: "SV",
+    website: "https://docs.sarvam.ai",
+    apiHint:
+      "Sarvam AI is OpenAI-compatible on /v1. OmniRoute probes /v1/models and routes chat traffic to /v1/chat/completions. Models are tuned for Indic languages.",
+    hasFree: true,
+    freeNote: "₹1,000 in free signup credits — never expire",
+  },
+  plamo: {
+    id: "plamo",
+    alias: "plamo",
+    name: "PLaMo",
+    icon: "public",
+    color: "#DC2626",
+    textIcon: "PL",
+    website: "https://plamo.preferredai.jp/api",
+    apiHint:
+      "PLaMo is OpenAI-compatible at https://api.platform.preferredai.jp/v1. Built by Preferred Networks and optimized for Japanese. Docs are primarily in Japanese.",
+    hasFree: false,
+  },
 };
