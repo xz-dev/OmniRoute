@@ -1892,6 +1892,63 @@ test("chatCore does not inject fallback user for Qwen API key requests", async (
   assert.equal("user" in call.body, false);
 });
 
+test("chatCore persists child cooldown for each rotated Codex attempt", async () => {
+  const first = await providersDb.createProviderConnection({
+    provider: "codex",
+    authType: "oauth",
+    email: "codex-rotation-first@example.com",
+    accessToken: "codex-rotation-first",
+    isActive: true,
+    providerSpecificData: {},
+  });
+  const second = await providersDb.createProviderConnection({
+    provider: "codex",
+    authType: "oauth",
+    email: "codex-rotation-second@example.com",
+    accessToken: "codex-rotation-second",
+    isActive: true,
+    providerSpecificData: {},
+  });
+  const liveCredentials = {
+    accessToken: "codex-rotation-first",
+    connectionId: first.id,
+    providerSpecificData: {},
+  };
+
+  const { result } = await invokeChatCore({
+    provider: "codex",
+    model: "gpt-5.3-codex-spark",
+    endpoint: "/v1/responses",
+    connectionId: first.id,
+    credentials: liveCredentials,
+    body: {
+      model: "gpt-5.3-codex-spark",
+      input: "rotate twice",
+      stream: false,
+    },
+    responseFactory() {
+      return new Response(
+        JSON.stringify({ error: { message: "The usage limit has been reached" } }),
+        { status: 429, headers: { "Content-Type": "application/json", "Retry-After": "60" } }
+      );
+    },
+  });
+  const firstPersisted = await providersDb.getProviderConnectionById(first.id);
+  const secondPersisted = await providersDb.getProviderConnectionById(second.id);
+
+  assert.equal(result.success, false);
+  assert.equal(result.status, 429);
+  assert.equal(
+    typeof firstPersisted.providerSpecificData.codexScopeRateLimitedUntil.spark,
+    "string"
+  );
+  assert.equal(
+    typeof secondPersisted.providerSpecificData.codexScopeRateLimitedUntil.spark,
+    "string"
+  );
+  assert.equal(liveCredentials.connectionId, second.id);
+});
+
 test("chatCore keeps a Codex Spark 429 scoped so Sol remains selectable", async () => {
   const connection = await providersDb.createProviderConnection({
     provider: "codex",

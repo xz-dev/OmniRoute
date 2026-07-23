@@ -62,6 +62,8 @@ export {
   getEarliestCodexChildCooldown,
   inspectCodexAccount,
 } from "./state.ts";
+export { persistCodexChildCooldown } from "./write.ts";
+export type { PersistCodexChildCooldownResult } from "./write.ts";
 export type {
   CodexAccount,
   CodexAccountConnection,

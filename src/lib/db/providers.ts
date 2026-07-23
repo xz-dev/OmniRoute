@@ -743,6 +743,50 @@ export async function updateProviderConnection(id: string, data: JsonRecord) {
 }
 
 /**
+ * Atomically merge one virtual Codex child's cooldown into its persisted parent.
+ * The transaction reads the latest row so sibling child state cannot be lost.
+ */
+export async function updateCodexScopeCooldown(
+  id: string,
+  scope: "codex" | "spark",
+  rateLimitedUntil: string
+): Promise<JsonRecord | null> {
+  const db = getDbInstance() as unknown as DbLike;
+  const candidate = db.prepare("SELECT provider FROM provider_connections WHERE id = ?").get(id);
+  if (toRecord(candidate).provider !== "codex") return null;
+
+  backupDbFile("pre-write");
+  const persisted = db.transaction(() => {
+    const existing = db.prepare("SELECT * FROM provider_connections WHERE id = ?").get(id);
+    if (!existing) return null;
+
+    const existingRecord = toRecord(rowToCamel(existing));
+    if (existingRecord.provider !== "codex") return null;
+    const providerSpecificData = toRecord(existingRecord.providerSpecificData);
+    const scopeCooldowns = toRecord(providerSpecificData.codexScopeRateLimitedUntil);
+    const nextProviderSpecificData = {
+      ...providerSpecificData,
+      codexScopeRateLimitedUntil: {
+        ...scopeCooldowns,
+        [scope]: rateLimitedUntil,
+      },
+    };
+
+    db.prepare(
+      `UPDATE provider_connections
+       SET provider_specific_data = ?, updated_at = ?
+       WHERE id = ?`
+    ).run(JSON.stringify(nextProviderSpecificData), new Date().toISOString(), id);
+    return nextProviderSpecificData;
+  })();
+
+  if (persisted) {
+    invalidateDbCache("connections");
+  }
+  return persisted;
+}
+
+/**
  * Atomic conditional clear of recoverable error state on a connection row.
  *
  * Returns true when the row was cleared, false when a concurrent writer

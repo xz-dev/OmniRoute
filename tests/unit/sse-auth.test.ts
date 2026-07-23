@@ -1394,6 +1394,7 @@ test("markAccountUnavailable stores Codex scope-specific cooldowns without a glo
     accessToken: "codex-access",
     refreshToken: "codex-refresh",
   });
+  const parentBefore = await providersDb.getProviderConnectionById(connection.id);
 
   const result = await auth.markAccountUnavailable(
     connection.id,
@@ -1408,11 +1409,44 @@ test("markAccountUnavailable stores Codex scope-specific cooldowns without a glo
 
   assert.equal(result.shouldFallback, true);
   assert.ok(result.cooldownMs > 0);
-  assert.equal(updated.testStatus, "unavailable");
-  assert.equal(updated.rateLimitedUntil, undefined);
+  assert.equal(updated.testStatus, parentBefore.testStatus);
+  assert.equal(updated.rateLimitedUntil, parentBefore.rateLimitedUntil);
+  assert.equal(updated.lastError, parentBefore.lastError);
+  assert.equal(updated.errorCode, parentBefore.errorCode);
+  assert.equal(updated.backoffLevel, parentBefore.backoffLevel);
   assert.ok(updated.providerSpecificData.codexScopeRateLimitedUntil.spark);
   assert.equal(selected.allRateLimited, true);
   assert.equal(normalSelected.connectionId, connection.id);
+});
+
+test("markAccountUnavailable keeps model-less Codex 429 state off the parent", async () => {
+  const connection = await seedConnection("codex", {
+    authType: "oauth",
+    name: "codex-model-less-429",
+    email: "codex-model-less@example.com",
+    apiKey: null,
+    accessToken: "codex-model-less-access",
+    refreshToken: "codex-model-less-refresh",
+  });
+  const parentBefore = await providersDb.getProviderConnectionById(connection.id);
+
+  const result = await auth.markAccountUnavailable(
+    connection.id,
+    429,
+    "quota reached without model metadata",
+    "codex",
+    null
+  );
+  const updated = await providersDb.getProviderConnectionById(connection.id);
+
+  assert.equal(result.shouldFallback, true);
+  assert.ok(result.cooldownMs > 0);
+  assert.equal(updated.testStatus, parentBefore.testStatus);
+  assert.equal(updated.rateLimitedUntil, parentBefore.rateLimitedUntil);
+  assert.equal(updated.lastError, parentBefore.lastError);
+  assert.equal(updated.errorCode, parentBefore.errorCode);
+  assert.equal(updated.backoffLevel, parentBefore.backoffLevel);
+  assert.deepEqual(updated.providerSpecificData, parentBefore.providerSpecificData);
 });
 
 test("markAccountUnavailable returns without fallback on bad requests", async () => {
