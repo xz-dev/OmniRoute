@@ -124,7 +124,11 @@ async function findCustomModelMetadata(providerId: string, modelId: string) {
   }
 }
 
-export function buildInternalChatRequest(testBody: Record<string, unknown>, signal: AbortSignal) {
+export function buildInternalChatRequest(
+  testBody: Record<string, unknown>,
+  signal: AbortSignal,
+  connectionId?: string
+) {
   return new Request(`${INTERNAL_ORIGIN}/v1/chat/completions`, {
     method: "POST",
     headers: {
@@ -136,13 +140,18 @@ export function buildInternalChatRequest(testBody: Record<string, unknown>, sign
       // Output Styles (e.g. "Ultra terse") leak a system prompt into a test-model call.
       "X-OmniRoute-Compression": "off",
       "X-Request-Id": `model-test-${randomUUID()}`,
+      ...(connectionId ? { "X-OmniRoute-Connection": connectionId } : {}),
     },
     body: JSON.stringify(testBody),
     signal,
   });
 }
 
-export function buildInternalRerankRequest(testBody: Record<string, unknown>, signal: AbortSignal) {
+export function buildInternalRerankRequest(
+  testBody: Record<string, unknown>,
+  signal: AbortSignal,
+  connectionId?: string
+) {
   return new Request(`${INTERNAL_ORIGIN}/v1/rerank`, {
     method: "POST",
     headers: {
@@ -151,6 +160,7 @@ export function buildInternalRerankRequest(testBody: Record<string, unknown>, si
       "X-OmniRoute-No-Cache": "true",
       "X-OmniRoute-Compression": "off",
       "X-Request-Id": `model-test-${randomUUID()}`,
+      ...(connectionId ? { "X-OmniRoute-Connection": connectionId } : {}),
     },
     body: JSON.stringify(testBody),
     signal,
@@ -308,9 +318,9 @@ export async function runSingleModelTest(
       );
     }
     if (isRerank) {
-      return postRerank(buildInternalRerankRequest(testBody, signal));
+      return postRerank(buildInternalRerankRequest(testBody, signal, connectionId));
     }
-    return postChatCompletion(buildInternalChatRequest(testBody, signal));
+    return postChatCompletion(buildInternalChatRequest(testBody, signal, connectionId));
   };
 
   let res: Response;
