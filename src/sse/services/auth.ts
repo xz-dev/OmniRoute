@@ -58,6 +58,13 @@ import {
   toCodexScopedQuotaWindowName,
 } from "@omniroute/open-sse/config/codexQuotaScopes.ts";
 import {
+  createCodexAccountPool,
+  getEarliestCodexChildCooldown,
+  inspectCodexAccount,
+  resolveCodexAccount,
+  type CodexAccountPool,
+} from "@omniroute/open-sse/services/codexAccount/index.ts";
+import {
   getProviderById,
   getProviderAlias,
   resolveProviderId,
@@ -134,7 +141,6 @@ function toNullableNumber(value: unknown): number | null {
   const parsed = toNumber(value, Number.NaN);
   return Number.isFinite(parsed) ? parsed : null;
 }
-
 
 function toBooleanOrDefault(value: unknown, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback;
@@ -319,47 +325,6 @@ function applyCodexWindowPolicy(rawWindows: string[], providerSpecificData: Json
   if (codexPolicy.useWeekly) windows.push("weekly");
 
   return uniqueWindows(windows);
-}
-
-function getCodexScopeRateLimitedUntil(
-  providerSpecificData: JsonRecord,
-  model: string | null
-): string | null {
-  if (!model) return null;
-  const scope = getCodexModelScope(model);
-  const scopeMap = asRecord(providerSpecificData.codexScopeRateLimitedUntil);
-  const value = scopeMap[scope];
-  return typeof value === "string" && value.trim().length > 0 ? value : null;
-}
-
-function isCodexScopeUnavailable(
-  connection: ProviderConnectionView,
-  model: string | null
-): boolean {
-  const until = getCodexScopeRateLimitedUntil(connection.providerSpecificData, model);
-  if (!until) return false;
-  return new Date(until).getTime() > Date.now();
-}
-
-function getEarliestCodexScopeRateLimitedUntil(
-  connections: ProviderConnectionView[],
-  model: string | null
-): string | null {
-  let earliest: string | null = null;
-  let earliestMs = Infinity;
-
-  for (const conn of connections) {
-    const until = getCodexScopeRateLimitedUntil(conn.providerSpecificData, model);
-    if (!until) continue;
-    const ms = new Date(until).getTime();
-    if (!Number.isFinite(ms) || ms <= Date.now()) continue;
-    if (ms < earliestMs) {
-      earliest = until;
-      earliestMs = ms;
-    }
-  }
-
-  return earliest;
 }
 
 function normalizeStatus(value: string | null): string {
@@ -1017,6 +982,27 @@ export async function getProviderCredentials(
       connections = connections.filter((conn) => allowedConnections.includes(conn.id));
     }
 
+    const codexPoolsByConnectionIdForAffinity = new Map(
+      provider === "codex"
+        ? connections.map((connection) => {
+            const pool = createCodexAccountPool(connection);
+            return [pool.parent.connectionId, pool] as const;
+          })
+        : []
+    );
+    const isCodexScopeUnavailable = (
+      connection: ProviderConnectionView,
+      model: string | null
+    ): boolean => {
+      if (provider !== "codex" || typeof model !== "string" || model.trim().length === 0) {
+        return false;
+      }
+      const pool = codexPoolsByConnectionIdForAffinity.get(connection.id);
+      if (!pool) return false;
+      const state = inspectCodexAccount(pool, resolveCodexAccount(pool, model));
+      return state.kind === "child" && state.unavailable;
+    };
+
     // #5903: an active session-affinity pin outranks a per-request reset-aware
     // forcedConnectionId (see sessionAffinityPin leaf for the full rationale).
     forcedConnectionId =
@@ -1037,6 +1023,14 @@ export async function getProviderCredentials(
     if (forcedConnectionId) {
       connections = connections.filter((conn) => conn.id === forcedConnectionId);
     }
+    const codexAccountPools: CodexAccountPool[] =
+      provider === "codex"
+        ? connections.map((connection) => createCodexAccountPool(connection))
+        : [];
+    const codexPoolsByConnectionId = new Map(
+      codexAccountPools.map((pool) => [pool.parent.connectionId, pool])
+    );
+    const connectionsById = new Map(connections.map((connection) => [connection.id, connection]));
     const activeConnectionsCount = connections.length;
     const rawConnectionsCount = connectionsRaw.length;
     const blockedByForcedConnection = forcedConnectionId
@@ -1224,7 +1218,10 @@ export async function getProviderCredentials(
             : `  → ${c.id?.slice(0, 8)} | skipped terminal status=${c.testStatus}`
         );
       } else if (codexScopeLimited) {
-        const scopeUntil = getCodexScopeRateLimitedUntil(c.providerSpecificData, requestedModel);
+        const pool = codexPoolsByConnectionId.get(c.id);
+        const account = pool && resolveCodexAccount(pool, requestedModel);
+        const state = pool && account ? inspectCodexAccount(pool, account) : null;
+        const scopeUntil = state?.kind === "child" ? state.rateLimitedUntil : null;
         log.debug(
           "AUTH",
           allowSuppressedConnections
@@ -1245,11 +1242,16 @@ export async function getProviderCredentials(
     if (availableConnections.length === 0) {
       const cooldownStates: CooldownInspectionState[] = connections.map((connection) => {
         const connectionCooldownMs = parseFutureDateMs(connection.rateLimitedUntil);
+        const codexPool = codexPoolsByConnectionId.get(connection.id);
+        const codexAccount =
+          codexPool && typeof requestedModel === "string" && requestedModel.trim().length > 0
+            ? resolveCodexAccount(codexPool, requestedModel)
+            : null;
+        const codexState =
+          codexPool && codexAccount ? inspectCodexAccount(codexPool, codexAccount) : null;
         const codexScopeCooldownMs =
-          provider === "codex"
-            ? parseFutureDateMs(
-                getCodexScopeRateLimitedUntil(connection.providerSpecificData, requestedModel)
-              )
+          provider === "codex" && codexState?.kind === "child"
+            ? parseFutureDateMs(codexState.rateLimitedUntil)
             : null;
         const modelLockout = requestedModel
           ? getModelLockoutInfo(provider, connection.id, requestedModel)
@@ -1269,21 +1271,33 @@ export async function getProviderCredentials(
         };
       });
 
-      const cooldownCandidates = cooldownStates
-        .flatMap((state) => {
-          const candidates: Array<{ ms: number; connection: ProviderConnectionView }> = [];
-          if (state.connectionCooldownMs !== null) {
-            candidates.push({ ms: state.connectionCooldownMs, connection: state.connection });
-          }
-          if (state.codexScopeCooldownMs !== null) {
-            candidates.push({ ms: state.codexScopeCooldownMs, connection: state.connection });
-          }
-          if (state.retryableModelCooldownMs !== null) {
-            candidates.push({ ms: state.retryableModelCooldownMs, connection: state.connection });
-          }
-          return candidates;
-        })
-        .sort((a, b) => a.ms - b.ms);
+      const earliestCodexChildCooldown =
+        provider === "codex"
+          ? getEarliestCodexChildCooldown(codexAccountPools, requestedModel)
+          : null;
+      const cooldownCandidates = cooldownStates.flatMap((state) => {
+        const candidates: Array<{ ms: number; connection: ProviderConnectionView }> = [];
+        if (state.connectionCooldownMs !== null) {
+          candidates.push({ ms: state.connectionCooldownMs, connection: state.connection });
+        }
+        if (state.codexScopeCooldownMs !== null) {
+          candidates.push({ ms: state.codexScopeCooldownMs, connection: state.connection });
+        }
+        if (state.retryableModelCooldownMs !== null) {
+          candidates.push({ ms: state.retryableModelCooldownMs, connection: state.connection });
+        }
+        return candidates;
+      });
+      const earliestConnection = earliestCodexChildCooldown
+        ? connectionsById.get(earliestCodexChildCooldown.account.connectionId)
+        : undefined;
+      if (earliestCodexChildCooldown && earliestConnection) {
+        cooldownCandidates.push({
+          ms: new Date(earliestCodexChildCooldown.until).getTime(),
+          connection: earliestConnection,
+        });
+      }
+      cooldownCandidates.sort((a, b) => a.ms - b.ms);
 
       const allBlockedByModelCooldown =
         Boolean(requestedModel) &&
@@ -1896,11 +1910,16 @@ export async function markAccountUnavailable(
     }
 
     // T09: Codex scope-aware lockout guard (codex vs spark independent pools).
-    if (provider === "codex" && model) {
-      const scopeRateLimitedUntil = getCodexScopeRateLimitedUntil(
-        conn?.providerSpecificData || {},
-        model
-      );
+    if (provider === "codex" && typeof model === "string" && model.trim().length > 0) {
+      const codexPool = conn ? createCodexAccountPool(conn) : null;
+      const codexAccount =
+        codexPool && typeof model === "string" && model.trim().length > 0
+          ? resolveCodexAccount(codexPool, model)
+          : null;
+      const codexState =
+        codexPool && codexAccount ? inspectCodexAccount(codexPool, codexAccount) : null;
+      const scopeRateLimitedUntil =
+        codexState?.kind === "child" ? codexState.rateLimitedUntil : null;
       if (scopeRateLimitedUntil && new Date(scopeRateLimitedUntil).getTime() > Date.now()) {
         log.info(
           "AUTH",
@@ -2125,10 +2144,19 @@ export async function markAccountUnavailable(
     const errorMsg = typeof errorText === "string" ? errorText.slice(0, 100) : "Provider error";
 
     // T09: Codex per-scope lockout (do not block the whole account globally).
-    if (provider === "codex" && status === 429 && model && conn) {
+    if (
+      provider === "codex" &&
+      status === 429 &&
+      typeof model === "string" &&
+      model.trim().length > 0 &&
+      conn
+    ) {
       const scope = getCodexModelScope(model);
       const existingScopeMap = asRecord(conn.providerSpecificData.codexScopeRateLimitedUntil);
-      const persistedScopeUntil = getCodexScopeRateLimitedUntil(conn.providerSpecificData, model);
+      const codexPool = createCodexAccountPool(conn);
+      const codexAccount = resolveCodexAccount(codexPool, model);
+      const codexState = inspectCodexAccount(codexPool, codexAccount);
+      const persistedScopeUntil = codexState.kind === "child" ? codexState.rateLimitedUntil : null;
       const scopeRateLimitedUntil = persistedScopeUntil || getUnavailableUntil(cooldownMs);
       const scopeCooldownMs = Math.max(new Date(scopeRateLimitedUntil).getTime() - Date.now(), 0);
 

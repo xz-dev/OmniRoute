@@ -796,6 +796,41 @@ test("getProviderCredentials skips codex scope-limited accounts unless suppressi
   assert.equal(bypassed.connectionId, connection.id);
 });
 
+test("getProviderCredentials reports cooldown only from the forced Codex parent", async () => {
+  const earlierRetryAfter = futureIso(60_000);
+  const forcedRetryAfter = futureIso(120_000);
+  await seedConnection("codex", {
+    authType: "oauth",
+    name: "codex-earlier-spark-cooldown",
+    email: "codex-earlier@example.com",
+    apiKey: null,
+    accessToken: "codex-earlier-access",
+    refreshToken: "codex-earlier-refresh",
+    providerSpecificData: {
+      codexScopeRateLimitedUntil: { spark: earlierRetryAfter },
+    },
+  });
+  const forced = await seedConnection("codex", {
+    authType: "oauth",
+    name: "codex-forced-spark-cooldown",
+    email: "codex-forced@example.com",
+    apiKey: null,
+    accessToken: "codex-forced-access",
+    refreshToken: "codex-forced-refresh",
+    providerSpecificData: {
+      codexScopeRateLimitedUntil: { spark: forcedRetryAfter },
+    },
+  });
+
+  const selected = await auth.getProviderCredentials("codex", null, null, "codex-spark-mini", {
+    forcedConnectionId: forced.id,
+  });
+
+  assert.equal(selected.allRateLimited, true);
+  assert.equal(selected.connectionsCount, 1);
+  assert.equal(selected.retryAfter, forcedRetryAfter);
+});
+
 test("getProviderCredentials reports allRateLimited when every account is model-locked", async () => {
   const first = await seedConnection("gemini", {
     name: "gemini-model-lock-first",
