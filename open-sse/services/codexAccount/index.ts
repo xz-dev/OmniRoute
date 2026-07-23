@@ -1,6 +1,6 @@
 import { getCodexModelScope } from "../../config/codexQuotaScopes.ts";
 import {
-  getCodexAccountPoolState,
+  getCodexChildQuotaHydration,
   getEarliestCodexChildCooldown,
   inspectCodexAccount,
 } from "./state.ts";
@@ -10,6 +10,8 @@ import type {
   CodexAccountPool,
   CodexChildAccount,
   CodexParentAccount,
+  CodexAccountPoolProjection,
+  CodexQuotaWindowSnapshot,
 } from "./types.ts";
 
 function createParentAccount(connection: CodexAccountConnection): CodexParentAccount {
@@ -47,6 +49,66 @@ export function createCodexAccountPool(connection: CodexAccountConnection): Code
   };
 }
 
+/** Project one persisted connection into the safe parent/child account read model. */
+export function projectCodexAccountPool(
+  connection: CodexAccountConnection,
+  now = Date.now()
+): CodexAccountPoolProjection {
+  const pool = createCodexAccountPool(connection);
+  const children = pool.children.map((child) => {
+    const state = inspectCodexAccount(pool, child, now);
+    const hydration = getCodexChildQuotaHydration(child);
+    const quotaWindow = (window: "5h" | "7d"): CodexQuotaWindowSnapshot | null => {
+      const quota = hydration.quotaState;
+      if (!quota) return null;
+      const usage = quota[window === "5h" ? "usage5h" : "usage7d"];
+      const limit = quota[window === "5h" ? "limit5h" : "limit7d"];
+      const resetAt = quota[window === "5h" ? "resetAt5h" : "resetAt7d"] ?? null;
+      if (typeof usage !== "number" && typeof limit !== "number" && !resetAt) return null;
+      return {
+        usage: typeof usage === "number" ? usage : null,
+        limit: typeof limit === "number" ? limit : null,
+        resetAt,
+        usedPercentage:
+          typeof usage === "number" && typeof limit === "number" && limit > 0
+            ? (usage / limit) * 100
+            : null,
+      };
+    };
+    const cooldownActive = Boolean(
+      state.rateLimitedUntil && new Date(state.rateLimitedUntil).getTime() > now
+    );
+    const unavailable = cooldownActive || hydration.exhaustedWindow !== null;
+    return {
+      key: child.key,
+      unavailable,
+      cooldown: {
+        active: cooldownActive,
+        rateLimitedUntil: cooldownActive ? state.rateLimitedUntil : null,
+      },
+      quota: {
+        exhaustedWindow: hydration.exhaustedWindow,
+        observedAt: hydration.quotaState?.observedAt ?? null,
+        windows: { "5h": quotaWindow("5h"), "7d": quotaWindow("7d") },
+      },
+    };
+  }) as [CodexAccountPoolProjection["children"][0], CodexAccountPoolProjection["children"][1]];
+  const limitedChildCount = children.filter((child) => child.unavailable).length;
+  return {
+    parentConnectionId: connection.id,
+    aggregate: {
+      status:
+        limitedChildCount === 0
+          ? "available"
+          : limitedChildCount === children.length
+            ? "fully_limited"
+            : "partially_limited",
+      limitedChildCount,
+    },
+    children,
+  };
+}
+
 /** Resolve the scoped child whose quota owns a nonblank model, or the parent otherwise. */
 export function resolveCodexAccount(
   pool: CodexAccountPool,
@@ -80,6 +142,9 @@ export type {
   CodexChildAccountState,
   CodexChildCooldown,
   CodexChildQuotaHydration,
+  CodexAccountPoolProjection,
+  CodexChildAccountProjection,
+  CodexQuotaWindowSnapshot,
   CodexParentAccount,
   CodexParentAccountDiagnostic,
   CodexPersistedQuotaState,

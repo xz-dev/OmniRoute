@@ -6335,7 +6335,16 @@
     "savedModelEndpointSettings": "Saved model endpoint settings",
     "searchByModelAria": "Search by model",
     "selectSupportedEndpoint": "Select at least one supported endpoint",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "codexQuotaPools": "Codex quota pools",
+    "codexPoolAvailable": "Available",
+    "codexPoolPartiallyLimited": "Partially limited",
+    "codexPoolFullyLimited": "Fully limited",
+    "codexPoolLimited": "{count} limited",
+    "codexPoolQuotaExhausted": "Quota exhausted",
+    "codexPoolCoolingDown": "Cooling down",
+    "codexPoolUsed": "used",
+    "codexPoolUntil": "Until {value}"
   },
   "settings": {
     "title": "Settings",
