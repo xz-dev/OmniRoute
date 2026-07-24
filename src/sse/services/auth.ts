@@ -62,10 +62,10 @@ import {
 } from "@omniroute/open-sse/config/codexQuotaScopes.ts";
 import {
   createCodexAccountPool,
+  getCodexChildCooldown,
   getEarliestCodexChildCooldown,
-  inspectCodexAccount,
+  isCodexChildUnavailable,
   persistCodexChildCooldown,
-  resolveCodexAccount,
   type CodexAccountPool,
 } from "@omniroute/open-sse/services/codexAccount/index.ts";
 import {
@@ -1007,26 +1007,10 @@ export async function getProviderCredentials(
       connections = connections.filter((conn) => allowedConnections.includes(conn.id));
     }
 
-    const codexPoolsByConnectionIdForAffinity = new Map(
-      provider === "codex"
-        ? connections.map((connection) => {
-            const pool = createCodexAccountPool(connection);
-            return [pool.parent.connectionId, pool] as const;
-          })
-        : []
-    );
     const isCodexScopeUnavailable = (
       connection: ProviderConnectionView,
       model: string | null
-    ): boolean => {
-      if (provider !== "codex" || typeof model !== "string" || model.trim().length === 0) {
-        return false;
-      }
-      const pool = codexPoolsByConnectionIdForAffinity.get(connection.id);
-      if (!pool) return false;
-      const state = inspectCodexAccount(pool, resolveCodexAccount(pool, model));
-      return state.kind === "child" && state.unavailable;
-    };
+    ): boolean => provider === "codex" && isCodexChildUnavailable(connection, model);
 
     // #5903: an active session-affinity pin outranks a per-request reset-aware
     // forcedConnectionId (see sessionAffinityPin leaf for the full rationale).
@@ -1052,9 +1036,6 @@ export async function getProviderCredentials(
       provider === "codex"
         ? connections.map((connection) => createCodexAccountPool(connection))
         : [];
-    const codexPoolsByConnectionId = new Map(
-      codexAccountPools.map((pool) => [pool.parent.connectionId, pool])
-    );
     const connectionsById = new Map(connections.map((connection) => [connection.id, connection]));
     const activeConnectionsCount = connections.length;
     const rawConnectionsCount = connectionsRaw.length;
@@ -1249,10 +1230,7 @@ export async function getProviderCredentials(
             : `  → ${c.id?.slice(0, 8)} | skipped terminal status=${c.testStatus}`
         );
       } else if (codexScopeLimited) {
-        const pool = codexPoolsByConnectionId.get(c.id);
-        const account = pool && resolveCodexAccount(pool, requestedModel);
-        const state = pool && account ? inspectCodexAccount(pool, account) : null;
-        const scopeUntil = state?.kind === "child" ? state.rateLimitedUntil : null;
+        const scopeUntil = getCodexChildCooldown(c, requestedModel);
         log.debug(
           "AUTH",
           allowSuppressedConnections
@@ -1273,16 +1251,9 @@ export async function getProviderCredentials(
     if (availableConnections.length === 0) {
       const cooldownStates: CooldownInspectionState[] = connections.map((connection) => {
         const connectionCooldownMs = parseFutureDateMs(connection.rateLimitedUntil);
-        const codexPool = codexPoolsByConnectionId.get(connection.id);
-        const codexAccount =
-          codexPool && typeof requestedModel === "string" && requestedModel.trim().length > 0
-            ? resolveCodexAccount(codexPool, requestedModel)
-            : null;
-        const codexState =
-          codexPool && codexAccount ? inspectCodexAccount(codexPool, codexAccount) : null;
         const codexScopeCooldownMs =
-          provider === "codex" && codexState?.kind === "child"
-            ? parseFutureDateMs(codexState.rateLimitedUntil)
+          provider === "codex"
+            ? parseFutureDateMs(getCodexChildCooldown(connection, requestedModel))
             : null;
         const modelLockout = requestedModel
           ? getModelLockoutInfo(provider, connection.id, requestedModel)
@@ -1966,15 +1937,7 @@ export async function markAccountUnavailable(
 
     // T09: Codex scope-aware lockout guard (codex vs spark independent pools).
     if (provider === "codex" && typeof model === "string" && model.trim().length > 0) {
-      const codexPool = conn ? createCodexAccountPool(conn) : null;
-      const codexAccount =
-        codexPool && typeof model === "string" && model.trim().length > 0
-          ? resolveCodexAccount(codexPool, model)
-          : null;
-      const codexState =
-        codexPool && codexAccount ? inspectCodexAccount(codexPool, codexAccount) : null;
-      const scopeRateLimitedUntil =
-        codexState?.kind === "child" ? codexState.rateLimitedUntil : null;
+      const scopeRateLimitedUntil = conn ? getCodexChildCooldown(conn, model) : null;
       if (scopeRateLimitedUntil && new Date(scopeRateLimitedUntil).getTime() > Date.now()) {
         log.info(
           "AUTH",
@@ -2207,11 +2170,8 @@ export async function markAccountUnavailable(
       conn
     ) {
       const scope = getCodexModelScope(model);
-      const codexPool = createCodexAccountPool(conn);
-      const codexAccount = resolveCodexAccount(codexPool, model);
-      const codexState = inspectCodexAccount(codexPool, codexAccount);
-      const persistedScopeUntil = codexState.kind === "child" ? codexState.rateLimitedUntil : null;
-      const scopeRateLimitedUntil = persistedScopeUntil || getUnavailableUntil(cooldownMs);
+      const scopeRateLimitedUntil =
+        getCodexChildCooldown(conn, model) || getUnavailableUntil(cooldownMs);
       const scopeCooldownMs = Math.max(new Date(scopeRateLimitedUntil).getTime() - Date.now(), 0);
 
       await persistCodexChildCooldown({
