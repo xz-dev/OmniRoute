@@ -129,6 +129,34 @@ export function resolveCodexAccount(
   return pool.children.find((account) => account.scope === scope) || pool.parent;
 }
 
+function inspectResolvedCodexChild(
+  connection: CodexAccountConnection,
+  model: string | null | undefined,
+  now = Date.now()
+) {
+  const pool = createCodexAccountPool(connection);
+  const state = inspectCodexAccount(pool, resolveCodexAccount(pool, model), now);
+  return state.kind === "child" ? state : null;
+}
+
+/** Return whether the requested model's virtual child is currently unavailable. */
+export function isCodexChildUnavailable(
+  connection: CodexAccountConnection,
+  model: string | null | undefined,
+  now = Date.now()
+): boolean {
+  return inspectResolvedCodexChild(connection, model, now)?.unavailable ?? false;
+}
+
+/** Return the active cooldown for the requested model's virtual child. */
+export function getCodexChildCooldown(
+  connection: CodexAccountConnection,
+  model: string | null | undefined,
+  now = Date.now()
+): string | null {
+  return inspectResolvedCodexChild(connection, model, now)?.rateLimitedUntil ?? null;
+}
+
 export {
   getCodexAccountPoolState,
   getCodexChildQuotaHydration,
