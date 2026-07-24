@@ -1695,9 +1695,7 @@ export async function handleChatCore({
     finalCompressionBody?.messages ||
     body?.contents ||
     body?.request?.contents ||
-    (body?.input && typeof body.input === "object" && !Array.isArray(body.input)
-      ? body.input
-      : []);
+    (body?.input && typeof body.input === "object" && !Array.isArray(body.input) ? body.input : []);
   const finalEstimatedInputTokens =
     estimateTokens(finalMessages) +
     (Array.isArray(body?.tools) ? estimateTokens(body.tools) : 0) +

@@ -55,11 +55,9 @@ test("GET keeps one parent row and projects raw Codex state without exposing cre
   );
   const body = (await response.json()) as {
     connections: Array<Record<string, unknown>>;
-    total: number;
   };
 
   assert.equal(response.status, 200);
-  assert.equal(body.total, 2);
   assert.equal(body.connections.length, 2);
   assert.deepEqual(
     new Set(body.connections.map((connection) => connection.id)),

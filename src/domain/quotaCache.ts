@@ -290,7 +290,6 @@ export function hydrateCodexQuotaCacheForRequest(
   const hydration = getCodexChildQuotaHydration(account);
   if (!hydration.quotaState) return;
 
-  const { cache } = getState();
   const entry = cache.get(connection.id) ||
     hydrateQuotaCacheFromSnapshots(connection.id) || {
       connectionId: connection.id,
