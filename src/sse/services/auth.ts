@@ -84,12 +84,9 @@ import {
   toCodexScopedQuotaWindowName,
 } from "@omniroute/open-sse/config/codexQuotaScopes.ts";
 import {
-  createCodexAccountPool,
   getCodexChildCooldown,
-  getEarliestCodexChildCooldown,
   isCodexChildUnavailable,
   persistCodexChildCooldown,
-  type CodexAccountPool,
 } from "@omniroute/open-sse/services/codexAccount/index.ts";
 import {
   getProviderById,
@@ -1294,11 +1291,6 @@ export async function getProviderCredentials(
     if (forcedConnectionId) {
       connections = connections.filter((conn) => conn.id === forcedConnectionId);
     }
-    const codexAccountPools: CodexAccountPool[] =
-      provider === "codex"
-        ? connections.map((connection) => createCodexAccountPool(connection))
-        : [];
-    const connectionsById = new Map(connections.map((connection) => [connection.id, connection]));
     const activeConnectionsCount = connections.length;
     const rawConnectionsCount = connectionsRaw.length;
     const blockedByForcedConnection = forcedConnectionId
@@ -1566,41 +1558,24 @@ export async function getProviderCredentials(
             ? Date.now() + modelLockout.remainingMs
             : null;
 
-        return {
-          connection,
-          connectionCooldownMs,
-          codexScopeCooldownMs,
-          retryableModelCooldownMs,
-        };
+        return { connection, connectionCooldownMs, codexScopeCooldownMs, retryableModelCooldownMs };
       });
 
-      const earliestCodexChildCooldown =
-        provider === "codex"
-          ? getEarliestCodexChildCooldown(codexAccountPools, requestedModel)
-          : null;
-      const cooldownCandidates = cooldownStates.flatMap((state) => {
-        const candidates: Array<{ ms: number; connection: ProviderConnectionView }> = [];
-        if (state.connectionCooldownMs !== null) {
-          candidates.push({ ms: state.connectionCooldownMs, connection: state.connection });
-        }
-        if (state.codexScopeCooldownMs !== null) {
-          candidates.push({ ms: state.codexScopeCooldownMs, connection: state.connection });
-        }
-        if (state.retryableModelCooldownMs !== null) {
-          candidates.push({ ms: state.retryableModelCooldownMs, connection: state.connection });
-        }
-        return candidates;
-      });
-      const earliestConnection = earliestCodexChildCooldown
-        ? connectionsById.get(earliestCodexChildCooldown.account.connectionId)
-        : undefined;
-      if (earliestCodexChildCooldown && earliestConnection) {
-        cooldownCandidates.push({
-          ms: new Date(earliestCodexChildCooldown.until).getTime(),
-          connection: earliestConnection,
-        });
-      }
-      cooldownCandidates.sort((a, b) => a.ms - b.ms);
+      const cooldownCandidates = cooldownStates
+        .flatMap((state) => {
+          const candidates: Array<{ ms: number; connection: ProviderConnectionView }> = [];
+          if (state.connectionCooldownMs !== null) {
+            candidates.push({ ms: state.connectionCooldownMs, connection: state.connection });
+          }
+          if (state.codexScopeCooldownMs !== null) {
+            candidates.push({ ms: state.codexScopeCooldownMs, connection: state.connection });
+          }
+          if (state.retryableModelCooldownMs !== null) {
+            candidates.push({ ms: state.retryableModelCooldownMs, connection: state.connection });
+          }
+          return candidates;
+        })
+        .sort((a, b) => a.ms - b.ms);
 
       const allBlockedByModelCooldown =
         Boolean(requestedModel) &&
