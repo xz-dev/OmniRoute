@@ -26,6 +26,16 @@ jobs:
       contents: read
       packages: write
     steps:
+      - name: Validate image tag
+        env:
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          set -euo pipefail
+          if ! printf '%s' "$IMAGE_TAG" | grep -qE '^3\.8\.50-[a-z0-9]+([.-][a-z0-9]+)*$'; then
+            echo "Refusing image tag outside the 3.8.50 deployment namespace: $IMAGE_TAG" >&2
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v7
         with:
