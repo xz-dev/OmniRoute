@@ -5988,7 +5988,16 @@
     "ccAliasAddModelPlaceholder": "__MISSING__:Model id (e.g. gpt-4o)",
     "ccAliasAddModelButton": "__MISSING__:Add override",
     "ccAliasLoadError": "__MISSING__:Failed to load discovery-alias settings: {error}",
-    "ccAliasSaveError": "__MISSING__:Failed to save discovery-alias setting: {error}"
+    "ccAliasSaveError": "__MISSING__:Failed to save discovery-alias setting: {error}",
+    "codexQuotaPools": "Makundi ya mgao wa Codex",
+    "codexPoolAvailable": "Inapatikana",
+    "codexPoolPartiallyLimited": "Imewekewa kikomo kwa sehemu",
+    "codexPoolFullyLimited": "Imewekewa kikomo kikamilifu",
+    "codexPoolLimited": "{count} zimewekewa kikomo",
+    "codexPoolQuotaExhausted": "Mgao umeisha",
+    "codexPoolCoolingDown": "Katika kipindi cha kusubiri",
+    "codexPoolUsed": "imetumika",
+    "codexPoolUntil": "Hadi {value}"
   },
   "settings": {
     "title": "Settings",

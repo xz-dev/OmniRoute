@@ -6013,7 +6013,16 @@
     "ccAliasAddModelPlaceholder": "Id mô hình (ví dụ: gpt-4o)",
     "ccAliasAddModelButton": "Thêm ghi đè",
     "ccAliasLoadError": "Không tải được cài đặt bí danh khám phá: {error}",
-    "ccAliasSaveError": "Không lưu được cài đặt bí danh khám phá: {error}"
+    "ccAliasSaveError": "Không lưu được cài đặt bí danh khám phá: {error}",
+    "codexQuotaPools": "Nhóm hạn mức Codex",
+    "codexPoolAvailable": "Khả dụng",
+    "codexPoolPartiallyLimited": "Bị giới hạn một phần",
+    "codexPoolFullyLimited": "Bị giới hạn hoàn toàn",
+    "codexPoolLimited": "{count} mục bị giới hạn",
+    "codexPoolQuotaExhausted": "Đã hết hạn mức",
+    "codexPoolCoolingDown": "Đang trong thời gian chờ",
+    "codexPoolUsed": "đã dùng",
+    "codexPoolUntil": "Đến {value}"
   },
   "settings": {
     "title": "Cài đặt",

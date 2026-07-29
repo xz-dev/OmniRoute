@@ -5988,7 +5988,16 @@
     "ccAliasAddModelPlaceholder": "__MISSING__:Model id (e.g. gpt-4o)",
     "ccAliasAddModelButton": "__MISSING__:Add override",
     "ccAliasLoadError": "__MISSING__:Failed to load discovery-alias settings: {error}",
-    "ccAliasSaveError": "__MISSING__:Failed to save discovery-alias setting: {error}"
+    "ccAliasSaveError": "__MISSING__:Failed to save discovery-alias setting: {error}",
+    "codexQuotaPools": "Codex-kvotepuljer",
+    "codexPoolAvailable": "Tilgjengelig",
+    "codexPoolPartiallyLimited": "Delvis begrenset",
+    "codexPoolFullyLimited": "Fullstendig begrenset",
+    "codexPoolLimited": "{count} begrenset",
+    "codexPoolQuotaExhausted": "Kvoten er oppbrukt",
+    "codexPoolCoolingDown": "I nedkjølingsperiode",
+    "codexPoolUsed": "brukt",
+    "codexPoolUntil": "Til {value}"
   },
   "settings": {
     "title": "Innstillinger",

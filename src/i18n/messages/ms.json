@@ -5988,7 +5988,16 @@
     "ccAliasAddModelPlaceholder": "__MISSING__:Model id (e.g. gpt-4o)",
     "ccAliasAddModelButton": "__MISSING__:Add override",
     "ccAliasLoadError": "__MISSING__:Failed to load discovery-alias settings: {error}",
-    "ccAliasSaveError": "__MISSING__:Failed to save discovery-alias setting: {error}"
+    "ccAliasSaveError": "__MISSING__:Failed to save discovery-alias setting: {error}",
+    "codexQuotaPools": "Kumpulan kuota Codex",
+    "codexPoolAvailable": "Tersedia",
+    "codexPoolPartiallyLimited": "Dihadkan sebahagian",
+    "codexPoolFullyLimited": "Dihadkan sepenuhnya",
+    "codexPoolLimited": "{count} dihadkan",
+    "codexPoolQuotaExhausted": "Kuota telah habis",
+    "codexPoolCoolingDown": "Dalam tempoh menunggu",
+    "codexPoolUsed": "digunakan",
+    "codexPoolUntil": "Sehingga {value}"
   },
   "settings": {
     "title": "tetapan",

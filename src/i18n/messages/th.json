@@ -5988,7 +5988,16 @@
     "ccAliasAddModelPlaceholder": "__MISSING__:Model id (e.g. gpt-4o)",
     "ccAliasAddModelButton": "__MISSING__:Add override",
     "ccAliasLoadError": "__MISSING__:Failed to load discovery-alias settings: {error}",
-    "ccAliasSaveError": "__MISSING__:Failed to save discovery-alias setting: {error}"
+    "ccAliasSaveError": "__MISSING__:Failed to save discovery-alias setting: {error}",
+    "codexQuotaPools": "พูลโควตา Codex",
+    "codexPoolAvailable": "พร้อมใช้งาน",
+    "codexPoolPartiallyLimited": "ถูกจำกัดบางส่วน",
+    "codexPoolFullyLimited": "ถูกจำกัดทั้งหมด",
+    "codexPoolLimited": "ถูกจำกัด {count} รายการ",
+    "codexPoolQuotaExhausted": "โควตาหมดแล้ว",
+    "codexPoolCoolingDown": "อยู่ในช่วงพัก",
+    "codexPoolUsed": "ใช้แล้ว",
+    "codexPoolUntil": "จนถึง {value}"
   },
   "settings": {
     "title": "การตั้งค่า",

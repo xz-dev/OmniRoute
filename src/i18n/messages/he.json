@@ -5988,7 +5988,16 @@
     "ccAliasAddModelPlaceholder": "__MISSING__:Model id (e.g. gpt-4o)",
     "ccAliasAddModelButton": "__MISSING__:Add override",
     "ccAliasLoadError": "__MISSING__:Failed to load discovery-alias settings: {error}",
-    "ccAliasSaveError": "__MISSING__:Failed to save discovery-alias setting: {error}"
+    "ccAliasSaveError": "__MISSING__:Failed to save discovery-alias setting: {error}",
+    "codexQuotaPools": "מאגרי מכסות Codex",
+    "codexPoolAvailable": "זמין",
+    "codexPoolPartiallyLimited": "מוגבל חלקית",
+    "codexPoolFullyLimited": "מוגבל לחלוטין",
+    "codexPoolLimited": "{count} מוגבלים",
+    "codexPoolQuotaExhausted": "המכסה נוצלה",
+    "codexPoolCoolingDown": "בתקופת המתנה",
+    "codexPoolUsed": "בשימוש",
+    "codexPoolUntil": "עד {value}"
   },
   "settings": {
     "title": "הגדרות",
