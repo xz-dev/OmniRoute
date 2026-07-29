@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { Card, Button } from "@/shared/components";
 import { matchesSearch } from "@/shared/utils/turkishText";
 
-type ModelOverrideKey = "max_token";
+type ModelOverrideKey = "max_token" | "max_input_tokens" | "max_output_tokens";
 type StatusTone = "success" | "error" | "info";
 
 type ModelOverrideTarget = {
@@ -350,6 +350,8 @@ function ModelOverrideForm({
         className="sm:w-40 px-2 py-2 text-xs bg-bg-base border border-border rounded-md focus:outline-none focus:border-primary"
       >
         <option value="max_token">max_token</option>
+        <option value="max_input_tokens">max_input_tokens</option>
+        <option value="max_output_tokens">max_output_tokens</option>
       </select>
       <input
         type="number"
