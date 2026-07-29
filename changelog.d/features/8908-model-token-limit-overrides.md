@@ -1,0 +1,1 @@
+- **feat(models):** add exact per-model context, input, and output token-limit overrides across model discovery and runtime enforcement ([#8908](https://github.com/diegosouzapw/OmniRoute/pull/8908)) — thanks @xz-dev

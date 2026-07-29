@@ -9,7 +9,7 @@ import {
   type ModelCapabilityOverrideKey,
 } from "@/lib/db/modelCapabilityOverrides";
 
-const overrideKeySchema = z.enum(["max_token"]);
+const overrideKeySchema = z.enum(["max_token", "max_input_tokens", "max_output_tokens"]);
 
 const upsertOverrideSchema = z.object({
   target: z.string().min(3),
