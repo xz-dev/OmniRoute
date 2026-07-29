@@ -5988,7 +5988,16 @@
     "ccAliasAddModelPlaceholder": "__MISSING__:Model id (e.g. gpt-4o)",
     "ccAliasAddModelButton": "__MISSING__:Add override",
     "ccAliasLoadError": "__MISSING__:Failed to load discovery-alias settings: {error}",
-    "ccAliasSaveError": "__MISSING__:Failed to save discovery-alias setting: {error}"
+    "ccAliasSaveError": "__MISSING__:Failed to save discovery-alias setting: {error}",
+    "codexQuotaPools": "Codex 配额池",
+    "codexPoolAvailable": "可用",
+    "codexPoolPartiallyLimited": "部分受限",
+    "codexPoolFullyLimited": "全部受限",
+    "codexPoolLimited": "{count} 个受限",
+    "codexPoolQuotaExhausted": "配额已用尽",
+    "codexPoolCoolingDown": "冷却中",
+    "codexPoolUsed": "已使用",
+    "codexPoolUntil": "截至 {value}"
   },
   "settings": {
     "title": "设置",

@@ -5988,7 +5988,16 @@
     "ccAliasAddModelPlaceholder": "__MISSING__:Model id (e.g. gpt-4o)",
     "ccAliasAddModelButton": "__MISSING__:Add override",
     "ccAliasLoadError": "__MISSING__:Failed to load discovery-alias settings: {error}",
-    "ccAliasSaveError": "__MISSING__:Failed to save discovery-alias setting: {error}"
+    "ccAliasSaveError": "__MISSING__:Failed to save discovery-alias setting: {error}",
+    "codexQuotaPools": "Fondy kvót Codex",
+    "codexPoolAvailable": "Dostupný",
+    "codexPoolPartiallyLimited": "Částečně omezený",
+    "codexPoolFullyLimited": "Plně omezený",
+    "codexPoolLimited": "Omezeno: {count}",
+    "codexPoolQuotaExhausted": "Kvóta vyčerpána",
+    "codexPoolCoolingDown": "Probíhá čekací lhůta",
+    "codexPoolUsed": "využito",
+    "codexPoolUntil": "Do {value}"
   },
   "settings": {
     "title": "Nastavení",

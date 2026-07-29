@@ -5988,7 +5988,16 @@
     "ccAliasAddModelPlaceholder": "__MISSING__:Model id (e.g. gpt-4o)",
     "ccAliasAddModelButton": "__MISSING__:Add override",
     "ccAliasLoadError": "__MISSING__:Failed to load discovery-alias settings: {error}",
-    "ccAliasSaveError": "__MISSING__:Failed to save discovery-alias setting: {error}"
+    "ccAliasSaveError": "__MISSING__:Failed to save discovery-alias setting: {error}",
+    "codexQuotaPools": "Codex kota havuzları",
+    "codexPoolAvailable": "Kullanılabilir",
+    "codexPoolPartiallyLimited": "Kısmen sınırlı",
+    "codexPoolFullyLimited": "Tamamen sınırlı",
+    "codexPoolLimited": "{count} sınırlı",
+    "codexPoolQuotaExhausted": "Kota tükendi",
+    "codexPoolCoolingDown": "Bekleme süresinde",
+    "codexPoolUsed": "kullanıldı",
+    "codexPoolUntil": "{value} tarihine kadar"
   },
   "settings": {
     "title": "Ayarlar",

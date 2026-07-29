@@ -5988,7 +5988,16 @@
     "ccAliasAddModelPlaceholder": "__MISSING__:Model id (e.g. gpt-4o)",
     "ccAliasAddModelButton": "__MISSING__:Add override",
     "ccAliasLoadError": "__MISSING__:Failed to load discovery-alias settings: {error}",
-    "ccAliasSaveError": "__MISSING__:Failed to save discovery-alias setting: {error}"
+    "ccAliasSaveError": "__MISSING__:Failed to save discovery-alias setting: {error}",
+    "codexQuotaPools": "Codex कोटा पूल",
+    "codexPoolAvailable": "उपलब्ध",
+    "codexPoolPartiallyLimited": "आंशिक रूप से सीमित",
+    "codexPoolFullyLimited": "पूरी तरह सीमित",
+    "codexPoolLimited": "{count} सीमित",
+    "codexPoolQuotaExhausted": "कोटा समाप्त",
+    "codexPoolCoolingDown": "कूलडाउन जारी",
+    "codexPoolUsed": "उपयोग किया गया",
+    "codexPoolUntil": "{value} तक"
   },
   "settings": {
     "title": "सेटिंग्स",

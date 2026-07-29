@@ -5988,7 +5988,16 @@
     "ccAliasAddModelPlaceholder": "__MISSING__:Model id (e.g. gpt-4o)",
     "ccAliasAddModelButton": "__MISSING__:Add override",
     "ccAliasLoadError": "__MISSING__:Failed to load discovery-alias settings: {error}",
-    "ccAliasSaveError": "__MISSING__:Failed to save discovery-alias setting: {error}"
+    "ccAliasSaveError": "__MISSING__:Failed to save discovery-alias setting: {error}",
+    "codexQuotaPools": "Mga pool ng quota ng Codex",
+    "codexPoolAvailable": "Magagamit",
+    "codexPoolPartiallyLimited": "Bahagyang limitado",
+    "codexPoolFullyLimited": "Ganap na limitado",
+    "codexPoolLimited": "{count} limitado",
+    "codexPoolQuotaExhausted": "Ubos na ang quota",
+    "codexPoolCoolingDown": "Nasa panahon ng paghihintay",
+    "codexPoolUsed": "nagamit",
+    "codexPoolUntil": "Hanggang {value}"
   },
   "settings": {
     "title": "Mga setting",
