@@ -10,6 +10,7 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 const core = await import("../../src/lib/db/core.ts");
 const contextOverrides = await import("../../src/lib/db/modelContextOverrides.ts");
 const capabilityOverrides = await import("../../src/lib/db/modelCapabilityOverrides.ts");
+const models = await import("../../src/lib/db/models.ts");
 const providers = await import("../../src/lib/db/providers.ts");
 const catalog = await import("../../src/app/api/v1/models/catalog.ts");
 
@@ -79,6 +80,54 @@ test("v1 model catalog projects effective context, input, and output overrides a
     true
   );
   assert.notEqual((await getModel())?.max_output_tokens, sentinelOutput);
+});
+
+test("v1 model catalog replaces a synced Codex context with the exact persisted override", async () => {
+  const target = "codex/gpt-5.6-sol";
+  const connection = await providers.createProviderConnection({
+    provider: "codex",
+    authType: "oauth",
+    name: "codex-token-limit-catalog",
+    accessToken: "test-access-token",
+  });
+  assert.equal(typeof connection.id, "string");
+  await models.replaceSyncedAvailableModelsForConnection("codex", connection.id as string, [
+    {
+      id: "gpt-5.6-sol",
+      name: "GPT 5.6 Sol",
+      source: "provider",
+      supportedEndpoints: ["responses"],
+      inputTokenLimit: 272000,
+      outputTokenLimit: 128000,
+    },
+  ]);
+  assert.equal(
+    contextOverrides.setModelContextOverride("codex", "gpt-5.6-sol", LIMITS.context),
+    true
+  );
+  assert.equal(
+    capabilityOverrides.setModelCapabilityOverride(target, "max_input_tokens", LIMITS.input),
+    true
+  );
+  assert.equal(
+    capabilityOverrides.setModelCapabilityOverride(target, "max_output_tokens", LIMITS.output),
+    true
+  );
+
+  const projected = await getModel("cx/gpt-5.6-sol");
+  assert.ok(projected);
+  assert.deepEqual(
+    {
+      context_length: projected.context_length,
+      max_input_tokens: projected.max_input_tokens,
+      max_output_tokens: projected.max_output_tokens,
+    },
+    {
+      context_length: LIMITS.context,
+      max_input_tokens: LIMITS.input,
+      max_output_tokens: LIMITS.output,
+    }
+  );
 });
 
 test("v1 model catalog projects an exact raw-alias context override", async () => {
