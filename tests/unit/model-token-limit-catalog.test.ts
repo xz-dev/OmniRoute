@@ -82,7 +82,7 @@ test("v1 model catalog projects effective context, input, and output overrides a
   assert.notEqual((await getModel())?.max_output_tokens, sentinelOutput);
 });
 
-test("v1 model catalog replaces a synced Codex context with the exact persisted override", async () => {
+test("v1 model catalog projects a synced Codex context to both public aliases", async () => {
   const target = "codex/gpt-5.6-sol";
   const connection = await providers.createProviderConnection({
     provider: "codex",
@@ -114,20 +114,36 @@ test("v1 model catalog replaces a synced Codex context with the exact persisted 
     true
   );
 
-  const projected = await getModel("cx/gpt-5.6-sol");
-  assert.ok(projected);
-  assert.deepEqual(
-    {
-      context_length: projected.context_length,
-      max_input_tokens: projected.max_input_tokens,
-      max_output_tokens: projected.max_output_tokens,
-    },
-    {
-      context_length: LIMITS.context,
-      max_input_tokens: LIMITS.input,
-      max_output_tokens: LIMITS.output,
-    }
+  for (const publicId of ["cx/gpt-5.6-sol", "codex/gpt-5.6-sol"]) {
+    const projected = await getModel(publicId);
+    assert.ok(projected, `expected ${publicId} in the public catalog`);
+    assert.deepEqual(
+      {
+        context_length: projected.context_length,
+        max_input_tokens: projected.max_input_tokens,
+        max_output_tokens: projected.max_output_tokens,
+      },
+      {
+        context_length: LIMITS.context,
+        max_input_tokens: LIMITS.input,
+        max_output_tokens: LIMITS.output,
+      },
+      `${publicId} must retain the persisted Codex token-limit overrides`
+    );
+  }
+
+  const canonical = await getModel("codex/gpt-5.6-sol");
+  assert.equal(canonical?.type, "image");
+  assert.deepEqual(canonical?.output_modalities, ["image"]);
+  assert.ok(Array.isArray(canonical?.supported_sizes));
+
+  assert.equal(contextOverrides.removeModelContextOverride("codex", "gpt-5.6-sol"), true);
+  assert.equal(
+    (await getModel("codex/gpt-5.6-sol"))?.context_length,
+    undefined,
+    "the specialty row must not inherit the synced chat context after override removal"
   );
+  assert.equal((await getModel("cx/gpt-5.6-sol"))?.context_length, 272000);
 });
 
 test("v1 model catalog projects an exact raw-alias context override", async () => {

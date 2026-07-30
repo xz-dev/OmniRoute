@@ -427,12 +427,15 @@ export function enrichCatalogModelEntry<T extends JsonRecord>(
     typeof metadata.limits.contextWindow === "number"
   ) {
     nextEntry.context_length = metadata.limits.contextWindow;
+  } else if (specialtySurface && persistedContextWindow !== null) {
+    // Exact persisted overrides are authoritative for every surface of the model.
+    nextEntry.context_length = persistedContextWindow;
   } else if (
     specialtySurface &&
     authoritativeContextWindow !== null &&
     typeof authoritativeContextWindow === "number"
   ) {
-    // Only authoritative static windows may decorate specialty rows.
+    // Only authoritative static windows may otherwise decorate specialty rows.
     nextEntry.context_length = authoritativeContextWindow;
   } else if (specialtySurface && typeof nextEntry.context_length === "number") {
     // Keep an explicit source-provided context if the emitter already set one.
