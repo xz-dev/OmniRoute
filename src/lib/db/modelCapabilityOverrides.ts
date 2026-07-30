@@ -1,7 +1,7 @@
 import { getDbInstance } from "./core";
 import { invalidateDbCache } from "./readCache";
 
-export type ModelCapabilityOverrideKey = "max_token" | "max_input_tokens" | "max_output_tokens";
+export type ModelCapabilityOverrideKey = "max_input_tokens" | "max_output_tokens";
 
 export interface ModelCapabilityOverride {
   provider: string;
@@ -21,7 +21,7 @@ interface OverrideRow {
 }
 
 function isSupportedKey(value: unknown): value is ModelCapabilityOverrideKey {
-  return value === "max_token" || value === "max_input_tokens" || value === "max_output_tokens";
+  return value === "max_input_tokens" || value === "max_output_tokens";
 }
 
 function isPositiveInteger(value: unknown): value is number {

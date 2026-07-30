@@ -52,7 +52,7 @@ function buildRequest(maxTokens: number, content = "hello") {
 test.before(() => {
   core.resetDbInstance();
   assert.equal(
-    overridesDb.setModelCapabilityOverride(`${PROVIDER}/${MODEL}`, "max_token", OUTPUT_CAP),
+    overridesDb.setModelCapabilityOverride(`${PROVIDER}/${MODEL}`, "max_output_tokens", OUTPUT_CAP),
     true
   );
   assert.equal(

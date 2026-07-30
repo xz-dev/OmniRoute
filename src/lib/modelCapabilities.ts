@@ -488,7 +488,7 @@ function resolveVisionCapability(
 }
 
 /**
- * Issue #6524: an operator-set `max_token` capability override (see
+ * Issue #6524: an operator-set `max_output_tokens` capability override (see
  * `src/lib/db/modelCapabilityOverrides.ts`) is the manual escape hatch for a
  * wrong/stale synced `limit_output` value (e.g. a provider's models.dev catalog
  * row reporting `limit_output` equal to `limit_context`). It already won over the
@@ -508,7 +508,7 @@ function resolveVisionCapability(
  */
 function getCapabilityOverride(
   resolved: { provider: string | null; model: string | null; rawModel: string | null },
-  key: "max_input_tokens" | "max_output_tokens" | "max_token"
+  key: "max_input_tokens" | "max_output_tokens"
 ): number | null {
   const canonical = getModelCapabilityOverride(resolved.provider, resolved.model, key);
   if (canonical !== null) return canonical;
@@ -545,22 +545,17 @@ function getInputTokenCapabilityOverride(resolved: {
   return getCapabilityOverride(resolved, "max_input_tokens");
 }
 
-function getMaxTokenCapabilityOverride(resolved: {
+function getOutputTokenCapabilityOverride(resolved: {
   provider: string | null;
   model: string | null;
   rawModel: string | null;
 }): number | null {
-  // `max_output_tokens` is the specific output key and wins; the legacy
-  // `max_token` key remains an output-only compatibility fallback.
-  return (
-    getCapabilityOverride(resolved, "max_output_tokens") ??
-    getCapabilityOverride(resolved, "max_token")
-  );
+  return getCapabilityOverride(resolved, "max_output_tokens");
 }
 
 export function getExplicitModelOutputCap(input: CapabilityInput): number | null {
   const resolved = resolveCapabilityInput(input);
-  const maxTokenOverride = getMaxTokenCapabilityOverride(resolved);
+  const maxTokenOverride = getOutputTokenCapabilityOverride(resolved);
   if (maxTokenOverride !== null) return maxTokenOverride;
 
   const synced = getSyncedCapabilityForResolved(
@@ -648,7 +643,9 @@ export function getResolvedModelCapabilities(
     null;
 
   const maxInputOverride = usePersistedOverrides ? getInputTokenCapabilityOverride(resolved) : null;
-  const maxTokenOverride = usePersistedOverrides ? getMaxTokenCapabilityOverride(resolved) : null;
+  const maxTokenOverride = usePersistedOverrides
+    ? getOutputTokenCapabilityOverride(resolved)
+    : null;
 
   // Vision consults leaf static metadata for path-shaped ids; other capability
   // fields keep using the non-leaf `spec` from getStaticSpec() above.
