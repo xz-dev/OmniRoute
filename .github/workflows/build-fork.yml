@@ -7,7 +7,7 @@ on:
         description: "GHCR image tag to publish"
         required: true
         type: string
-        default: "3.8.50-pr8367-pr8908"
+        default: "3.8.50-pr8367-pr8728-pr8908"
 
 # Least-privilege default: read-only at the top level; the build job that pushes to
 # GHCR grants packages: write itself (Scorecard TokenPermissions).
