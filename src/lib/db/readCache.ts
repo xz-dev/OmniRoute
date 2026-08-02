@@ -259,7 +259,7 @@ export function invalidateModelCatalogCache(): void {
 
 /**
  * Invalidate caches (call after writes to any of: settings, pricing,
- * connections, combos, nodes).
+ * connections, combos, nodes, model capability/context metadata).
  *
  * When scope is `"connections"` and an `id` is provided, only that
  * connection's by-ID cache entry is invalidated (the filter-keyed raw
