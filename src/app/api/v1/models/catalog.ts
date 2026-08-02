@@ -110,6 +110,15 @@ import {
   resolveCachedCatalogResponse,
   type CatalogCachePolicy,
 } from "./catalogCache";
+// [DEBUG-catalog-profile-9199] temporary diagnostic helper — delete with this tag
+import {
+  catalogProfileConfiguredOnly,
+  catalogProfileEnsureRequestBuildId,
+  catalogProfileLog,
+  catalogProfileNow,
+  catalogProfilePrefixCategory,
+  createCatalogProfileSession,
+} from "./catalogProfileDebug";
 
 export {
   CATALOG_STALE_WHILE_REVALIDATE_MS,
@@ -136,6 +145,14 @@ export async function getUnifiedModelsResponse(
 ) {
   const diagnosticHeaders = getCatalogDiagnosticsHeaders({ request });
 
+  // [DEBUG-catalog-profile-9199] one buildId per Request across cache + core layers
+  const requestBuildId = catalogProfileEnsureRequestBuildId(request);
+  const requestProfile = createCatalogProfileSession("request-entry", requestBuildId);
+  requestProfile.mark("request-entry", {
+    prefixCategory: catalogProfilePrefixCategory(request),
+    configuredOnly: catalogProfileConfiguredOnly(request),
+  });
+
   // #6408 fast path: reject unauthorized callers first (auth state is per-request
   // and MUST NOT be cached), then coalesce identical concurrent requests + short-
   // TTL memoize the serialized JSON body.
@@ -148,9 +165,17 @@ export async function getUnifiedModelsResponse(
       ...corsHeaders,
       ...diagnosticHeaders,
     });
-    if (authRejection) return authRejection;
+    if (authRejection) {
+      // [DEBUG-catalog-profile-9199]
+      requestProfile.mark("auth-rejected", { status: authRejection.status });
+      return authRejection;
+    }
+    // [DEBUG-catalog-profile-9199]
+    requestProfile.mark("auth-complete");
   } catch {
     // Fall through to full builder on auth-check failure; core handles errors.
+    // [DEBUG-catalog-profile-9199]
+    requestProfile.mark("auth-complete");
   }
 
   // Best-effort cc-discovery usage metric — count every authorized GET /v1/models
@@ -161,13 +186,20 @@ export async function getUnifiedModelsResponse(
   }
 
   try {
-    return await resolveCachedCatalogResponse(
+    // [DEBUG-catalog-profile-9199]
+    requestProfile.mark("cache-resolution-entry");
+    const response = await resolveCachedCatalogResponse(
       request,
       { corsHeaders, diagnosticHeaders },
       buildCatalogPayload,
       cachePolicy
     );
+    // [DEBUG-catalog-profile-9199]
+    requestProfile.mark("cache-resolution-exit", { status: response.status });
+    return response;
   } catch (err) {
+    // [DEBUG-catalog-profile-9199]
+    requestProfile.mark("cache-resolution-exit", { status: 500 });
     // Hard rule #12: never put a raw err.message/err.stack in a response body.
     // Route it through the shared sanitizer instead — same status/type/code as
     // before, minus the stack-trace/path leak.
@@ -211,17 +243,36 @@ async function buildUnifiedModelsResponseCore(
   corsHeaders: Record<string, string> = {}
 ) {
   const diagnosticHeaders = getCatalogDiagnosticsHeaders({ request });
+  // [DEBUG-catalog-profile-9199] reuse the same Request-bound buildId (no new mint)
+  const coreBuildId = catalogProfileEnsureRequestBuildId(request);
+  const profile = createCatalogProfileSession("core-entry", coreBuildId);
+  const stopWatchdog = profile.startWatchdog();
   try {
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("settings", {
+      prefixCategory: catalogProfilePrefixCategory(request),
+      configuredOnly: catalogProfileConfiguredOnly(request),
+    });
     let settings: Record<string, any> = {};
     try {
       settings = await getSettings();
     } catch {}
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("settings-done");
 
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("auth");
     const authRejection = await getModelCatalogAuthRejection(request, settings, {
       ...corsHeaders,
       ...diagnosticHeaders,
     });
-    if (authRejection) return authRejection;
+    if (authRejection) {
+      // [DEBUG-catalog-profile-9199]
+      profile.mark("auth-done", { status: authRejection.status });
+      return authRejection;
+    }
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("auth-done");
     const { aliasToProviderId, providerIdToAlias } = buildAliasMaps();
     const _qp = new URL(request.url).searchParams.get("prefix");
     const prefixMode =
@@ -248,6 +299,8 @@ async function buildUnifiedModelsResponseCore(
     };
 
     // Get active provider connections
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("connections");
     let connections = [];
     let totalConnectionCount = 0; // Track if DB has ANY connections (even disabled)
     try {
@@ -259,14 +312,20 @@ async function buildUnifiedModelsResponseCore(
       // If database not available, show no provider models (safe default)
       console.log("[catalog] Could not fetch providers:", e);
     }
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("connections-done", { count: connections.length });
 
     // Get provider nodes (for compatible providers with custom prefixes)
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("provider-nodes");
     let providerNodes = [];
     try {
       providerNodes = await getCachedProviderNodes();
     } catch (e) {
       console.log("Could not fetch provider nodes");
     }
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("provider-nodes-done", { count: providerNodes.length });
 
     // Build map of provider node ID to prefix and type for compatible providers
     const providerIdToPrefix: Record<string, string> = {};
@@ -293,12 +352,16 @@ async function buildUnifiedModelsResponseCore(
       providerIdToPrefix[providerId] || canonicalProviderId;
 
     // Get combos
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("combos");
     let combos = [];
     try {
       combos = await getCombos();
     } catch (e) {
       console.log("Could not fetch combos");
     }
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("combos-done", { count: combos.length });
 
     // Build set of active provider aliases
     const activeAliases = new Set();
@@ -545,6 +608,8 @@ async function buildUnifiedModelsResponseCore(
     // Everything the quota path needs (`combos`, `timestamp`,
     // `buildComboCatalogMetadata`) already exists here, so return before the
     // provider/auto-combo/registry loops start.
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("api-key-metadata-filter");
     const earlyApiKey = extractApiKey(request);
     if (earlyApiKey) {
       const { getApiKeyMetadata } = await import("@/lib/db/apiKeys");
@@ -557,11 +622,15 @@ async function buildUnifiedModelsResponseCore(
           timestamp,
           (c) => buildComboCatalogMetadata(c, combos)
         );
+        // [DEBUG-catalog-profile-9199]
+        profile.mark("postfilters", { modelCount: quotaModels.length });
         const quotaFinal = applyCatalogPostFilters(request, quotaModels, {
           connections,
           prefixMode,
           aliasToProviderId,
         });
+        // [DEBUG-catalog-profile-9199]
+        profile.mark("finalization", { modelCount: quotaFinal.length });
         return finalizeCatalogResponse(request, quotaFinal, () => undefined, {
           ...corsHeaders,
           ...diagnosticHeaders,
@@ -578,6 +647,9 @@ async function buildUnifiedModelsResponseCore(
     // #4164 entry is emitted instead, so the id is never dropped.
     // #4235 Phase B: also advertise the curated `auto/<category>[:<tier>]` combos.
     // #6453: also advertise the `auto/<family>` combos (auto/glm, auto/minimax, ...).
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("builtin-auto");
+    let builtinAutoOrdinal = 0;
     for (const autoId of [
       ...Object.keys(AUTO_TEMPLATE_VARIANTS),
       ...AUTO_SUFFIX_VARIANTS,
@@ -599,6 +671,9 @@ async function buildUnifiedModelsResponseCore(
         root: autoId,
         parent: null,
       };
+      // [DEBUG-catalog-profile-9199]
+      const autoOrdinal = builtinAutoOrdinal++;
+      const autoItemStartedAt = catalogProfileNow();
       try {
         const suffix = autoId.replace(/^auto\/?/, "");
         const virtualCombo = await createBuiltinAutoCombo(autoId, suffix);
@@ -619,10 +694,25 @@ async function buildUnifiedModelsResponseCore(
       } catch (err) {
         console.log(`[catalog] Could not materialize built-in auto model ${autoId}:`, err);
         models.push(baseAutoEntry);
+      } finally {
+        // [DEBUG-catalog-profile-9199] log only slow single-item materializations
+        const autoDurationMs = catalogProfileNow() - autoItemStartedAt;
+        if (autoDurationMs > 250) {
+          catalogProfileLog({
+            stage: "builtin-auto-slow-item",
+            buildId: profile.buildId,
+            ordinal: autoOrdinal,
+            durationMs: autoDurationMs,
+          });
+        }
       }
     }
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("builtin-auto-done", { modelCount: models.length, count: builtinAutoOrdinal });
 
     // Add combos first (they appear at the top) — only active ones
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("combo-rows");
     for (const combo of combos) {
       if (combo.isActive === false || combo.isHidden === true) continue;
       if (typeof combo.name !== "string" || combo.name.length === 0) continue;
@@ -656,7 +746,11 @@ async function buildUnifiedModelsResponseCore(
         ...comboMetadata,
       });
     }
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("combo-rows-done", { modelCount: models.length });
 
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("synced-load");
     let syncedModelsByProvider: Record<string, SyncedAvailableModel[]> = {};
     try {
       syncedModelsByProvider = await getAllSyncedAvailableModels();
@@ -664,6 +758,10 @@ async function buildUnifiedModelsResponseCore(
       // DB unavailable — log and fall through; static models remain as defaults.
       console.log("[catalog] Could not fetch synced available models:", e);
     }
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("synced-load-done", {
+      count: Object.keys(syncedModelsByProvider).length,
+    });
     const providersWithSyncedModels = new Set(
       Object.keys(syncedModelsByProvider).filter((pid) => {
         if (providerUsesCuratedModelsOnly(pid)) return false;
@@ -685,6 +783,8 @@ async function buildUnifiedModelsResponseCore(
     };
 
     // Add provider models (chat)
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("static-provider-rows");
     for (const [alias, providerModels] of Object.entries(PROVIDER_MODELS)) {
       const providerId = aliasToProviderId[alias] || alias;
       const canonicalProviderId = resolveCanonicalProviderId(alias, providerId);
@@ -752,6 +852,10 @@ async function buildUnifiedModelsResponseCore(
       }
     }
 
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("static-provider-rows-done", { modelCount: models.length });
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("codex-rows");
     for (const modelId of CODEX_NATIVE_UNPREFIXED_MODELS) {
       if (!providerSupportsModel("codex", modelId)) continue;
       if (getModelIsHidden("codex", modelId)) continue;
@@ -779,6 +883,10 @@ async function buildUnifiedModelsResponseCore(
       }
     }
 
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("codex-rows-done", { modelCount: models.length });
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("synced-rows");
     try {
       for (const [providerId, syncedModels] of Object.entries(syncedModelsByProvider)) {
         if (providerUsesCuratedModelsOnly(providerId)) continue;
@@ -922,7 +1030,11 @@ async function buildUnifiedModelsResponseCore(
     } catch (err) {
       console.error("[catalog] Error fetching synced provider models:", err);
     }
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("synced-rows-done", { modelCount: models.length });
 
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("openrouter");
     if (
       activeAliases.has("openrouter") &&
       !blockedProviders.has("openrouter") &&
@@ -989,6 +1101,8 @@ async function buildUnifiedModelsResponseCore(
         console.error("[catalog] Error loading OpenRouter catalog:", err);
       }
     }
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("openrouter-done", { modelCount: models.length });
 
     // Helper: check if a provider is active (by provider id or alias)
     const isProviderActive = (provider: string) => {
@@ -1027,6 +1141,8 @@ async function buildUnifiedModelsResponseCore(
       });
 
     // Add embedding models (filtered by active providers)
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("specialty-registries");
     for (const embModel of getAllEmbeddingModels()) {
       if (!isProviderActive(embModel.provider)) continue;
       const rawModelId = embModel.id.startsWith(`${embModel.provider}/`)
@@ -1147,7 +1263,12 @@ async function buildUnifiedModelsResponseCore(
       });
     }
 
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("specialty-registries-done", { modelCount: models.length });
+
     // Add custom models (user-defined)
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("custom-models");
     try {
       const customModelsMap = (await getAllCustomModels()) as Record<string, unknown>;
       for (const [providerId, rawProviderCustomModels] of Object.entries(customModelsMap)) {
@@ -1282,6 +1403,8 @@ async function buildUnifiedModelsResponseCore(
     } catch (e) {
       console.log("Could not fetch custom models");
     }
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("custom-models-done", { modelCount: models.length });
 
     // Port of decolua/9router#730 — surface models registered ONLY through a model
     // alias (`key_value` namespace `modelAliases`, value `"<providerKey>/<modelId>"`).
@@ -1290,6 +1413,8 @@ async function buildUnifiedModelsResponseCore(
     // We respect the same gating as the static/custom listing path: provider must be
     // active (or noAuth+unblocked), model must not be hidden, and the canonical alias
     // entry must not already exist (so we don't shadow combo / synced / custom rows).
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("aliases");
     try {
       const modelAliases = await getModelAliases();
       const aliasBacked = extractAliasBackedModels(modelAliases);
@@ -1368,8 +1493,12 @@ async function buildUnifiedModelsResponseCore(
     } catch (e) {
       console.log("Could not fetch model aliases");
     }
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("aliases-done", { modelCount: models.length });
 
     // Add managed fallback models for compatible providers that don't import a model list.
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("managed-fallback");
     for (const conn of connections) {
       const providerId = typeof conn.provider === "string" ? conn.provider : null;
       if (!providerId) continue;
@@ -1415,7 +1544,12 @@ async function buildUnifiedModelsResponseCore(
       }
     }
 
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("managed-fallback-done", { modelCount: models.length });
+
     // Filter by API key permissions if requested
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("api-key-metadata-filter", { modelCount: models.length });
     const apiKey = extractApiKey(request);
     let finalModels = models;
     if (apiKey) {
@@ -1456,12 +1590,18 @@ async function buildUnifiedModelsResponseCore(
         finalModels = filtered;
       }
     }
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("api-key-metadata-filter-done", { modelCount: finalModels.length });
     // ?configuredOnly — hide models that have no eligible DB connection.
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("postfilters", { modelCount: finalModels.length });
     finalModels = applyCatalogPostFilters(request, finalModels, {
       connections,
       prefixMode,
       aliasToProviderId,
     });
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("postfilters-done", { modelCount: finalModels.length });
 
     const getDefaultContextFallback = (model: any): number | undefined => {
       if (typeof model.context_length === "number") return undefined;
@@ -1480,11 +1620,15 @@ async function buildUnifiedModelsResponseCore(
       return modelId ? getTokenLimit(canonicalId, modelId) : getTokenLimit(canonicalId);
     };
 
+    // [DEBUG-catalog-profile-9199]
+    profile.mark("finalization", { modelCount: finalModels.length });
     return finalizeCatalogResponse(request, finalModels, getDefaultContextFallback, {
       ...corsHeaders,
       ...diagnosticHeaders,
     });
   } catch (error) {
+    // [DEBUG-catalog-profile-9199] stage only — never log error/stack content
+    profile.mark("core-error");
     console.log("Error fetching models:", error);
     // Hard rule #12 — this is the realistically reachable 500 for the endpoint
     // (the wrapper's catch only fires on an in-flight rejection), so it must go
@@ -1502,5 +1646,8 @@ async function buildUnifiedModelsResponseCore(
         },
       }
     );
+  } finally {
+    // [DEBUG-catalog-profile-9199]
+    stopWatchdog();
   }
 }

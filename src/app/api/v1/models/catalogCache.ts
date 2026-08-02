@@ -17,6 +17,14 @@ import { extractApiKey } from "@/sse/services/auth";
 import { after } from "next/server";
 
 import { isCodexModelCatalogClient } from "./catalogRequest";
+// [DEBUG-catalog-profile-9199] temporary diagnostic helper — delete with this tag
+import {
+  catalogProfileConfiguredOnly,
+  catalogProfileEnsureRequestBuildId,
+  catalogProfileLog,
+  catalogProfileNow,
+  catalogProfilePrefixCategory,
+} from "./catalogProfileDebug";
 
 export type CachedCatalog = {
   body: string;
@@ -66,6 +74,7 @@ export const CATALOG_CACHE_TTL_MS_DEFAULT = 60_000;
 
 type CatalogInFlight = {
   generation: number;
+  buildId: number;
   promise: Promise<CatalogPayload>;
 };
 
@@ -76,6 +85,16 @@ let catalogGeneration = 0;
 let lastSeenCatalogCacheVersion = getModelCatalogCacheVersion();
 let staleWhileRevalidateMsAccessor = () => CATALOG_STALE_WHILE_REVALIDATE_MS;
 let _catalogBuilderRuns = 0;
+
+// [DEBUG-catalog-profile-9199] safe request-correlated fields for cache-layer logs
+function catalogProfileRequestContext(request: Request) {
+  return {
+    buildId: catalogProfileEnsureRequestBuildId(request),
+    prefixCategory: catalogProfilePrefixCategory(request),
+    configuredOnly: catalogProfileConfiguredOnly(request),
+    generation: catalogGeneration,
+  };
+}
 
 function defaultBackgroundRefreshScheduler(task: CatalogRefreshTask): void {
   // All production routes run in Next.js request context, including callers that transform the
@@ -163,9 +182,43 @@ function runBuilder(
   request: Request
 ): Promise<CatalogPayload> {
   _catalogBuilderRuns++;
+  // [DEBUG-catalog-profile-9199]
+  const ctx = catalogProfileRequestContext(request);
+  const startedAt = catalogProfileNow();
+  catalogProfileLog({
+    stage: "builder-start",
+    ...ctx,
+    elapsedMs: 0,
+  });
   try {
-    return Promise.resolve(buildPayload(request));
+    return Promise.resolve(buildPayload(request)).then(
+      (payload) => {
+        // [DEBUG-catalog-profile-9199]
+        catalogProfileLog({
+          stage: "builder-settle",
+          ...ctx,
+          elapsedMs: catalogProfileNow() - startedAt,
+          status: payload.status,
+        });
+        return payload;
+      },
+      (error) => {
+        // [DEBUG-catalog-profile-9199]
+        catalogProfileLog({
+          stage: "builder-reject",
+          ...ctx,
+          elapsedMs: catalogProfileNow() - startedAt,
+        });
+        return Promise.reject(error);
+      }
+    );
   } catch (error) {
+    // [DEBUG-catalog-profile-9199]
+    catalogProfileLog({
+      stage: "builder-reject",
+      ...ctx,
+      elapsedMs: catalogProfileNow() - startedAt,
+    });
     return Promise.reject(error);
   }
 }
@@ -182,12 +235,13 @@ function startSynchronousBuild(
   buildPayload: (request: Request) => Promise<CatalogPayload>
 ): CatalogInFlight {
   const generation = catalogGeneration;
+  const buildId = catalogProfileEnsureRequestBuildId(request);
   let inFlight!: CatalogInFlight;
   const promise = runBuilder(buildPayload, request).then((payload) => {
     storeSuccessfulPayload(cacheKey, payload, inFlight);
     return payload;
   });
-  inFlight = { generation, promise };
+  inFlight = { generation, buildId, promise };
   catalogInFlight.set(cacheKey, inFlight);
   inFlight.promise.then(
     () => cleanInFlight(cacheKey, inFlight),
@@ -204,10 +258,13 @@ function scheduleBackgroundRefresh(
 ): void {
   if (catalogInFlight.has(cacheKey)) return;
 
+  // [DEBUG-catalog-profile-9199]
+  const bgCtx = catalogProfileRequestContext(request);
   let resolveRefresh!: (payload: CatalogPayload) => void;
   let rejectRefresh!: (error: unknown) => void;
   const inFlight: CatalogInFlight = {
     generation: catalogGeneration,
+    buildId: bgCtx.buildId,
     promise: new Promise<CatalogPayload>((resolve, reject) => {
       resolveRefresh = resolve;
       rejectRefresh = reject;
@@ -219,12 +276,40 @@ function scheduleBackgroundRefresh(
   catalogInFlight.set(cacheKey, inFlight);
   void inFlight.promise.catch(() => {}); // background failures are always handled
 
+  // [DEBUG-catalog-profile-9199]
+  catalogProfileLog({
+    stage: "background-scheduler-start",
+    ...bgCtx,
+  });
+
   const task: CatalogRefreshTask = async () => {
+    // [DEBUG-catalog-profile-9199]
+    const taskStartedAt = catalogProfileNow();
+    const taskCtx = catalogProfileRequestContext(request);
+    const scheduledGeneration = inFlight.generation;
+    catalogProfileLog({
+      stage: "background-task-start",
+      ...taskCtx,
+      scheduledGeneration,
+      elapsedMs: 0,
+    });
     synchronizeCatalogGeneration();
+    const synchronizedTaskCtx = {
+      ...taskCtx,
+      generation: catalogGeneration,
+      scheduledGeneration,
+    };
     if (inFlight.generation !== catalogGeneration || catalogInFlight.get(cacheKey) !== inFlight) {
       // Hard invalidation or a deterministic test reset detached this scheduled task
       // before it started. Resolve its private bookkeeping promise without rebuilding.
       resolveRefresh({ body: "", headers: {}, status: 204, cacheTTL: 0 });
+      // [DEBUG-catalog-profile-9199]
+      catalogProfileLog({
+        stage: "background-task-settle",
+        ...synchronizedTaskCtx,
+        elapsedMs: catalogProfileNow() - taskStartedAt,
+        status: 204,
+      });
       return;
     }
 
@@ -232,9 +317,22 @@ function scheduleBackgroundRefresh(
       const payload = await runBuilder(buildPayload, request);
       storeSuccessfulPayload(cacheKey, payload, inFlight);
       resolveRefresh(payload);
+      // [DEBUG-catalog-profile-9199]
+      catalogProfileLog({
+        stage: "background-task-settle",
+        ...synchronizedTaskCtx,
+        elapsedMs: catalogProfileNow() - taskStartedAt,
+        status: payload.status,
+      });
     } catch (error) {
       console.error("[catalog] Background stale-while-revalidate refresh failed:", error);
       rejectRefresh(error);
+      // [DEBUG-catalog-profile-9199]
+      catalogProfileLog({
+        stage: "background-task-settle",
+        ...synchronizedTaskCtx,
+        elapsedMs: catalogProfileNow() - taskStartedAt,
+      });
     } finally {
       cleanInFlight(cacheKey, inFlight);
     }
@@ -266,7 +364,17 @@ export async function resolveCachedCatalogResponse(
   const now = Date.now();
   const cached = catalogCache.get(cacheKey);
 
+  // [DEBUG-catalog-profile-9199]
+  const resolveCtx = catalogProfileRequestContext(request);
+
   if (cached && cached.expiresAt > now) {
+    // [DEBUG-catalog-profile-9199]
+    catalogProfileLog({
+      stage: "cache-fresh",
+      cacheOutcome: "fresh",
+      ...resolveCtx,
+      status: cached.status,
+    });
     return new Response(cached.body, {
       status: cached.status,
       headers: mergeCatalogHeaders(corsHeaders, cached.headers, diagnosticHeaders),
@@ -281,6 +389,13 @@ export async function resolveCachedCatalogResponse(
     cached.status < 300 &&
     now - cached.expiresAt <= staleWhileRevalidateMs
   ) {
+    // [DEBUG-catalog-profile-9199]
+    catalogProfileLog({
+      stage: "cache-stale",
+      cacheOutcome: "stale",
+      ...resolveCtx,
+      status: cached.status,
+    });
     scheduleBackgroundRefresh(
       cacheKey,
       request,
@@ -295,7 +410,21 @@ export async function resolveCachedCatalogResponse(
 
   let inFlight = catalogInFlight.get(cacheKey);
   if (!inFlight) {
+    // [DEBUG-catalog-profile-9199]
+    catalogProfileLog({
+      stage: "cache-cold-new-build",
+      cacheOutcome: "cold",
+      ...resolveCtx,
+    });
     inFlight = startSynchronousBuild(cacheKey, request, buildPayload);
+  } else {
+    // [DEBUG-catalog-profile-9199]
+    catalogProfileLog({
+      stage: "cache-join-existing-inflight",
+      cacheOutcome: "joined",
+      ...resolveCtx,
+      joinedBuildId: inFlight.buildId,
+    });
   }
 
   const payload = await inFlight.promise;
@@ -357,6 +486,7 @@ export function __forceCatalogInFlightRejectionForTest(request: Request, error: 
   void promise.catch(() => {});
   catalogInFlight.set(buildCatalogCacheKey(request), {
     generation: catalogGeneration,
+    buildId: catalogProfileEnsureRequestBuildId(request),
     promise,
   });
 }
