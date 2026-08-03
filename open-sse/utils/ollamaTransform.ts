@@ -10,6 +10,11 @@ type PendingToolCall = {
 
 // Transform OpenAI SSE stream to Ollama JSON lines format
 export function transformToOllama(response, model) {
+  // Only successful SSE responses belong to the NDJSON transformer. Preserve errors,
+  // bodyless responses, and successful JSON responses without losing status/body/headers.
+  const contentType = String(response.headers?.get?.("content-type") || "").toLowerCase();
+  if (!response.ok || !response.body || !contentType.includes("text/event-stream")) return response;
+
   let buffer = "";
   let pendingToolCalls: Record<number, PendingToolCall> = {};
   const completedToolCalls: PendingToolCall[] = [];
@@ -47,7 +52,11 @@ export function transformToOllama(response, model) {
                 const toolCallId = tc.id != null ? String(tc.id) : tc.id;
 
                 // T37: Prevent merging tool_calls on same index if ID changes
-                if (pendingToolCalls[idx] && toolCallId && pendingToolCalls[idx].id !== toolCallId) {
+                if (
+                  pendingToolCalls[idx] &&
+                  toolCallId &&
+                  pendingToolCalls[idx].id !== toolCallId
+                ) {
                   completedToolCalls.push(pendingToolCalls[idx]);
                   delete pendingToolCalls[idx];
                 }
