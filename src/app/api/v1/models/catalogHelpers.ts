@@ -38,6 +38,16 @@ export type ComboTargetCatalogMetadata = {
   capabilities: Record<string, boolean | string[]>;
 };
 
+export type CatalogCapabilitySource = {
+  toolCalling: boolean;
+  reasoning: boolean;
+  vision?: boolean | null;
+  attachment?: boolean | null;
+  structuredOutput?: boolean | null;
+  temperature?: boolean | null;
+  supportsThinking?: boolean | null;
+};
+
 export function isPositiveFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
@@ -80,10 +90,44 @@ export function minKnownNumber(values: Array<number | undefined>): number | unde
   return Math.min(...knownValues);
 }
 
+export function resolveCatalogModalities(
+  syncedInputModalities: string[],
+  syncedOutputModalities: string[],
+  syncedAttachment?: boolean | null,
+  registrySupportsVision?: boolean | null,
+  specSupportsVision?: boolean | null
+): Pick<ComboTargetCatalogMetadata, "inputModalities" | "outputModalities"> {
+  const syncedVision =
+    typeof syncedAttachment === "boolean"
+      ? syncedAttachment
+      : syncedInputModalities.length > 0 || syncedOutputModalities.length > 0
+        ? [...syncedInputModalities, ...syncedOutputModalities].some((entry) =>
+            // eslint-disable-next-line no-restricted-syntax -- teknik string kontrolü, kullanıcı metni araması değil
+            entry.toLowerCase().includes("image")
+          )
+        : undefined;
+  const knownVision = syncedVision ?? registrySupportsVision ?? specSupportsVision;
+  return {
+    inputModalities:
+      syncedInputModalities.length > 0
+        ? syncedInputModalities
+        : knownVision === true
+          ? ["text", "image"]
+          : undefined,
+    outputModalities:
+      syncedOutputModalities.length > 0
+        ? syncedOutputModalities
+        : knownVision === true
+          ? ["text"]
+          : undefined,
+  };
+}
+
 export function getThinkingCapabilityFields(
   providerId: string,
   modelId: string,
-  resolvedThinking?: boolean | null
+  resolvedThinking?: boolean | null,
+  supportedThinkingEfforts?: readonly string[]
 ): Record<string, boolean | string[]> {
   const supportsThinking = resolvedThinking;
   if (typeof supportsThinking !== "boolean") return {};
@@ -92,10 +136,40 @@ export function getThinkingCapabilityFields(
     supportsThinking,
     ...(supportsThinking
       ? {
-          effort_tiers: extendCodexGpt56EffortValues(providerId, modelId, CANONICAL_EFFORT_VALUES),
+          effort_tiers:
+            supportedThinkingEfforts && supportedThinkingEfforts.length > 0
+              ? [...supportedThinkingEfforts]
+              : extendCodexGpt56EffortValues(providerId, modelId, CANONICAL_EFFORT_VALUES),
         }
       : {}),
   };
+}
+
+export function buildCatalogCapabilities(
+  providerId: string,
+  modelId: string,
+  source: CatalogCapabilitySource,
+  supportedThinkingEfforts?: readonly string[]
+): Record<string, boolean | string[]> {
+  const capabilities: Record<string, boolean | string[]> = {
+    tool_calling: source.toolCalling,
+    reasoning: source.reasoning,
+  };
+  if (typeof source.vision === "boolean") capabilities.vision = source.vision;
+  if (typeof source.attachment === "boolean") capabilities.attachment = source.attachment;
+  if (typeof source.structuredOutput === "boolean") {
+    capabilities.structured_output = source.structuredOutput;
+  }
+  if (typeof source.temperature === "boolean") capabilities.temperature = source.temperature;
+  return Object.assign(
+    capabilities,
+    getThinkingCapabilityFields(
+      providerId,
+      modelId,
+      source.supportsThinking,
+      supportedThinkingEfforts
+    )
+  );
 }
 
 export function mergeComboCapabilities(

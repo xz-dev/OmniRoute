@@ -72,7 +72,8 @@ import {
   intersectStringArrays,
   minKnownNumber,
   maybeOmitCatalogModelName,
-  getThinkingCapabilityFields,
+  resolveCatalogModalities,
+  buildCatalogCapabilities,
   mergeComboCapabilities,
 } from "./catalogHelpers";
 import {
@@ -431,54 +432,18 @@ async function buildUnifiedModelsResponseCore(
           ? spec.maxOutputTokens
           : undefined;
 
-      const syncedVision =
-        typeof synced?.attachment === "boolean"
-          ? synced.attachment
-          : syncedInputModalities.length > 0 || syncedOutputModalities.length > 0
-            ? [...syncedInputModalities, ...syncedOutputModalities].some((entry) =>
-                // eslint-disable-next-line no-restricted-syntax -- teknik string kontrolü, kullanıcı metni araması değil
-                entry.toLowerCase().includes("image")
-              )
-            : undefined;
-      const registryVision =
-        typeof registryModel?.supportsVision === "boolean"
-          ? registryModel.supportsVision
-          : undefined;
-      const specVision =
-        typeof spec?.supportsVision === "boolean" ? spec.supportsVision : undefined;
-      const knownVision = syncedVision ?? registryVision ?? specVision;
-
-      const inputModalities =
-        syncedInputModalities.length > 0
-          ? syncedInputModalities
-          : knownVision === true
-            ? ["text", "image"]
-            : undefined;
-      const outputModalities =
-        syncedOutputModalities.length > 0
-          ? syncedOutputModalities
-          : knownVision === true
-            ? ["text"]
-            : undefined;
-
-      const capabilities: Record<string, boolean | string[]> = {};
-      capabilities.tool_calling = canonical.capabilities.toolCalling;
-      capabilities.reasoning = canonical.capabilities.reasoning;
-      if (typeof canonical.capabilities.vision === "boolean") {
-        capabilities.vision = canonical.capabilities.vision;
-      }
-      if (typeof canonical.capabilities.attachment === "boolean") {
-        capabilities.attachment = canonical.capabilities.attachment;
-      }
-      if (typeof canonical.capabilities.structuredOutput === "boolean") {
-        capabilities.structured_output = canonical.capabilities.structuredOutput;
-      }
-      if (typeof canonical.capabilities.temperature === "boolean") {
-        capabilities.temperature = canonical.capabilities.temperature;
-      }
-      Object.assign(
-        capabilities,
-        getThinkingCapabilityFields(providerId, modelId, canonical.capabilities.supportsThinking)
+      const { inputModalities, outputModalities } = resolveCatalogModalities(
+        syncedInputModalities,
+        syncedOutputModalities,
+        synced?.attachment,
+        registryModel?.supportsVision,
+        spec?.supportsVision
+      );
+      const capabilities = buildCatalogCapabilities(
+        providerId,
+        modelId,
+        canonical.capabilities,
+        registryModel?.supportedThinkingEfforts
       );
 
       return {

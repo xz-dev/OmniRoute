@@ -353,6 +353,10 @@ export function enrichCatalogModelEntry<T extends JsonRecord>(
 
   const metadata = getCanonicalModelMetadata({ provider, model });
   if (!metadata) return entry;
+  const registryModel = getRegistryModel(
+    metadata.providerAlias || metadata.provider,
+    metadata.model
+  );
 
   const nextEntry: JsonRecord = { ...entry };
   const existingName = asNonEmptyString(entry.name);
@@ -389,11 +393,15 @@ export function enrichCatalogModelEntry<T extends JsonRecord>(
           supportsThinking: metadata.capabilities.supportsThinking,
           ...(metadata.capabilities.supportsThinking
             ? {
-                effort_tiers: extendCodexGpt56EffortValues(
-                  metadata.provider,
-                  metadata.model,
-                  CANONICAL_EFFORT_VALUES
-                ),
+                effort_tiers:
+                  registryModel?.supportedThinkingEfforts &&
+                  registryModel.supportedThinkingEfforts.length > 0
+                    ? [...registryModel.supportedThinkingEfforts]
+                    : extendCodexGpt56EffortValues(
+                        metadata.provider,
+                        metadata.model,
+                        CANONICAL_EFFORT_VALUES
+                      ),
               }
             : {}),
         }

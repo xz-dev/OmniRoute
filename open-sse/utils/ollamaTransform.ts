@@ -1,4 +1,5 @@
 import { CORS_HEADERS } from "./cors.ts";
+import { getReadableReasoningValue } from "./reasoningFields.ts";
 
 type PendingToolCall = {
   id?: string;
@@ -43,6 +44,7 @@ export function transformToOllama(response, model) {
             const parsed = JSON.parse(data);
             const delta = parsed.choices?.[0]?.delta || {};
             const content = delta.content || "";
+            const thinking = getReadableReasoningValue(delta);
             const toolCalls = delta.tool_calls;
 
             if (toolCalls) {
@@ -71,6 +73,16 @@ export function transformToOllama(response, model) {
                 if (tc.function?.arguments)
                   pendingToolCalls[idx].function.arguments += tc.function.arguments;
               }
+            }
+
+            if (thinking) {
+              const ollama =
+                JSON.stringify({
+                  model,
+                  message: { role: "assistant", content: "", thinking },
+                  done: false,
+                }) + "\n";
+              controller.enqueue(new TextEncoder().encode(ollama));
             }
 
             if (content) {
