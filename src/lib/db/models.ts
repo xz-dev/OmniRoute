@@ -5,9 +5,13 @@
  */
 
 import { getDbInstance } from "./core";
-import { backupDbFile } from "./backup";
 import { getProviderConnectionsCount } from "./providers";
 import { type JsonRecord, asRecord, toNonEmptyString, getKeyValue } from "./models/shared";
+import {
+  finishSyncedAvailableModelsWrite,
+  persistCanonicalSyncedAvailableModels,
+} from "./models/syncedAvailableModelPersistence";
+import { finishModelCatalogWriteWithBackup } from "./models/modelCatalogWriteSignals";
 import {
   readCompatList,
   writeCompatList,
@@ -101,7 +105,7 @@ export async function addCustomModel(
   tokenLimits: { inputTokenLimit?: number; outputTokenLimit?: number } = {},
   // #1904: optional manual vision-capability override for the "add custom model"
   // form — read back by getCustomVisionCapabilityFields() in the /v1/models catalog.
-  supportsVision?: boolean
+  supportsVision?: boolean,
 ) {
   const db = getDbInstance();
   const row = db
@@ -130,9 +134,9 @@ export async function addCustomModel(
   };
   models.push(model);
   db.prepare(
-    "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('customModels', ?, ?)"
+    "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('customModels', ?, ?)",
   ).run(providerId, JSON.stringify(models));
-  backupDbFile("pre-write");
+  finishModelCatalogWriteWithBackup();
   return model;
 }
 
@@ -154,7 +158,7 @@ export async function replaceCustomModels(
     supportsThinking?: boolean;
     targetFormat?: string;
   }>,
-  { allowEmpty = false }: { allowEmpty?: boolean } = {}
+  { allowEmpty = false }: { allowEmpty?: boolean } = {},
 ) {
   // Guard: skip destructive clear when the caller hasn't explicitly opted in.
   // This prevents callers from wiping manually added models when the
@@ -227,15 +231,15 @@ export async function replaceCustomModels(
 
   if (merged.length === 0) {
     db.prepare("DELETE FROM key_value WHERE namespace = 'customModels' AND key = ?").run(
-      providerId
+      providerId,
     );
   } else {
     db.prepare(
-      "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('customModels', ?, ?)"
+      "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('customModels', ?, ?)",
     ).run(providerId, JSON.stringify(merged));
   }
 
-  backupDbFile("pre-write");
+  finishModelCatalogWriteWithBackup();
   return merged;
 }
 
@@ -265,20 +269,20 @@ export async function deleteImportedCustomModels(providerId: string): Promise<st
 
   if (retained.length === 0) {
     db.prepare("DELETE FROM key_value WHERE namespace = 'customModels' AND key = ?").run(
-      providerId
+      providerId,
     );
   } else {
     db.prepare("UPDATE key_value SET value = ? WHERE namespace = 'customModels' AND key = ?").run(
       JSON.stringify(retained),
-      providerId
+      providerId,
     );
   }
 
   const removedIds = removed.flatMap((model) =>
-    typeof model.id === "string" && model.id ? [model.id] : []
+    typeof model.id === "string" && model.id ? [model.id] : [],
   );
   for (const modelId of removedIds) removeModelCompatOverride(providerId, modelId);
-  backupDbFile("pre-write");
+  finishModelCatalogWriteWithBackup();
   return removedIds;
 }
 
@@ -299,17 +303,17 @@ export async function removeCustomModel(providerId: string, modelId: string) {
 
   if (filtered.length === 0) {
     db.prepare("DELETE FROM key_value WHERE namespace = 'customModels' AND key = ?").run(
-      providerId
+      providerId,
     );
   } else {
     db.prepare("UPDATE key_value SET value = ? WHERE namespace = 'customModels' AND key = ?").run(
       JSON.stringify(filtered),
-      providerId
+      providerId,
     );
   }
 
   removeModelCompatOverride(providerId, modelId);
-  backupDbFile("pre-write");
+  finishModelCatalogWriteWithBackup();
   return true;
 }
 
@@ -360,8 +364,8 @@ function normalizeSyncedAvailableModel(model: unknown): SyncedAvailableModel | n
         new Set(
           record.supportedEndpoints
             .map((endpoint) => toNonEmptyString(endpoint))
-            .filter((endpoint): endpoint is string => Boolean(endpoint))
-        )
+            .filter((endpoint): endpoint is string => Boolean(endpoint)),
+        ),
       ).sort()
     : undefined;
 
@@ -382,7 +386,7 @@ function normalizeSyncedAvailableModel(model: unknown): SyncedAvailableModel | n
     ...(Array.isArray(record.supportedThinkingEfforts)
       ? {
           supportedThinkingEfforts: record.supportedThinkingEfforts.filter(
-            (effort): effort is string => typeof effort === "string" && effort.length > 0
+            (effort): effort is string => typeof effort === "string" && effort.length > 0,
           ),
         }
       : {}),
@@ -421,7 +425,7 @@ function normalizeSyncedAvailableModels(models: unknown): SyncedAvailableModel[]
  */
 export async function getSyncedAvailableModelsForConnection(
   providerId: string,
-  connectionId: string
+  connectionId: string,
 ): Promise<SyncedAvailableModel[]> {
   const db = getDbInstance();
   const key = `${providerId}:${connectionId}`;
@@ -442,12 +446,12 @@ export async function getSyncedAvailableModelsForConnection(
  * Get all synced available models for a provider, unioned across all connections.
  */
 export async function getSyncedAvailableModels(
-  providerId: string
+  providerId: string,
 ): Promise<SyncedAvailableModel[]> {
   const db = getDbInstance();
   const rows = db
     .prepare(
-      "SELECT key, value FROM key_value WHERE namespace = 'syncedAvailableModels' AND key LIKE ?"
+      "SELECT key, value FROM key_value WHERE namespace = 'syncedAvailableModels' AND key LIKE ?",
     )
     .all(`${providerId}:%`);
   const map = new Map<string, SyncedAvailableModel>();
@@ -466,13 +470,13 @@ export async function getSyncedAvailableModels(
  * Get synced available models for a provider grouped by connection id.
  */
 export async function getSyncedAvailableModelsByConnection(
-  providerId: string
+  providerId: string,
 ): Promise<Record<string, SyncedAvailableModel[]>> {
   const db = getDbInstance();
   const prefix = `${providerId}:`;
   const rows = db
     .prepare(
-      "SELECT key, value FROM key_value WHERE namespace = 'syncedAvailableModels' AND key LIKE ?"
+      "SELECT key, value FROM key_value WHERE namespace = 'syncedAvailableModels' AND key LIKE ?",
     )
     .all(`${prefix}%`);
   const result: Record<string, SyncedAvailableModel[]> = {};
@@ -543,7 +547,7 @@ export async function getActiveProvidersWithSyncedModel(modelId: string): Promis
            json_extract(synced_model.value, '$.id'),
            json_extract(synced_model.value, '$.name'),
            json_extract(synced_model.value, '$.model')
-         ) = ?`
+         ) = ?`,
     )
     .all(modelId) as Array<{ provider?: unknown }>;
 
@@ -559,9 +563,8 @@ export async function getActiveProvidersWithSyncedModel(modelId: string): Promis
 export async function replaceSyncedAvailableModelsForConnection(
   providerId: string,
   connectionId: string,
-  models: SyncedAvailableModelInput[]
+  models: SyncedAvailableModelInput[],
 ): Promise<SyncedAvailableModel[]> {
-  const db = getDbInstance();
   const key = `${providerId}:${connectionId}`;
   // #3199: drop ids the operator DELETED (trash) so a re-fetch does not re-import
   // a model that was explicitly removed.
@@ -571,18 +574,9 @@ export async function replaceSyncedAvailableModelsForConnection(
   // churning back on through the managed-alias path ("Auto Sync Enabling all
   // Models"). See getModelIsDeleted for the legacy-row caveat.
   const normalizedModels = normalizeSyncedAvailableModels(models).filter(
-    (m) => !getModelIsDeleted(providerId, m.id)
+    (m) => !getModelIsDeleted(providerId, m.id),
   );
-  if (normalizedModels.length === 0) {
-    db.prepare("DELETE FROM key_value WHERE namespace = 'syncedAvailableModels' AND key = ?").run(
-      key
-    );
-  } else {
-    db.prepare(
-      "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('syncedAvailableModels', ?, ?)"
-    ).run(key, JSON.stringify(normalizedModels));
-  }
-  backupDbFile("pre-write");
+  persistCanonicalSyncedAvailableModels(key, normalizedModels, normalizeSyncedAvailableModels);
   // Return the full unioned list for the provider
   return getSyncedAvailableModels(providerId);
 }
@@ -593,13 +587,13 @@ export async function replaceSyncedAvailableModelsForConnection(
  */
 export async function removeSyncedAvailableModel(
   providerId: string,
-  modelId: string
+  modelId: string,
 ): Promise<boolean> {
   const db = getDbInstance();
   const prefix = `${providerId}:`;
   const rows = db
     .prepare(
-      "SELECT key, value FROM key_value WHERE namespace = 'syncedAvailableModels' AND key LIKE ?"
+      "SELECT key, value FROM key_value WHERE namespace = 'syncedAvailableModels' AND key LIKE ?",
     )
     .all(`${prefix}%`);
 
@@ -623,20 +617,19 @@ export async function removeSyncedAvailableModel(
         removedAny = true;
         if (filtered.length === 0) {
           db.prepare(
-            "DELETE FROM key_value WHERE namespace = 'syncedAvailableModels' AND key = ?"
+            "DELETE FROM key_value WHERE namespace = 'syncedAvailableModels' AND key = ?",
           ).run(key);
         } else {
           db.prepare(
-            "UPDATE key_value SET value = ? WHERE namespace = 'syncedAvailableModels' AND key = ?"
+            "UPDATE key_value SET value = ? WHERE namespace = 'syncedAvailableModels' AND key = ?",
           ).run(JSON.stringify(filtered), key);
         }
       }
     }
-
-    if (removedAny) backupDbFile("pre-write");
   });
 
   removeModel();
+  if (removedAny) finishSyncedAvailableModelsWrite();
   return removedAny;
 }
 
@@ -646,14 +639,14 @@ export async function removeSyncedAvailableModel(
  */
 export async function deleteSyncedAvailableModelsForConnection(
   providerId: string,
-  connectionId: string
+  connectionId: string,
 ): Promise<SyncedAvailableModel[]> {
   const db = getDbInstance();
   const key = `${providerId}:${connectionId}`;
-  db.prepare("DELETE FROM key_value WHERE namespace = 'syncedAvailableModels' AND key = ?").run(
-    key
-  );
-  backupDbFile("pre-write");
+  const result = db
+    .prepare("DELETE FROM key_value WHERE namespace = 'syncedAvailableModels' AND key = ?")
+    .run(key);
+  if (result.changes > 0) finishSyncedAvailableModelsWrite();
   return getSyncedAvailableModels(providerId);
 }
 
@@ -663,7 +656,7 @@ export async function deleteSyncedAvailableModelsForConnection(
  */
 export async function cleanupProviderModelsAfterConnectionDelete(
   providerId: string,
-  connectionId: string
+  connectionId: string,
 ): Promise<{
   remainingConnections: number;
   removedImportedModelIds: string[];
@@ -671,7 +664,7 @@ export async function cleanupProviderModelsAfterConnectionDelete(
 }> {
   const remainingSyncedModels = await deleteSyncedAvailableModelsForConnection(
     providerId,
-    connectionId
+    connectionId,
   );
   const remainingConnections = getProviderConnectionsCount({ provider: providerId });
   const removedImportedModelIds =
@@ -689,11 +682,12 @@ export async function deleteSyncedAvailableModelsForProvider(providerId: string)
   const keyPrefix = `${providerId}:`;
   const result = db
     .prepare(
-      "DELETE FROM key_value WHERE namespace = 'syncedAvailableModels' AND substr(key, 1, ?) = ?"
+      "DELETE FROM key_value WHERE namespace = 'syncedAvailableModels' AND substr(key, 1, ?) = ?",
     )
     .run(keyPrefix.length, keyPrefix);
-  backupDbFile("pre-write");
-  return Number(result.changes || 0);
+  const changes = Number(result.changes || 0);
+  if (changes > 0) finishSyncedAvailableModelsWrite();
+  return changes;
 }
 
 /**
@@ -702,7 +696,7 @@ export async function deleteSyncedAvailableModelsForProvider(providerId: string)
  */
 export async function pruneStaleSyncedAvailableModelsForProvider(
   providerId: string,
-  allowedConnectionIds: string[]
+  allowedConnectionIds: string[],
 ): Promise<number> {
   const db = getDbInstance();
   if (allowedConnectionIds.length === 0) {
@@ -713,11 +707,12 @@ export async function pruneStaleSyncedAvailableModelsForProvider(
   const allowedKeys = allowedConnectionIds.map((id) => `${providerId}:${id}`);
   const result = db
     .prepare(
-      `DELETE FROM key_value WHERE namespace = 'syncedAvailableModels' AND key LIKE ? AND key NOT IN (${placeholders})`
+      `DELETE FROM key_value WHERE namespace = 'syncedAvailableModels' AND key LIKE ? AND key NOT IN (${placeholders})`,
     )
     .run(`${keyPrefix}%`, ...allowedKeys);
-  backupDbFile("pre-write");
-  return Number(result.changes || 0);
+  const changes = Number(result.changes || 0);
+  if (changes > 0) finishSyncedAvailableModelsWrite();
+  return changes;
 }
 
 /**
@@ -729,7 +724,7 @@ export async function pruneStaleSyncedAvailableModelsForProvider(
 function applyTriStateBooleanOverride(
   next: JsonRecord,
   updates: Record<string, unknown>,
-  field: string
+  field: string,
 ): void {
   if (!Object.prototype.hasOwnProperty.call(updates, field)) return;
   if (updates[field] === null) {
@@ -742,7 +737,7 @@ function applyTriStateBooleanOverride(
 export async function updateCustomModel(
   providerId: string,
   modelId: string,
-  updates: Record<string, unknown> = {}
+  updates: Record<string, unknown> = {},
 ) {
   const db = getDbInstance();
   const row = db
@@ -770,7 +765,7 @@ export async function updateCustomModel(
       currentCompat,
       updates.compatByProtocol as Partial<
         Record<ModelCompatProtocolKey, Partial<ModelCompatPerProtocol>>
-      >
+      >,
     );
     if (!compatByProtocolHasEntries(mergedCompat)) mergedCompat = undefined;
   }
@@ -815,10 +810,10 @@ export async function updateCustomModel(
 
   db.prepare("UPDATE key_value SET value = ? WHERE namespace = 'customModels' AND key = ?").run(
     JSON.stringify(models),
-    providerId
+    providerId,
   );
 
-  backupDbFile("pre-write");
+  finishModelCatalogWriteWithBackup();
   return next;
 }
 
@@ -847,7 +842,7 @@ function getCustomModelRow(providerId: string, modelId: string): JsonRecord | nu
           typeof x === "object" &&
           !Array.isArray(x) &&
           typeof (x as { id?: string }).id === "string" &&
-          ((x as { id: string }).id as string).toLowerCase() === modelId.toLowerCase()
+          ((x as { id: string }).id as string).toLowerCase() === modelId.toLowerCase(),
       )) as JsonRecord | undefined;
     return m ?? null;
   } catch {
@@ -864,7 +859,7 @@ function getCustomModelRow(providerId: string, modelId: string): JsonRecord | nu
 export function getModelNormalizeToolCallId(
   providerId: string,
   modelId: string,
-  sourceFormat?: string | null
+  sourceFormat?: string | null,
 ): boolean {
   const m = getCustomModelRow(providerId, modelId);
   const protocol = sourceFormat && isCompatProtocolKey(sourceFormat) ? sourceFormat : null;
@@ -897,7 +892,7 @@ export function getModelNormalizeToolCallId(
 export function getModelPreserveOpenAIDeveloperRole(
   providerId: string,
   modelId: string,
-  sourceFormat?: string | null
+  sourceFormat?: string | null,
 ): boolean | undefined {
   const m = getCustomModelRow(providerId, modelId);
   const protocol = sourceFormat && isCompatProtocolKey(sourceFormat) ? sourceFormat : null;
@@ -951,7 +946,7 @@ export function getHiddenModelsByProvider(): Map<string, Set<string>> {
   // Query all rows from key_value for both namespaces
   const rows = db
     .prepare(
-      "SELECT key, value FROM key_value WHERE namespace IN ('modelCompatOverrides', 'customModels')"
+      "SELECT key, value FROM key_value WHERE namespace IN ('modelCompatOverrides', 'customModels')",
     )
     .all() as Array<{ key: string; value: string | null }>;
 
@@ -1039,7 +1034,7 @@ export function setModelIsHidden(providerId: string, modelId: string, hidden: bo
 
 function readUpstreamFromJsonRecord(
   row: JsonRecord | null | undefined,
-  key: "upstreamHeaders"
+  key: "upstreamHeaders",
 ): Record<string, string> | undefined {
   if (!row) return undefined;
   const raw = row[key];
@@ -1061,7 +1056,7 @@ function readUpstreamFromJsonRecord(
 export function getModelUpstreamExtraHeaders(
   providerId: string,
   modelId: string,
-  sourceFormat?: string | null
+  sourceFormat?: string | null,
 ): Record<string, string> {
   const protocol = sourceFormat && isCompatProtocolKey(sourceFormat) ? sourceFormat : null;
   const m = getCustomModelRow(providerId, modelId);
@@ -1088,8 +1083,8 @@ export function getModelUpstreamExtraHeaders(
     Object.assign(
       base,
       sanitizeUpstreamHeadersMap(
-        co.compatByProtocol[protocol]!.upstreamHeaders as Record<string, unknown>
-      )
+        co.compatByProtocol[protocol]!.upstreamHeaders as Record<string, unknown>,
+      ),
     );
   }
   return base;
