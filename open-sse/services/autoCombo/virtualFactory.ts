@@ -395,7 +395,7 @@ async function attachPreparedCapabilityValues(
           provider: candidate.provider,
           model: candidate.model,
         },
-        state.resolutionSnapshot
+        { snapshot: state.resolutionSnapshot }
       );
       const maxOutputTokens = capabilities.maxOutputTokens;
       values = {
