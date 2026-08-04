@@ -143,13 +143,17 @@ test("#9199 capability data writes advance the model-catalog generation", () => 
 
   expectGenerationAdvance("setModelCapabilityOverride", () => {
     assert.equal(
-      capabilityOverrides.setModelCapabilityOverride("openai/gpt-5.4-mini", "max_token", 64000),
+      capabilityOverrides.setModelCapabilityOverride(
+        "openai/gpt-5.4-mini",
+        "max_output_tokens",
+        64000
+      ),
       true
     );
   });
   expectGenerationAdvance("removeModelCapabilityOverride", () => {
     assert.equal(
-      capabilityOverrides.removeModelCapabilityOverride("openai/gpt-5.4-mini", "max_token"),
+      capabilityOverrides.removeModelCapabilityOverride("openai/gpt-5.4-mini", "max_output_tokens"),
       true
     );
   });
@@ -212,7 +216,11 @@ test("#9199 a capability mutation during preparation detaches the obsolete gener
     "the mutation must occur while capability preparation is active"
   );
   assert.equal(
-    capabilityOverrides.setModelCapabilityOverride("openai/gpt-5.4-mini", "max_token", 64000),
+    capabilityOverrides.setModelCapabilityOverride(
+      "openai/gpt-5.4-mini",
+      "max_output_tokens",
+      64000
+    ),
     true
   );
 

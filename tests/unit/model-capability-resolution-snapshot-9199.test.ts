@@ -2,8 +2,8 @@
  * #9199 — build-local ModelCapabilityResolutionSnapshot parity.
  *
  * Snapshot-backed resolution must match ordinary on-demand resolvers for the
- * same pure chain (synced + max_token override + context override + alias
- * fallback + missing data). The snapshot must not flip models.dev's module-
+ * same pure chain (synced + max_input/max_output overrides + context override +
+ * alias fallback + missing data). The snapshot must not flip models.dev's module-
  * global all-row cache.
  */
 import test from "node:test";
@@ -100,8 +100,16 @@ function seedFixture() {
   assert.equal(
     capabilityOverrides.setModelCapabilityOverride(
       "parity-provider/parity-model",
-      "max_token",
+      "max_output_tokens",
       99999
+    ),
+    true
+  );
+  assert.equal(
+    capabilityOverrides.setModelCapabilityOverride(
+      "parity-provider/parity-model",
+      "max_input_tokens",
+      88888
     ),
     true
   );
@@ -113,15 +121,31 @@ function seedFixture() {
         "(provider, model_id, override_key, override_value, refreshed_at) " +
         "VALUES (?, ?, ?, ?, datetime('now'))"
     )
-    .run("parity-provider", "parity-model-bad", "max_token", "not-a-number");
+    .run("parity-provider", "parity-model-bad", "max_output_tokens", "not-a-number");
+  core
+    .getDbInstance()
+    .prepare(
+      "INSERT OR REPLACE INTO model_capability_overrides " +
+        "(provider, model_id, override_key, override_value, refreshed_at) " +
+        "VALUES (?, ?, ?, ?, datetime('now'))"
+    )
+    .run("parity-provider", "parity-model-bad-input", "max_input_tokens", "not-a-number");
 
   // Collision pairs that a delimiter-composed key would merge: (a, b\0c) vs (a\0b, c).
   assert.equal(
-    capabilityOverrides.setModelCapabilityOverride("a/b\u0000c", "max_token", 10101),
+    capabilityOverrides.setModelCapabilityOverride("a/b\u0000c", "max_output_tokens", 10101),
     true
   );
   assert.equal(
-    capabilityOverrides.setModelCapabilityOverride("a\u0000b/c", "max_token", 20202),
+    capabilityOverrides.setModelCapabilityOverride("a\u0000b/c", "max_output_tokens", 20202),
+    true
+  );
+  assert.equal(
+    capabilityOverrides.setModelCapabilityOverride("a/b\u0000c", "max_input_tokens", 11111),
+    true
+  );
+  assert.equal(
+    capabilityOverrides.setModelCapabilityOverride("a\u0000b/c", "max_input_tokens", 22222),
     true
   );
   assert.equal(contextOverrides.setModelContextOverride("a", "b\u0000c", 30303, "manual"), true);
@@ -134,17 +158,38 @@ function seedFixture() {
   assert.equal(aliasCanonical.model, "claude-opus-4-5-20251101");
   assert.notEqual(aliasCanonical.model, "claude-4.5-opus");
   assert.equal(
-    capabilityOverrides.setModelCapabilityOverride("github/claude-4.5-opus", "max_token", 77777),
+    capabilityOverrides.setModelCapabilityOverride(
+      "github/claude-4.5-opus",
+      "max_output_tokens",
+      77777
+    ),
+    true
+  );
+  assert.equal(
+    capabilityOverrides.setModelCapabilityOverride(
+      "github/claude-4.5-opus",
+      "max_input_tokens",
+      66666
+    ),
     true
   );
   assert.equal(
     capabilityOverrides.getModelCapabilityOverride(
       "github",
       "claude-opus-4-5-20251101",
-      "max_token"
+      "max_output_tokens"
     ),
     null,
     "override must exist only under the raw alias model id"
+  );
+  assert.equal(
+    capabilityOverrides.getModelCapabilityOverride(
+      "github",
+      "claude-opus-4-5-20251101",
+      "max_input_tokens"
+    ),
+    null,
+    "input override must exist only under the raw alias model id"
   );
 
   assert.equal(
@@ -200,7 +245,7 @@ function assertOrdinarySnapshotParity(
   });
   const snapshotCaps = modelCapabilities.getResolvedModelCapabilities(
     { provider, model: modelId },
-    snapshot
+    { snapshot }
   );
   assert.deepEqual(
     pickParityFields(snapshotCaps),
@@ -301,11 +346,17 @@ test("#9199 nested override maps keep delimiter-colliding pairs distinct", () =>
   const snapshot = modelCapabilities.createModelCapabilityResolutionSnapshot();
 
   // Delimiter-composed keys would merge these pairs; nested maps must not.
-  assert.equal(snapshot.maxTokenOverrides.get("a")?.get("b\u0000c"), 10101);
-  assert.equal(snapshot.maxTokenOverrides.get("a\u0000b")?.get("c"), 20202);
+  assert.equal(snapshot.maxOutputTokenOverrides.get("a")?.get("b\u0000c"), 10101);
+  assert.equal(snapshot.maxOutputTokenOverrides.get("a\u0000b")?.get("c"), 20202);
   assert.notEqual(
-    snapshot.maxTokenOverrides.get("a")?.get("b\u0000c"),
-    snapshot.maxTokenOverrides.get("a\u0000b")?.get("c")
+    snapshot.maxOutputTokenOverrides.get("a")?.get("b\u0000c"),
+    snapshot.maxOutputTokenOverrides.get("a\u0000b")?.get("c")
+  );
+  assert.equal(snapshot.maxInputTokenOverrides.get("a")?.get("b\u0000c"), 11111);
+  assert.equal(snapshot.maxInputTokenOverrides.get("a\u0000b")?.get("c"), 22222);
+  assert.notEqual(
+    snapshot.maxInputTokenOverrides.get("a")?.get("b\u0000c"),
+    snapshot.maxInputTokenOverrides.get("a\u0000b")?.get("c")
   );
 
   assert.equal(snapshot.contextOverrides.get("a")?.get("b\u0000c"), 30303);
@@ -319,8 +370,8 @@ test("#9199 nested override maps keep delimiter-colliding pairs distinct", () =>
     capabilityOverrides.getModelCapabilityOverride(
       "a",
       "b\u0000c",
-      "max_token",
-      snapshot.maxTokenOverrides
+      "max_output_tokens",
+      snapshot.maxOutputTokenOverrides
     ),
     10101
   );
@@ -328,10 +379,28 @@ test("#9199 nested override maps keep delimiter-colliding pairs distinct", () =>
     capabilityOverrides.getModelCapabilityOverride(
       "a\u0000b",
       "c",
-      "max_token",
-      snapshot.maxTokenOverrides
+      "max_output_tokens",
+      snapshot.maxOutputTokenOverrides
     ),
     20202
+  );
+  assert.equal(
+    capabilityOverrides.getModelCapabilityOverride(
+      "a",
+      "b\u0000c",
+      "max_input_tokens",
+      snapshot.maxInputTokenOverrides
+    ),
+    11111
+  );
+  assert.equal(
+    capabilityOverrides.getModelCapabilityOverride(
+      "a\u0000b",
+      "c",
+      "max_input_tokens",
+      snapshot.maxInputTokenOverrides
+    ),
+    22222
   );
   assert.equal(
     contextOverrides.getModelContextOverride("a", "b\u0000c", snapshot.contextOverrides),
@@ -346,14 +415,32 @@ test("#9199 nested override maps keep delimiter-colliding pairs distinct", () =>
   assertOrdinarySnapshotParity("a\u0000b", "c", snapshot, "collision pair (a\\0b, c)");
 
   assert.equal(
-    modelCapabilities.getResolvedModelCapabilities({ provider: "a", model: "b\u0000c" }, snapshot)
-      .maxOutputTokens,
+    modelCapabilities.getResolvedModelCapabilities(
+      { provider: "a", model: "b\u0000c" },
+      { snapshot }
+    ).maxOutputTokens,
     10101
   );
   assert.equal(
-    modelCapabilities.getResolvedModelCapabilities({ provider: "a\u0000b", model: "c" }, snapshot)
-      .maxOutputTokens,
+    modelCapabilities.getResolvedModelCapabilities(
+      { provider: "a\u0000b", model: "c" },
+      { snapshot }
+    ).maxOutputTokens,
     20202
+  );
+  assert.equal(
+    modelCapabilities.getResolvedModelCapabilities(
+      { provider: "a", model: "b\u0000c" },
+      { snapshot }
+    ).maxInputTokens,
+    11111
+  );
+  assert.equal(
+    modelCapabilities.getResolvedModelCapabilities(
+      { provider: "a\u0000b", model: "c" },
+      { snapshot }
+    ).maxInputTokens,
+    22222
   );
   assert.equal(modelCapabilities.getModelContextLimit("a", "b\u0000c", snapshot), 30303);
   assert.equal(modelCapabilities.getModelContextLimit("a\u0000b", "c", snapshot), 40404);
@@ -404,7 +491,7 @@ test("#9199 snapshot-backed resolution matches ordinary resolvers across resolut
     {
       provider: "github",
       model: "claude-4.5-opus",
-      label: "canonical model alias with rawModel-only max_token override",
+      label: "canonical model alias with rawModel-only max_output_tokens override",
     },
     {
       provider: "glm",
@@ -437,11 +524,27 @@ test("#9199 snapshot-backed resolution matches ordinary resolvers across resolut
   assert.equal(
     modelCapabilities.getResolvedModelCapabilities(
       { provider: "parity-provider", model: "parity-model" },
-      snapshot
+      { snapshot }
     ).maxOutputTokens,
     99999,
-    "max_token override must win over synced limit_output"
+    "max_output_tokens override must win over synced limit_output"
   );
+  assert.equal(
+    modelCapabilities.getResolvedModelCapabilities(
+      { provider: "parity-provider", model: "parity-model" },
+      { snapshot }
+    ).maxInputTokens,
+    88888,
+    "max_input_tokens override must win over synced limit_input / window"
+  );
+  // persistedOverrides:false may still use synced snapshot data but must ignore override maps.
+  const catalogView = modelCapabilities.getResolvedModelCapabilities(
+    { provider: "parity-provider", model: "parity-model" },
+    { snapshot, persistedOverrides: false }
+  );
+  assert.equal(catalogView.maxOutputTokens, 2222);
+  assert.equal(catalogView.maxInputTokens, 100000);
+  assert.equal(catalogView.contextWindow, 111111);
   assert.equal(
     modelCapabilities.getModelContextLimit("parity-provider", "parity-model", snapshot),
     555555,
@@ -450,7 +553,7 @@ test("#9199 snapshot-backed resolution matches ordinary resolvers across resolut
   assert.equal(
     modelCapabilities.getResolvedModelCapabilities(
       { provider: "opencode", model: "zen-only-model" },
-      snapshot
+      { snapshot }
     ).contextWindow,
     333333,
     "canonical opencode must resolve capabilities stored under opencode-zen"
@@ -458,31 +561,41 @@ test("#9199 snapshot-backed resolution matches ordinary resolvers across resolut
 
   const aliasResolved = modelCapabilities.getResolvedModelCapabilities(
     { provider: "github", model: "claude-4.5-opus" },
-    snapshot
+    { snapshot }
   );
   assert.equal(aliasResolved.rawModel, "claude-4.5-opus");
   assert.equal(aliasResolved.model, "claude-opus-4-5-20251101");
   assert.equal(
     aliasResolved.maxOutputTokens,
     77777,
-    "max_token override stored only under rawModel must still apply after alias resolution"
+    "max_output_tokens override stored only under rawModel must still apply after alias resolution"
+  );
+  assert.equal(
+    aliasResolved.maxInputTokens,
+    66666,
+    "max_input_tokens override stored only under rawModel must still apply after alias resolution"
   );
   const canonicalOnly = modelCapabilities.getResolvedModelCapabilities(
     { provider: "github", model: "claude-opus-4-5-20251101" },
-    snapshot
+    { snapshot }
   );
   assert.equal(canonicalOnly.rawModel, "claude-opus-4-5-20251101");
   assert.equal(canonicalOnly.model, "claude-opus-4-5-20251101");
   assert.notEqual(
     canonicalOnly.maxOutputTokens,
     77777,
-    "canonical id alone must not invent the rawModel-only max_token override"
+    "canonical id alone must not invent the rawModel-only max_output_tokens override"
+  );
+  assert.notEqual(
+    canonicalOnly.maxInputTokens,
+    66666,
+    "canonical id alone must not invent the rawModel-only max_input_tokens override"
   );
 
   // Registry-backed pins: glm-5-turbo is absent from MODEL_SPECS.
   const registryResolved = modelCapabilities.getResolvedModelCapabilities(
     { provider: "glm", model: "glm-5-turbo" },
-    snapshot
+    { snapshot }
   );
   assert.equal(registryResolved.contextWindow, 200000);
   assert.equal(registryResolved.maxOutputTokens, 131072);
@@ -491,14 +604,14 @@ test("#9199 snapshot-backed resolution matches ordinary resolvers across resolut
   assert.equal(
     modelCapabilities.getResolvedModelCapabilities(
       { provider: "missing-provider", model: "gpt-4o-mini" },
-      snapshot
+      { snapshot }
     ).maxOutputTokens,
     staticSpec.maxOutputTokens
   );
   assert.equal(
     modelCapabilities.getResolvedModelCapabilities(
       { provider: "missing-provider", model: "gpt-4o-mini" },
-      snapshot
+      { snapshot }
     ).contextWindow,
     staticSpec.contextWindow
   );
@@ -516,15 +629,20 @@ test("#9199 snapshot-backed resolution matches ordinary resolvers across resolut
   assert.equal(
     modelCapabilities.getResolvedModelCapabilities(
       { provider: "missing-provider", model: "missing-model" },
-      snapshot
+      { snapshot }
     ).contextWindow,
     null
   );
   assert.equal(contextManager.getTokenLimit("missing-provider", "missing-model", snapshot), 128000);
 
   assert.equal(
-    snapshot.maxTokenOverrides.get("parity-provider")?.has("parity-model-bad") ?? false,
+    snapshot.maxOutputTokenOverrides.get("parity-provider")?.has("parity-model-bad") ?? false,
     false,
-    "malformed max_token rows must be filtered from the bulk map"
+    "malformed max_output_tokens rows must be filtered from the bulk map"
+  );
+  assert.equal(
+    snapshot.maxInputTokenOverrides.get("parity-provider")?.has("parity-model-bad-input") ?? false,
+    false,
+    "malformed max_input_tokens rows must be filtered from the bulk map"
   );
 });

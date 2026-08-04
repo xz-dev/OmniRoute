@@ -6,7 +6,8 @@
  * module-global all-row cache, and ordinary runtime callers keep on-demand DB reads.
  *
  * Override maps are nested by provider then model so provider/model pairs cannot
- * collide via delimiter composition.
+ * collide via delimiter composition. Capability overrides keep separate maps for
+ * `max_input_tokens` and `max_output_tokens` (loaded from one list query).
  */
 import { listModelCapabilityOverrides } from "@/lib/db/modelCapabilityOverrides";
 import { listModelContextOverrides } from "@/lib/db/modelContextOverrides";
@@ -20,7 +21,8 @@ export type NestedOverrideMap = ReadonlyMap<string, ReadonlyMap<string, number>>
 
 export interface ModelCapabilityResolutionSnapshot {
   readonly synced: CapabilitiesByProvider;
-  readonly maxTokenOverrides: NestedOverrideMap;
+  readonly maxInputTokenOverrides: NestedOverrideMap;
+  readonly maxOutputTokenOverrides: NestedOverrideMap;
   readonly contextOverrides: NestedOverrideMap;
 }
 
@@ -42,14 +44,21 @@ function setNestedOverride(
  * Load all three capability tables in one uninterrupted JS turn.
  * Callers must not yield between the bulk reads if they need a coherent view;
  * existing catalog generation guards remain authoritative across later yields.
+ *
+ * Capability overrides are split into input/output maps after a single list read
+ * so SQL cost stays one prepare/all per table, not one per override key.
  */
 export function createModelCapabilityResolutionSnapshot(): ModelCapabilityResolutionSnapshot {
   const synced = loadAllSyncedCapabilitiesUncached();
 
-  const maxTokenOverrides = new Map<string, Map<string, number>>();
+  const maxInputTokenOverrides = new Map<string, Map<string, number>>();
+  const maxOutputTokenOverrides = new Map<string, Map<string, number>>();
   for (const entry of listModelCapabilityOverrides()) {
-    if (entry.key !== "max_token") continue;
-    setNestedOverride(maxTokenOverrides, entry.provider, entry.modelId, entry.value);
+    if (entry.key === "max_input_tokens") {
+      setNestedOverride(maxInputTokenOverrides, entry.provider, entry.modelId, entry.value);
+    } else if (entry.key === "max_output_tokens") {
+      setNestedOverride(maxOutputTokenOverrides, entry.provider, entry.modelId, entry.value);
+    }
   }
 
   const contextOverrides = new Map<string, Map<string, number>>();
@@ -59,7 +68,8 @@ export function createModelCapabilityResolutionSnapshot(): ModelCapabilityResolu
 
   return {
     synced,
-    maxTokenOverrides,
+    maxInputTokenOverrides,
+    maxOutputTokenOverrides,
     contextOverrides,
   };
 }
