@@ -63,21 +63,21 @@ function toOverride(row: OverrideRow): ModelCapabilityOverride | null {
   };
 }
 
-/** Nested provider → model → max_token map used by build-local snapshots. */
-export type NestedMaxTokenOverrideMap = ReadonlyMap<string, ReadonlyMap<string, number>>;
+/** Nested provider → model → value map used by build-local snapshots (per key). */
+export type NestedCapabilityOverrideMap = ReadonlyMap<string, ReadonlyMap<string, number>>;
 
 export function getModelCapabilityOverride(
   provider: string | null | undefined,
   modelId: string | null | undefined,
   key: ModelCapabilityOverrideKey,
-  bulkMaxTokenOverrides?: NestedMaxTokenOverrideMap | null
+  bulkOverrides?: NestedCapabilityOverrideMap | null
 ): number | null {
   const target = parseModelOverrideTarget(`${provider || ""}/${modelId || ""}`);
   if (!target || !isSupportedKey(key)) return null;
 
-  if (bulkMaxTokenOverrides) {
-    if (key !== "max_token") return null;
-    return bulkMaxTokenOverrides.get(target.provider)?.get(target.modelId) ?? null;
+  // Caller supplies the bulk map for this exact override key.
+  if (bulkOverrides) {
+    return bulkOverrides.get(target.provider)?.get(target.modelId) ?? null;
   }
 
   try {
