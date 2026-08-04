@@ -144,6 +144,79 @@ test("transformToOllama leaves successful non-SSE responses untouched", async ()
   assert.deepEqual(await result.json(), body);
 });
 
+test("transformToOllama emits reasoning aliases as native thinking", async () => {
+  const inputSSE = [
+    `data: ${JSON.stringify({
+      choices: [{ index: 0, delta: { reasoning: "plan ", content: "" } }],
+    })}\n`,
+    `data: ${JSON.stringify({
+      choices: [{ index: 0, delta: { reasoning: "carefully", content: "answer" } }],
+    })}\n`,
+    `data: ${JSON.stringify({
+      choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+    })}\n`,
+  ].join("");
+
+  const mockResponse = new Response(
+    new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(inputSSE));
+        controller.close();
+      },
+    }),
+    { headers: { "Content-Type": "text/event-stream" } }
+  );
+
+  const lines = (await transformToOllama(mockResponse, "gpt-oss:20b").text())
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line));
+  const thinking = lines.filter((line) => typeof line.message?.thinking === "string");
+  const content = lines.filter((line) => line.message?.content === "answer");
+
+  assert.deepEqual(
+    thinking.map((line) => line.message.thinking),
+    ["plan ", "carefully"]
+  );
+  assert.equal(
+    thinking.every((line) => line.message.content === ""),
+    true
+  );
+  assert.equal(content.length, 1);
+  assert.equal(content[0].message.thinking, undefined);
+});
+
+test("transformToOllama prefers reasoning_content without duplicating aliases", async () => {
+  const inputSSE = `data: ${JSON.stringify({
+    choices: [
+      {
+        index: 0,
+        delta: { reasoning_content: "canonical", reasoning: "alias" },
+        finish_reason: "stop",
+      },
+    ],
+  })}\n`;
+  const mockResponse = new Response(
+    new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(inputSSE));
+        controller.close();
+      },
+    }),
+    { headers: { "Content-Type": "text/event-stream" } }
+  );
+
+  const lines = (await transformToOllama(mockResponse, "test-model").text())
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line));
+
+  assert.deepEqual(
+    lines.filter((line) => line.message?.thinking).map((line) => line.message.thinking),
+    ["canonical"]
+  );
+});
+
 test("transformToOllama merges multi-chunk numeric tool_call id", async () => {
   const inputSSE = [
     `data: ${JSON.stringify({
