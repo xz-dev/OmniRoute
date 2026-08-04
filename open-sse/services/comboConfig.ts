@@ -61,8 +61,8 @@ export function isComboCooldownWaitEligible(
  * When the combo is wait-eligible (see isComboCooldownWaitEligible), a single target's
  * dispatch can legitimately wait out cooldowns for up to `comboCooldownWait.budgetMs`
  * before it resolves — so the per-target timeout must never be shorter than that budget,
- * or the wait gets cut off mid-retry and the target times out with a synthetic 524
- * (open-sse/services/combo/targetTimeoutRunner.ts) instead of completing the wait. This
+ * or the wait gets cut off mid-retry and the target times out with a synthetic 504
+ * (`combo_target_timeout`, open-sse/services/combo/targetTimeoutRunner.ts) instead of completing the wait. This
  * only raises the *default* floor; an operator's explicit `targetTimeoutMs` on the combo
  * still wins (see resolveComboTargetTimeoutMs).
  */
