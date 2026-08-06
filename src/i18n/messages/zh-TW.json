@@ -4917,7 +4917,7 @@
     "baseUrlHint": "必填。 提供者 API 基本 URL。",
     "iconUrlLabel": "圖示網址",
     "iconUrlHint": "選用。顯示為此提供者圖示的圖片網址。",
-    "iconUrlInvalid": "圖示網址無效。請使用 http(s):// 或 data:image/*;base64 URL。"
+    "iconUrlInvalid": "圖示網址無效。請使用 http(s):// 或 data:image/*;base64 URL。",
     "anthropicPrefixPlaceholder": "ac-prod",
     "openaiPrefixPlaceholder": "oc-prod",
     "anthropicBaseUrlPlaceholder": "https://api.anthropic.com/v1",
