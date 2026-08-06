@@ -8,6 +8,7 @@ import {
   CLIENT_IDENTITY_PROFILE_OPTIONS,
   getClientIdentityProfileHeaders,
 } from "@/shared/constants/clientIdentityProfiles";
+import { isValidProviderIconUrl } from "@/shared/validation/iconUrl";
 
 type CompatibleMode = "openai" | "anthropic" | "cc";
 type CompatibleProviderNode = { id: string } & Record<string, unknown>;
@@ -104,6 +105,7 @@ export default function AddCompatibleProviderModal({
     null | { valid: boolean; error?: string | null; method?: string | null }
   >(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [iconUrlError, setIconUrlError] = useState<string | null>(null);
 
   const apiTypeOptions = useMemo(
     () => [
@@ -123,6 +125,7 @@ export default function AddCompatibleProviderModal({
     setValidationResult(null);
     setCheckKey("");
     setShowAdvanced(false);
+    setIconUrlError(null);
   }, [isOpen, mode]);
 
   const modalTitle =
@@ -177,6 +180,15 @@ export default function AddCompatibleProviderModal({
 
   const handleSubmit = async () => {
     if (!hasRequiredFields) return;
+    // Field-level icon URL validation before blind submission — mirrors the
+    // shared server-side validator so invalid input is surfaced inline instead
+    // of failing only after the request round-trip.
+    const iconUrl = formData.iconUrl.trim();
+    if (!isValidProviderIconUrl(iconUrl)) {
+      setIconUrlError(t("iconUrlInvalid"));
+      return;
+    }
+    setIconUrlError(null);
     setSubmitting(true);
     try {
       const body: Record<string, unknown> = {
@@ -189,7 +201,7 @@ export default function AddCompatibleProviderModal({
       if (defaults.hasApiType) body.apiType = formData.apiType;
       if (defaults.hasModelsPath) body.modelsPath = formData.modelsPath || "";
       if (defaults.compatMode) body.compatMode = defaults.compatMode;
-      body.iconUrl = formData.iconUrl.trim();
+      body.iconUrl = iconUrl;
       // Merge the selected identity profile's preset headers into the SAME
       // `customHeaders` field the node already persists (see
       // src/lib/db/providers/nodes.ts + open-sse/executors/default.ts
@@ -294,9 +306,14 @@ export default function AddCompatibleProviderModal({
         <Input
           label={t("iconUrlLabel")}
           value={formData.iconUrl}
-          onChange={(e) => setFormData({ ...formData, iconUrl: e.target.value })}
+          onChange={(e) => {
+            setFormData({ ...formData, iconUrl: e.target.value });
+            // Clear the inline error as soon as the operator starts typing again.
+            if (iconUrlError) setIconUrlError(null);
+          }}
           placeholder="https://example.com/logo.png"
           hint={t("iconUrlHint")}
+          error={iconUrlError || undefined}
         />
 
         <button
