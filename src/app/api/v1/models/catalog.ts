@@ -1354,7 +1354,16 @@ async function buildUnifiedModelsResponseCore(
           continue;
         }
 
-        const alias = providerIdToAlias[canonicalProviderId] || providerKey;
+        // #8958: honor the compatible-provider node prefix (as the synced/custom
+        // loops do) so an alias-backed entry publishes `prefix/model` instead of the
+        // raw provider-node UUID. Without the providerIdToPrefix lookup, `alias` fell
+        // through to `providerKey` (the UUID) and the dedupe below — which only checks
+        // `alias/model` and `providerKey/model`, both UUID-prefixed — never matched the
+        // correct `prefix/model` row already emitted, leaking a duplicate UUID entry
+        // even under MODELS_CATALOG_PREFIX_MODE=alias.
+        const nodePrefix =
+          providerIdToPrefix[providerKey] || providerIdToPrefix[canonicalProviderId];
+        const alias = nodePrefix || providerIdToAlias[canonicalProviderId] || providerKey;
         if (
           !activeAliases.has(alias) &&
           !activeAliases.has(canonicalProviderId) &&
@@ -1396,6 +1405,7 @@ async function buildUnifiedModelsResponseCore(
         if (
           includeCanonical &&
           canonicalProviderId !== alias &&
+          !nodePrefix &&
           !isNoAuthProviderKey(canonicalProviderId) &&
           prefixRoutesToProvider(canonicalProviderId, canonicalProviderId)
         ) {
