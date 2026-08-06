@@ -254,6 +254,25 @@ describe("issue #9557: model overrides expose configured provider prefix, not no
     );
   });
 
+  it("GET filters stale overrides for deleted compatible nodes", async () => {
+    const staleNodeId = "openai-compatible-chat-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    assert.equal(
+      overrides.setModelCapabilityOverride(`${staleNodeId}/gpt-4o`, "max_output_tokens", 321),
+      true
+    );
+
+    const get = await overrideRoute.GET(
+      new Request("http://localhost/api/model-capability-overrides")
+    );
+    const payload = (await get.json()) as {
+      overrides: Array<{ target: string }>;
+    };
+    assert.ok(
+      !payload.overrides.some((entry) => entry.target.includes(staleNodeId)),
+      "deleted compatible node UUID must not be exposed"
+    );
+  });
+
   it("GET/PATCH/DELETE JSON responses never leak the node UUID for a prefixed node", async () => {
     await seedNodeWithSyncedModel("gpt-4o");
     await overrideRoute.PATCH(

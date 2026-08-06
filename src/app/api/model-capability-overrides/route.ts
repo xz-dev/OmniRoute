@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { resolveProviderAlias } from "@omniroute/open-sse/services/model.ts";
+import {
+  isAnthropicCompatibleProvider,
+  isOpenAICompatibleProvider,
+} from "@/shared/constants/providers";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import {
   listModelCapabilityOverrides,
@@ -59,6 +63,17 @@ async function listPublicOverrides(
   const merged = [...capabilityOverrides, ...contextOverrides];
   return merged
     .filter((override) => {
+      // Overrides can outlive a deleted compatible node. Never expose the
+      // generated internal ID for such stale rows because no public prefix can
+      // be resolved for them anymore.
+      if (
+        (isOpenAICompatibleProvider(override.provider) ||
+          isAnthropicCompatibleProvider(override.provider)) &&
+        !compatibleNodeIds.has(override.provider)
+      ) {
+        return false;
+      }
+
       // A compatible node that is NOT the unique non-reserved prefix winner is
       // ineligible for Model Overrides: never surface it under a generated node
       // UUID. Eligible winners are those in `eligibleNodeIds` (routable via
