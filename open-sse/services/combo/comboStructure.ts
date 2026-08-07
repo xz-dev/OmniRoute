@@ -13,10 +13,7 @@
 
 import { getModelContextLimit } from "../../../src/lib/modelCapabilities";
 import { getComboModelString, normalizeComboStep } from "../../../src/lib/combos/steps.ts";
-import {
-  getProviderByAlias,
-  getProviderById,
-} from "../../../src/shared/constants/providers.ts";
+import { getProviderByAlias, getProviderById } from "../../../src/shared/constants/providers.ts";
 import { estimateTokens } from "../contextManager.ts";
 import { getResolvedModelCapabilities } from "../modelCapabilities.ts";
 import { parseModel } from "../model.ts";
@@ -103,6 +100,14 @@ function normalizeRuntimeStep(
   const executionKey = buildExecutionKey(path, step.id);
   const label = typeof step.label === "string" ? step.label : null;
   const weight = step.weight || 0;
+  const stepRecord = step as unknown as Record<string, unknown>;
+  const offlineCondition: unknown = stepRecord.offlineCondition;
+  const offlineCooldownMs =
+    typeof stepRecord.offlineCooldownMs === "number" ? stepRecord.offlineCooldownMs : undefined;
+  const offlineRule: { offlineCondition?: unknown; offlineCooldownMs?: number } = {
+    ...(offlineCondition !== undefined ? { offlineCondition } : {}),
+    ...(offlineCooldownMs !== undefined ? { offlineCooldownMs } : {}),
+  };
 
   if (step.kind === "combo-ref") {
     return {
@@ -112,6 +117,7 @@ function normalizeRuntimeStep(
       comboName: step.comboName,
       weight,
       label,
+      ...offlineRule,
     };
   }
 
@@ -135,6 +141,8 @@ function normalizeRuntimeStep(
       : {}),
     weight,
     label,
+    prompt: typeof stepRecord.prompt === "string" ? stepRecord.prompt : null,
+    ...offlineRule,
   } satisfies ResolvedComboTarget;
 }
 

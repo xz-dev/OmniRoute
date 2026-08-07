@@ -13,6 +13,7 @@ import {
   isForbiddenCustomHeaderName,
 } from "@/shared/constants/upstreamHeaders";
 import { MAX_TIMER_TIMEOUT_MS } from "@/shared/utils/runtimeTimeouts";
+import { validateOfflineCondition } from "@omniroute/open-sse/services/combo/offlineRule.ts";
 
 // ──── Combo Schemas ────
 
@@ -22,26 +23,60 @@ export const comboStepMetaSchema = {
   label: z.string().trim().min(1).max(200).optional(),
 };
 
-export const comboModelStepInputSchema = z.object({
-  kind: z.literal("model").optional(),
-  provider: z.string().trim().min(1).max(120).optional(),
-  providerId: z.string().trim().min(1).max(120).optional(),
-  model: z.string().trim().min(1).max(300),
-  connectionId: z.string().trim().min(1).max(200).nullable().optional(),
-  tags: z.array(z.string().trim().min(1).max(100)).max(20).optional(),
-  // Pipeline strategy (open-sse/services/pipeline.ts): an optional per-step
-  // instruction. Steps run in `models` order — each step's output feeds the next
-  // step's input, and this `prompt` is injected as that step's system instruction.
-  // Ignored by every other strategy, so it is fully backward-compatible.
-  prompt: z.string().trim().min(1).max(20000).optional(),
-  ...comboStepMetaSchema,
-});
+const offlineRuleFields = {
+  offlineCondition: z.unknown().optional(),
+  offlineCooldownMs: z.coerce.number().int().min(0).max(MAX_TIMER_TIMEOUT_MS).optional(),
+};
 
-export const comboRefStepInputSchema = z.object({
-  kind: z.literal("combo-ref"),
-  comboName: z.string().trim().min(1).max(100),
-  ...comboStepMetaSchema,
-});
+function validateOfflineRule(
+  value: { offlineCondition?: unknown; offlineCooldownMs?: number },
+  ctx: z.RefinementCtx
+): void {
+  if (value.offlineCondition === undefined && value.offlineCooldownMs === undefined) return;
+  if (value.offlineCondition === undefined || value.offlineCooldownMs === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "offlineCondition and offlineCooldownMs must be configured together",
+    });
+    return;
+  }
+  try {
+    validateOfflineCondition(value.offlineCondition);
+  } catch (error) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: error instanceof Error ? error.message : "Invalid offlineCondition",
+      path: ["offlineCondition"],
+    });
+  }
+}
+
+export const comboModelStepInputSchema = z
+  .object({
+    kind: z.literal("model").optional(),
+    provider: z.string().trim().min(1).max(120).optional(),
+    providerId: z.string().trim().min(1).max(120).optional(),
+    model: z.string().trim().min(1).max(300),
+    connectionId: z.string().trim().min(1).max(200).nullable().optional(),
+    tags: z.array(z.string().trim().min(1).max(100)).max(20).optional(),
+    // Pipeline strategy (open-sse/services/pipeline.ts): an optional per-step
+    // instruction. Steps run in `models` order — each step's output feeds the next
+    // step's input, and this `prompt` is injected as that step's system instruction.
+    // Ignored by every other strategy, so it is fully backward-compatible.
+    prompt: z.string().trim().min(1).max(20000).optional(),
+    ...offlineRuleFields,
+    ...comboStepMetaSchema,
+  })
+  .superRefine(validateOfflineRule);
+
+export const comboRefStepInputSchema = z
+  .object({
+    kind: z.literal("combo-ref"),
+    comboName: z.string().trim().min(1).max(100),
+    ...offlineRuleFields,
+    ...comboStepMetaSchema,
+  })
+  .superRefine(validateOfflineRule);
 
 // A combo entry can be a plain string (legacy), a legacy object, or a structured ComboStep.
 export const comboModelEntry = z.union([
@@ -282,29 +317,87 @@ export const comboNameSchema = z
     "Name can only contain letters, numbers, spaces, -, _, /, ., [ and ]."
   );
 
-export const createComboSchema = z.object({
-  name: comboNameSchema,
-  description: z.string().max(2000).optional(),
-  models: z.array(comboModelEntry).optional().default([]),
-  strategy: comboStrategySchema.optional().default("priority"),
-  config: comboRuntimeConfigSchema.optional(),
-  allowedProviders: z.array(z.string().trim().min(1).max(200)).max(100).optional(),
-  allowedModelFamilies: z.array(z.string().trim().min(1).max(100)).max(100).optional(),
-  system_message: z.string().max(50000).optional(),
-  tool_filter_regex: z.string().max(1000).optional(),
-  context_cache_protection: z.boolean().optional(),
-  context_length: z.number().int().min(1000).max(2000000).optional(),
-  // Optional embedding dimensions override for embedding combos.
-  // When set, the value is injected into every upstream embedding request as
-  // the `dimensions` field (and translated to `outputDimensionality` for Gemini).
-  // Stored as a string to match the OpenAI API convention; coerced to number
-  // by the embedding handler. Leave unset to use each model's default.
-  dimensions: z
-    .string()
-    .regex(/^\d+$/, "dimensions must be a positive integer string")
-    .optional()
-    .nullable(),
-});
+export function validateHardRuleParent(
+  value: { strategy?: string; models?: unknown[]; config?: Record<string, unknown> },
+  ctx: z.RefinementCtx
+): void {
+  const hasHardRule =
+    Array.isArray(value.models) &&
+    value.models.some(
+      (step) => typeof step === "object" && step !== null && "offlineCondition" in step
+    );
+  const usesGuardedPriority = value.strategy === "guarded-priority";
+  if (!hasHardRule && !usesGuardedPriority) return;
+  if (!hasHardRule && usesGuardedPriority)
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Guarded Priority requires at least one hard offline condition",
+      path: ["models"],
+    });
+  if (hasHardRule && !usesGuardedPriority)
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "hard offline rules require Guarded Priority strategy",
+      path: ["strategy"],
+    });
+  if (value.config?.nestedComboMode !== "execute")
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "hard offline rules require nestedComboMode execute",
+      path: ["config", "nestedComboMode"],
+    });
+  if (value.config?.hedging === true)
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "hard offline rules do not allow hedging",
+      path: ["config", "hedging"],
+    });
+  const shadow = value.config?.shadowRouting as { enabled?: unknown } | undefined;
+  if (shadow?.enabled === true)
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "hard offline rules do not allow shadow routing",
+      path: ["config", "shadowRouting", "enabled"],
+    });
+}
+
+export const comboEffectiveStateSchema = z
+  .object({
+    models: z.array(comboModelEntry),
+    strategy: comboStrategySchema,
+    config: comboRuntimeConfigSchema.optional(),
+  })
+  .superRefine(validateHardRuleParent);
+
+export function validateEffectiveComboState(value: unknown) {
+  return comboEffectiveStateSchema.safeParse(value);
+}
+
+export const createComboSchema = z
+  .object({
+    name: comboNameSchema,
+    description: z.string().max(2000).optional(),
+    models: z.array(comboModelEntry).optional().default([]),
+    strategy: comboStrategySchema.optional().default("priority"),
+    config: comboRuntimeConfigSchema.optional(),
+    allowedProviders: z.array(z.string().trim().min(1).max(200)).max(100).optional(),
+    allowedModelFamilies: z.array(z.string().trim().min(1).max(100)).max(100).optional(),
+    system_message: z.string().max(50000).optional(),
+    tool_filter_regex: z.string().max(1000).optional(),
+    context_cache_protection: z.boolean().optional(),
+    context_length: z.number().int().min(1000).max(2000000).optional(),
+    // Optional embedding dimensions override for embedding combos.
+    // When set, the value is injected into every upstream embedding request as
+    // the `dimensions` field (and translated to `outputDimensionality` for Gemini).
+    // Stored as a string to match the OpenAI API convention; coerced to number
+    // by the embedding handler. Leave unset to use each model's default.
+    dimensions: z
+      .string()
+      .regex(/^\d+$/, "dimensions must be a positive integer string")
+      .optional()
+      .nullable(),
+  })
+  .superRefine(validateHardRuleParent);
 
 export const updateComboDefaultsSchema = z
   .object({

@@ -3442,6 +3442,10 @@
         "label": "Chiến lược",
         "description": "Hành vi định tuyến và cài đặt nâng cao"
       },
+      "guarded-priority": {
+        "label": "Guarded Priority",
+        "description": "Configure each child’s Hard Offline condition and cooldown"
+      },
       "intelligent": {
         "label": "Định tuyến thông minh",
         "description": "Nhóm ứng viên để tự động định tuyến, thiết lập sẵn và tính điểm"
@@ -3528,7 +3532,13 @@
     "sessionStickinessDisabled": "Tắt liên kết phiên",
     "kimiPresetTitle": "Kimi Coding preset",
     "kimiPresetDescription": "Kimi K3 as the primary model (Moonshot API), with automatic fallback to your Kimi Code connections (kimi-coding, kimi-web) when configured.",
-    "kimiPresetCta": "Add preset"
+    "kimiPresetCta": "Add preset",
+    "guardedPriority": "Guarded Priority",
+    "guardedPriorityDesc": "Falls through in priority order only when the current node matches its Hard Offline condition and enters cooldown.",
+    "offlineRuleEnabled": "Hard Offline condition",
+    "offlineRuleCondition": "Safe JSON Logic (advanced/custom condition)",
+    "offlineRuleCooldown": "Cooldown (ms)",
+    "offlineRuleHelp": "Default: 300000 ms (5 minutes). A non-matching response never falls through."
   },
   "costs": {
     "title": "Chi phí",

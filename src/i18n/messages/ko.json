@@ -3420,6 +3420,10 @@
         "label": "Strategy",
         "description": "Routing behavior and advanced settings"
       },
+      "guarded-priority": {
+        "label": "Guarded Priority",
+        "description": "Configure each child’s Hard Offline condition and cooldown"
+      },
       "intelligent": {
         "label": "Smart Routing",
         "description": "Auto-routing candidate pool, presets, and scoring"
@@ -3506,7 +3510,13 @@
     "sessionStickinessDisabled": "세션 고정 끔",
     "kimiPresetTitle": "Kimi Coding 프리셋",
     "kimiPresetDescription": "Kimi K3를 기본 모델(Moonshot API)로 사용하며, 설정 시 Kimi Code 연결(kimi-coding, kimi-web)로 자동 폴백됩니다.",
-    "kimiPresetCta": "프리셋 추가"
+    "kimiPresetCta": "프리셋 추가",
+    "guardedPriority": "Guarded Priority",
+    "guardedPriorityDesc": "Falls through in priority order only when the current node matches its Hard Offline condition and enters cooldown.",
+    "offlineRuleEnabled": "Hard Offline condition",
+    "offlineRuleCondition": "Safe JSON Logic (advanced/custom condition)",
+    "offlineRuleCooldown": "Cooldown (ms)",
+    "offlineRuleHelp": "Default: 300000 ms (5 minutes). A non-matching response never falls through."
   },
   "costs": {
     "title": "비용",

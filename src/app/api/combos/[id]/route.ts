@@ -12,13 +12,14 @@ import { syncToCloud } from "@/lib/cloudSync";
 import { validateCompositeTiersConfig } from "@/lib/combos/compositeTiers";
 import { normalizeComboModels } from "@/lib/combos/steps";
 import { validateComboDAG, clampComboDepth } from "@omniroute/open-sse/services/combo.ts";
-import { updateComboSchema } from "@/shared/validation/schemas";
+import { updateComboSchema, validateEffectiveComboState } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { QUOTA_MODEL_PREFIX } from "@/lib/quota/quotaModelNaming";
 import { comboErrorResponse } from "@/lib/api/comboErrorResponse";
 import { ComboInvariantError } from "@/lib/combos/invariants";
 import { buildComboNameCollisionWarning } from "@/lib/combos/modelNameCollision";
+import { mergeComboConfig } from "@/lib/combos/configMerge";
 
 // Minimal shape for the fields we read off a combo row in this route.
 // `getComboById` returns a structurally `JsonRecord`-typed object, so we
@@ -48,16 +49,10 @@ type ComboRowShape = {
  * Idempotent — running twice is a no-op.
  */
 const LEGACY_REMOVED_COMBO_CONFIG_KEYS = Object.freeze([
-  "queueDepth",
-  "fallbackDelayMs",
-  "handoffProviders",
-  "maxComboDepth",
   "manifestRouting",
   "complexityAwareRouting",
   "pipeline_enabled",
   "pipelineConcurrency",
-  "shadowRouting",
-  "evalRouting",
   "resetAwareEnabled",
   "resetAwareWindow",
 ]);
@@ -149,19 +144,23 @@ export async function PUT(request, { params }) {
 
     const comboName = validation.data.name || currentCombo.name;
     const normalizedUpdate = { ...validation.data };
-    if (normalizedUpdate.compressionOverride !== undefined) {
-      const legacyCompressionOverride = normalizedUpdate.compressionOverride;
-    const nextConfig: Record<string, unknown> =
+    const currentConfig: Record<string, unknown> =
       currentCombo.config &&
       typeof currentCombo.config === "object" &&
       !Array.isArray(currentCombo.config)
         ? { ...(currentCombo.config as Record<string, unknown>) }
         : {};
-    if (legacyCompressionOverride) {
-      nextConfig.compressionMode = legacyCompressionOverride;
-    } else {
-      delete nextConfig.compressionMode;
+    if (normalizedUpdate.config !== undefined) {
+      normalizedUpdate.config = mergeComboConfig(currentConfig, normalizedUpdate.config);
     }
+    if (normalizedUpdate.compressionOverride !== undefined) {
+      const legacyCompressionOverride = normalizedUpdate.compressionOverride;
+      const nextConfig = normalizedUpdate.config ?? currentConfig;
+      if (legacyCompressionOverride) {
+        nextConfig.compressionMode = legacyCompressionOverride;
+      } else {
+        delete nextConfig.compressionMode;
+      }
       normalizedUpdate.config = nextConfig;
       delete normalizedUpdate.compressionOverride;
     }
@@ -187,6 +186,31 @@ export async function PUT(request, { params }) {
       ...body,
       name: comboName,
     };
+    const effectiveValidation = validateEffectiveComboState({
+      models: nextComboState.models,
+      strategy: nextComboState.strategy ?? "priority",
+      config: nextComboState.config,
+    });
+    if (effectiveValidation.success === false) {
+      const issues = {
+        message: "Invalid request",
+        details: effectiveValidation.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
+      };
+      const firstDetail = issues.details[0] ?? null;
+      return comboErrorResponse(
+        "COMBO_002",
+        400,
+        {
+          issues,
+          firstField: firstDetail?.field ?? null,
+          firstMessage: firstDetail?.message ?? null,
+        },
+        request
+      );
+    }
     const compositeValidation = validateCompositeTiersConfig(nextComboState);
     if (compositeValidation.success === false) {
       const failure = compositeValidation as {
@@ -235,12 +259,7 @@ export async function PUT(request, { params }) {
               : dagError instanceof Error && /depth/i.test(dagError.message)
                 ? "max-depth-exceeded"
                 : "invalid-graph";
-          return comboErrorResponse(
-            "COMBO_005",
-            400,
-            { comboName, reason },
-            request
-          );
+          return comboErrorResponse("COMBO_005", 400, { comboName, reason }, request);
         }
       }
     }
@@ -253,9 +272,7 @@ export async function PUT(request, { params }) {
     // #8530: a combo renamed to a real model id is a supported pattern
     // (#6940 — bare-model-id provider fallback), so it is never rejected.
     // Surface it as a non-blocking warning instead of silently shadowing it.
-    const warning = comboName
-      ? buildComboNameCollisionWarning(String(comboName))
-      : null;
+    const warning = comboName ? buildComboNameCollisionWarning(String(comboName)) : null;
     return NextResponse.json(warning ? { ...combo, warning } : combo);
   } catch (error) {
     if (error instanceof ComboInvariantError) {

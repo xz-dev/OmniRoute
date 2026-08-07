@@ -218,6 +218,13 @@ test("combo builder stage helpers expose completion state and linear navigation"
     "intelligent",
     "review",
   ]);
+  assert.deepEqual(builderDraft.getComboBuilderStages({ strategy: "guarded-priority" }), [
+    "basics",
+    "steps",
+    "strategy",
+    "guarded-priority",
+    "review",
+  ]);
   assert.equal(
     builderDraft.getNextComboBuilderStage("strategy", { strategy: "auto" }),
     "intelligent"
@@ -225,6 +232,14 @@ test("combo builder stage helpers expose completion state and linear navigation"
   assert.equal(
     builderDraft.getPreviousComboBuilderStage("review", { strategy: "auto" }),
     "intelligent"
+  );
+  assert.equal(
+    builderDraft.getNextComboBuilderStage("strategy", { strategy: "guarded-priority" }),
+    "guarded-priority"
+  );
+  assert.equal(
+    builderDraft.getPreviousComboBuilderStage("review", { strategy: "guarded-priority" }),
+    "guarded-priority"
   );
 
   const checks = builderDraft.getComboBuilderStageChecks({

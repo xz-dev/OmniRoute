@@ -17,6 +17,8 @@ export interface ComboModelStep {
   weight: number;
   label?: string;
   tags?: string[];
+  offlineCondition?: unknown;
+  offlineCooldownMs?: number;
 }
 
 export interface ComboRefStep {
@@ -25,6 +27,8 @@ export interface ComboRefStep {
   comboName: string;
   weight: number;
   label?: string;
+  offlineCondition?: unknown;
+  offlineCooldownMs?: number;
 }
 
 export type ComboStep = ComboModelStep | ComboRefStep;
@@ -237,6 +241,14 @@ export function normalizeComboStep(
   const explicitId = toTrimmedString(value.id);
   const weight = toWeight(value.weight);
   const label = toTrimmedString(value.label);
+  const prompt = toTrimmedString(value.prompt);
+  const offlineCondition = value.offlineCondition;
+  const offlineCooldownMs =
+    typeof value.offlineCooldownMs === "number" &&
+    Number.isFinite(value.offlineCooldownMs) &&
+    value.offlineCooldownMs >= 0
+      ? Math.floor(value.offlineCooldownMs)
+      : undefined;
 
   if (value.kind === "combo-ref") {
     const comboRefName = toTrimmedString(value.comboName);
@@ -247,6 +259,8 @@ export function normalizeComboStep(
       comboName: comboRefName,
       weight,
       ...(label ? { label } : {}),
+      ...(offlineCondition !== undefined ? { offlineCondition } : {}),
+      ...(offlineCooldownMs !== undefined ? { offlineCooldownMs } : {}),
     };
   }
 
@@ -293,6 +307,8 @@ export function normalizeComboStep(
     ...(label ? { label } : {}),
     ...(tags && tags.length > 0 ? { tags } : {}),
     ...(allowedConnectionIds && allowedConnectionIds.length > 0 ? { allowedConnectionIds } : {}),
+    ...(offlineCondition !== undefined ? { offlineCondition } : {}),
+    ...(offlineCooldownMs !== undefined ? { offlineCooldownMs } : {}),
   };
 }
 

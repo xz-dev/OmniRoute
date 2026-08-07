@@ -2,6 +2,8 @@ import { randomUUID } from "crypto";
 import { resolveChatRequestBody } from "./requestBody";
 import * as chatAdmission from "./chatAdmission.ts";
 import { buildClientRawRequest, resolveDispatchClientRawRequest } from "./chat/clientRawRequest.ts";
+import { type ComboTargetRuntime, mergeExcludedConnectionIds } from "./chat/comboTargetRuntime.ts";
+import { normalizeCredentialAvailability } from "./chat/modelAvailability.ts";
 export { buildClientRawRequest, resolveDispatchClientRawRequest };
 import { normalizeReasoningRequest } from "@/shared/reasoning/effortStandardization";
 import { resolveRoutingModel, RoutingModelOps } from "./resolveRoutingModel";
@@ -78,6 +80,10 @@ import {
   withSelectedConnectionHeader,
   withCorrelationId,
 } from "./chatHelpers";
+import {
+  shouldReturnSelectedResponseToGuardedExecutor,
+  shouldUseGlobalFallbackForCombo,
+} from "./chatBoundary.ts";
 import {
   isAntigravityMissingProjectError,
   PROVIDER_BREAKER_FAILURE_STATUSES,
@@ -680,16 +686,7 @@ async function handleChatImplementation(
       modelString: string,
       target?: { connectionId?: string | null; executionKey?: string | null }
     ) => `${target?.executionKey || target?.connectionId || ""}:${modelString}`;
-    const checkModelAvailable = async (
-      modelString: string,
-      target?: {
-        allowRateLimitedConnection?: boolean;
-        connectionId?: string | null;
-        allowedConnectionIds?: string[] | null;
-        executionKey?: string | null;
-        providerId?: string | null;
-      }
-    ) => {
+    const checkModelAvailable = async (modelString: string, target?: ComboTargetRuntime) => {
       if (isComboLiveTest) return true;
 
       // Use getModelInfo to resolve custom prefixes, but prefer the combo
@@ -742,10 +739,11 @@ async function handleChatImplementation(
           ...(bypassProviderQuotaPolicy ? { bypassQuotaPolicy: true } : {}),
         }
       );
-      if (!creds || creds.allRateLimited) return false;
-
-      comboPreselectedCredentials.set(getComboCredentialCacheKey(modelString, target), creds);
-      return true;
+      const availability = normalizeCredentialAvailability(creds);
+      if (availability === true) {
+        comboPreselectedCredentials.set(getComboCredentialCacheKey(modelString, target), creds);
+      }
+      return availability;
     };
 
     // Fetch settings and all combos for config cascade and nested resolution
@@ -777,24 +775,11 @@ async function handleChatImplementation(
 
     // Context-relay keeps generation in combo.ts, but handoff injection lives here
     // because only this layer knows which connectionId was actually selected.
+    const effectiveComboStrategy = combo.strategy;
     const response = await (handleComboChat as any)({
       body,
       combo,
-      handleSingleModel: (
-        b: any,
-        m: string,
-        target?: {
-          allowRateLimitedConnection?: boolean;
-          connectionId?: string | null;
-          executionKey?: string | null;
-          stepId?: string | null;
-          allowedConnectionIds?: string[] | null;
-          failoverBeforeRetry?: boolean;
-          providerId?: string | null;
-          effectiveComboStrategy?: string | null;
-          modelAbortSignal?: AbortSignal | null;
-        }
-      ) =>
+      handleSingleModel: (b: any, m: string, target?: ComboTargetRuntime) =>
         handleSingleModelChat(
           b,
           m,
@@ -834,7 +819,7 @@ async function handleChatImplementation(
             // log id 1784418258231-14961a.
             modelAbortSignal: target?.modelAbortSignal ?? null,
           },
-          target?.effectiveComboStrategy ?? combo.strategy,
+          target?.effectiveComboStrategy ?? effectiveComboStrategy,
           true
         ).then(async (res: Response) => {
           // Auto-promote the winning combo model to position #1 (opt-in flag).
@@ -858,14 +843,12 @@ async function handleChatImplementation(
     });
 
     // ── Global Fallback Provider (#689) ────────────────────────────────────
-    // If combo exhausted all models, try the global fallback before giving up.
-    if (
-      !response.ok &&
-      [502, 503].includes(response.status) &&
-      typeof (settings as any)?.globalFallbackModel === "string" &&
-      (settings as any).globalFallbackModel.trim()
-    ) {
-      const fallbackModel = (settings as any).globalFallbackModel.trim();
+    // Guarded Priority owns advancement exclusively: a non-matching response,
+    // pre-dispatch rejection, or exhausted guarded chain must never escape to the
+    // unrelated global fallback model.
+    const globalFallbackModel = (settings as any)?.globalFallbackModel;
+    if (shouldUseGlobalFallbackForCombo(effectiveComboStrategy, response, globalFallbackModel)) {
+      const fallbackModel = globalFallbackModel.trim();
       log.info(
         "GLOBAL_FALLBACK",
         `Combo "${combo.name}" exhausted — attempting global fallback: ${fallbackModel}`
@@ -991,6 +974,7 @@ async function handleSingleModelChat(
     sessionAffinityKey?: string | null;
     forcedConnectionId?: string | null;
     allowedConnectionIds?: string[] | null;
+    excludeConnectionIds?: string[] | null;
     comboStepId?: string | null;
     comboExecutionKey?: string | null;
     skipUpstreamRetry?: boolean;
@@ -1251,7 +1235,10 @@ async function handleSingleModelChat(
               model,
               {
                 sessionKey: runtimeOptions.sessionAffinityKey ?? runtimeOptions.sessionId ?? null,
-                excludeConnectionIds: Array.from(excludedConnectionIds),
+                excludeConnectionIds: mergeExcludedConnectionIds(
+                  excludedConnectionIds,
+                  runtimeOptions.excludeConnectionIds
+                ),
                 ...(runtimeOptions.allowRateLimitedConnection
                   ? { allowRateLimitedConnections: true }
                   : {}),
@@ -1488,6 +1475,13 @@ async function handleSingleModelChat(
         if (telemetry) telemetry.startPhase("finalize");
         if (telemetry) telemetry.endPhase();
         return result.response;
+      }
+
+      // A guarded target is a one-account observation boundary. Its outer executor
+      // alone decides whether a matching Hard Offline response may advance; no
+      // connection-local retry, account fallback, or availability mutation is valid.
+      if (shouldReturnSelectedResponseToGuardedExecutor(comboStrategy, result.success)) {
+        return withSelectedConnectionHeader(result.response, credentials.connectionId);
       }
 
       // Missing Cloud Code project assignment is an account configuration error, not a

@@ -439,9 +439,10 @@ export async function preScreenTargets(
       if (isModelAvailable) {
         // IsModelAvailable may return a sync boolean or a Promise; Promise.resolve
         // normalizes both so the .catch() never runs against a bare boolean.
-        available = await Promise.resolve(isModelAvailable(target.modelStr, target)).catch(
-          () => true
+        const availability = await Promise.resolve(isModelAvailable(target.modelStr, target)).catch(
+          () => true as const
         );
+        available = availability === true;
       }
       return { key: target.executionKey, result: { profile, available } };
     }

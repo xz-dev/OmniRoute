@@ -3420,6 +3420,10 @@
         "label": "策略",
         "description": "路由行为和高级设置"
       },
+      "guarded-priority": {
+        "label": "受保护优先级",
+        "description": "配置各子节点的 Hard Offline 条件与冷却时间"
+      },
       "intelligent": {
         "label": "智能路由",
         "description": "自动路由候选池、预设和评分"
@@ -3506,7 +3510,13 @@
     "sessionStickinessDisabled": "会话粘性关闭",
     "kimiPresetTitle": "Kimi Coding 预设",
     "kimiPresetDescription": "以 Kimi K3 作为主模型（Moonshot API），并在配置后自动回退到您的 Kimi Code 连接（kimi-coding、kimi-web）。",
-    "kimiPresetCta": "添加预设"
+    "kimiPresetCta": "添加预设",
+    "guardedPriority": "受保护优先级",
+    "guardedPriorityDesc": "仅在当前节点命中 Hard Offline 条件并进入冷却时，才按优先级故障转移。",
+    "offlineRuleEnabled": "Hard Offline 条件",
+    "offlineRuleCondition": "安全 JSON Logic（高级/自定义条件）",
+    "offlineRuleCooldown": "冷却时间（毫秒）",
+    "offlineRuleHelp": "默认 300000 毫秒（5 分钟）。未匹配的响应绝不向后故障转移。"
   },
   "costs": {
     "title": "成本",

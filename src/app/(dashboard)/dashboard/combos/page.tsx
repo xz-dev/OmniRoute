@@ -37,6 +37,7 @@ import {
   getPreviousComboBuilderStage,
   hasExactModelStepDuplicate,
   isEligibleActiveConnection,
+  isGuardedPriorityBuilderStrategy,
   isIntelligentBuilderStrategy,
   parseQualifiedModel,
   resolveComboBuilderProviderId,
@@ -47,6 +48,17 @@ import KimiComboPresetCard from "./KimiComboPresetCard";
 import { KIMI_CODING_PRESET, hasKimiCodingPreset } from "./kimiComboPreset";
 import BuilderIntelligentStep from "./BuilderIntelligentStep";
 import IntelligentComboPanel from "./IntelligentComboPanel";
+import GuardedPriorityRuleEditor from "./GuardedPriorityRuleEditor";
+import { getStrategyRecommendationText } from "./strategyRecommendations";
+import {
+  applyGuardedPriorityStrategyTransition,
+  clearOfflineRuleDraftError,
+  ensureOfflineRuleStepIds,
+  hasActiveOfflineRuleDraftError,
+  normalizeOfflineRuleModelEntry,
+  validateHardOfflineParent,
+  validateOfflineRuleStep,
+} from "@/lib/combos/offlineRuleDraft";
 import {
   filterCombosByStrategyCategory,
   getStrategyCategory,
@@ -54,6 +66,7 @@ import {
   normalizeIntelligentRoutingFilter,
   normalizeIntelligentRoutingConfig,
 } from "@/lib/combos/intelligentRouting";
+import { getComboStepTarget } from "@/lib/combos/steps";
 import { resolveServerErrorMessage } from "@/lib/api/serverErrorMessage";
 import { useTranslations } from "next-intl";
 
@@ -234,137 +247,6 @@ function updateFusionTuning(config, field, rawValue) {
   return { ...config, fusionTuning: Object.keys(pruned).length > 0 ? pruned : undefined };
 }
 
-const STRATEGY_RECOMMENDATIONS_FALLBACK = {
-  priority: {
-    title: "Fail-safe baseline",
-    description: "Use one primary model and keep fallback chain short and reliable.",
-    tips: [
-      "Put your most reliable model first.",
-      "Keep 1-2 backup models with similar quality.",
-      "Use safe retries to absorb transient provider failures.",
-    ],
-  },
-  weighted: {
-    title: "Controlled traffic split",
-    description: "Great for canary rollouts and gradual migration between models.",
-    tips: [
-      "Start with conservative split like 90/10.",
-      "Keep the total at 100% and auto-balance after changes.",
-      "Monitor success and latency before increasing canary weight.",
-    ],
-  },
-  "round-robin": {
-    title: "Predictable load sharing",
-    description: "Best when models are equivalent and you need smooth distribution.",
-    tips: [
-      "Use at least 2 models.",
-      "Set concurrency limits to avoid burst overload.",
-      "Use queue timeout to fail fast under saturation.",
-    ],
-  },
-  "context-relay": {
-    title: "Session continuity first",
-    description:
-      "Best when account rotation is expected and the next account must inherit a condensed task summary.",
-    tips: [
-      "Use with providers that rotate accounts for the same model family.",
-      "Keep the handoff threshold below the hard quota cutoff to give the summary time to generate.",
-      "Set a dedicated summary model only when the primary model is too expensive or unstable.",
-    ],
-  },
-  random: {
-    title: "Quick spread with low setup",
-    description: "Use when you need simple distribution without strict guarantees.",
-    tips: [
-      "Use models with similar latency profiles.",
-      "Keep retries enabled to absorb random misses.",
-      "Prefer this for experimentation, not strict SLAs.",
-    ],
-  },
-  "least-used": {
-    title: "Adaptive balancing",
-    description: "Routes to less-used models to reduce hotspots over time.",
-    tips: [
-      "Works better under continuous traffic.",
-      "Combine with health checks for safer balancing.",
-      "Track per-model usage to validate distribution gains.",
-    ],
-  },
-  "cost-optimized": {
-    title: "Budget-first routing",
-    description: "Routes to lower-cost models when pricing metadata is available.",
-    tips: [
-      "Ensure pricing coverage for all selected models.",
-      "Keep a quality fallback for hard prompts.",
-      "Use for batch/background jobs where cost is the main KPI.",
-    ],
-  },
-  "reset-aware": {
-    title: "Reset-aware account rotation",
-    description: "Balances remaining provider quota against reset timing.",
-    tips: [
-      "Use explicit account steps or account-tag routing for providers with quota telemetry.",
-      "Tune session vs weekly weights when short-term exhaustion is more risky.",
-      "Keep the tie band small so equivalent accounts still rotate fairly.",
-    ],
-  },
-  "fill-first": {
-    title: "Quota drain strategy",
-    description: "Exhausts one provider's quota before moving to the next in chain.",
-    tips: [
-      "Order models by free quota size — biggest first.",
-      "Enable health checks to skip drained providers.",
-      "Ideal for free-tier stacking (Deepgram → Groq → NIM).",
-    ],
-  },
-  p2c: {
-    title: "Power-of-Two-Choices",
-    description:
-      "Picks the less-loaded of two random candidates per request — low latency at scale.",
-    tips: [
-      "Use with 4+ models for best effect.",
-      "Requires latency telemetry enabled in Settings.",
-      "Great replacement for round-robin in high-throughput combos.",
-    ],
-  },
-  "strict-random": {
-    title: "Shuffle deck distribution",
-    description: "Each model is used exactly once per cycle before reshuffling.",
-    tips: [
-      "Use at least 2 models for meaningful distribution.",
-      "Ideal for same-model accounts to evenly spread quota.",
-      "Guarantees no model is skipped or repeated within a cycle.",
-    ],
-  },
-  auto: {
-    title: "Multi-factor optimization",
-    description: "Routes based on real-time scoring of cost, latency, quality, and health.",
-    tips: [
-      "Let the engine balance across multiple factors automatically.",
-      "Monitor which factors drive routing decisions in the logs.",
-      "Use for complex workloads where no single factor dominates.",
-    ],
-  },
-  lkgp: {
-    title: "History-based routing",
-    description: "Routes based on historical success rates and persistent performance data.",
-    tips: [
-      "Let success history accumulate before relying on this strategy.",
-      "Models with better track records get preference over time.",
-      "Ideal for stable workloads with consistent model availability.",
-    ],
-  },
-  "context-optimized": {
-    title: "Context-aware distribution",
-    description: "Routes to optimize context window usage and conversation continuity.",
-    tips: [
-      "Best for long conversations that span multiple requests.",
-      "Selects models with appropriate context capacity automatically.",
-      "Use when context limits are a bottleneck for your workload.",
-    ],
-  },
-};
-
 const COMBO_USAGE_GUIDE_STORAGE_KEY = "omniroute:combos:hide-usage-guide";
 const COMBO_FORM_STAGE_META = [
   {
@@ -384,6 +266,12 @@ const COMBO_FORM_STAGE_META = [
     fallbackLabel: "Strategy",
     fallbackDescription: "Routing behavior and advanced settings.",
     icon: "looks_3",
+  },
+  {
+    id: "guarded-priority",
+    fallbackLabel: "Guarded Priority",
+    fallbackDescription: "Hard Offline conditions and cooldowns for ordered fallback.",
+    icon: "shield_lock",
   },
   {
     id: "intelligent",
@@ -544,42 +432,10 @@ function getStrategyGuideText(t, strategy, field) {
   return getI18nOrFallback(t, key, strategyFallback[field]);
 }
 
-function getStrategyRecommendationText(t, strategy, field) {
-  const strategyFallback =
-    STRATEGY_RECOMMENDATIONS_FALLBACK[strategy] || STRATEGY_RECOMMENDATIONS_FALLBACK.priority;
-
-  if (field === "tips") {
-    return strategyFallback.tips.map((tip, index) =>
-      getI18nOrFallback(t, `strategyRecommendations.${strategy}.tip${index + 1}`, tip)
-    );
-  }
-
-  return getI18nOrFallback(
-    t,
-    `strategyRecommendations.${strategy}.${field}`,
-    strategyFallback[field]
-  );
-}
-
-function normalizeModelEntry(entry) {
-  if (typeof entry === "string") return { model: entry, weight: 0 };
-  if (entry?.kind === "combo-ref") {
-    return {
-      ...entry,
-      model: entry.comboName,
-      weight: entry.weight || 0,
-    };
-  }
-  return {
-    ...entry,
-    model: entry.model,
-    weight: entry.weight || 0,
-  };
-}
-
 function getModelString(entry) {
   if (typeof entry === "string") return entry;
   if (entry?.kind === "combo-ref") return entry.comboName;
+  if (entry?.kind === "provider-wildcard") return getComboStepTarget(entry);
   return entry.model;
 }
 
@@ -630,9 +486,40 @@ function formatComboEntryDisplay(
     showFullEmails?: boolean;
   } = {}
 ) {
-  const normalizedEntry = normalizeModelEntry(entry);
+  const normalizedEntry = normalizeOfflineRuleModelEntry(entry);
   if (normalizedEntry.kind === "combo-ref") {
     return `Combo → ${normalizedEntry.comboName}`;
+  }
+
+  if (normalizedEntry.kind === "provider-wildcard") {
+    const providerIdentifier = normalizedEntry.providerId;
+    const builderProvider = findBuilderProviderByIdentifier(builderProviders, providerIdentifier);
+    const providerNode = findProviderNodeByIdentifier(providerNodes, providerIdentifier);
+    const providerLabel =
+      builderProvider?.displayName || providerNode?.name || providerIdentifier || "provider";
+    const patternLabel = normalizedEntry.modelPattern || "*";
+    const wildcardLabel = `${providerLabel}/${patternLabel}`;
+
+    if (!includeConnection) {
+      return wildcardLabel;
+    }
+
+    const connectionId = normalizedEntry.connectionId || null;
+    const rawConnectionLabel =
+      (connectionId &&
+        builderProvider?.connections?.find((connection) => connection.id === connectionId)
+          ?.label) ||
+      normalizedEntry.label ||
+      null;
+    const connectionLabel = rawConnectionLabel
+      ? pickDisplayValue([rawConnectionLabel], showFullEmails, rawConnectionLabel)
+      : null;
+
+    if (connectionId) {
+      return `${wildcardLabel} · ${connectionLabel || `acct ${connectionId.slice(0, 8)}`}`;
+    }
+
+    return `${wildcardLabel} · dynamic account`;
   }
 
   const parsed = parseQualifiedModel(normalizedEntry.model);
@@ -1673,7 +1560,7 @@ function ComboCardInner({
                 <span className="text-xs text-text-muted italic">{t("noModels")}</span>
               ) : (
                 models.slice(0, 3).map((entry, index) => {
-                  const { weight } = normalizeModelEntry(entry);
+                  const { weight } = normalizeOfflineRuleModelEntry(entry);
                   return (
                     <code
                       key={index}
@@ -1916,8 +1803,9 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
   const [name, setName] = useState(combo?.name || "");
   const [description, setDescription] = useState<string>(combo?.description || "");
   const [models, setModels] = useState(() => {
-    return (combo?.models || []).map((m) => normalizeModelEntry(m));
+    return (combo?.models || []).map((m, index) => normalizeOfflineRuleModelEntry(m, index));
   });
+  const [offlineRuleDraftErrors, setOfflineRuleDraftErrors] = useState<Record<string, string>>({});
   const [strategy, setStrategy] = useState(combo?.strategy || "priority");
   const [showModelSelect, setShowModelSelect] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -1937,7 +1825,9 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
   const [manualModelError, setManualModelError] = useState("");
   const [builderComboRefName, setBuilderComboRefName] = useState("");
   const [builderError, setBuilderError] = useState("");
-  const [builderStage, setBuilderStage] = useState<string>(COMBO_BUILDER_STAGES[0]);
+  const [builderStage, setBuilderStage] = useState<(typeof COMBO_BUILDER_STAGES)[number]>(
+    COMBO_BUILDER_STAGES[0]
+  );
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [config, setConfig] = useState(sanitizeComboRuntimeConfig(combo?.config));
   const [showStrategyNudge, setShowStrategyNudge] = useState(false);
@@ -1957,6 +1847,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
     () => COMBO_FORM_STAGE_META.filter((stageMeta) => comboBuilderStages.includes(stageMeta.id)),
     [comboBuilderStages]
   );
+  const usesGuardedPriorityBuilderStage = isGuardedPriorityBuilderStrategy(strategy);
   const usesIntelligentBuilderStage = isIntelligentBuilderStrategy(strategy);
   const intelligentConfig = useMemo(() => normalizeIntelligentRoutingConfig(config), [config]);
 
@@ -1976,7 +1867,10 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
 
       setName(nextCombo?.name || "");
       setDescription(nextCombo?.description || "");
-      setModels((nextCombo?.models || []).map((m) => normalizeModelEntry(m)));
+      setModels(
+        (nextCombo?.models || []).map((m, index) => normalizeOfflineRuleModelEntry(m, index))
+      );
+      setOfflineRuleDraftErrors({});
       setStrategy(nextCombo?.strategy || comboDefaults?.strategy || "priority");
       setConfig(nextConfig);
       setShowAdvanced(isExpertMode);
@@ -2100,6 +1994,13 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
     pricedModelCount < models.length;
   const hasInvalidWeightedTotal =
     strategy === "weighted" && models.length > 0 && weightTotal !== 100;
+  const offlineRuleErrors = models.map((entry) => validateOfflineRuleStep(entry));
+  const hasInvalidOfflineRule = offlineRuleErrors.some(Boolean);
+  const hasInvalidOfflineRuleDraft = hasActiveOfflineRuleDraftError(models, offlineRuleDraftErrors);
+  const hasHardOfflineRule = models.some(
+    (entry) => entry?.offlineCondition !== undefined || entry?.offlineCooldownMs !== undefined
+  );
+  const hardOfflineParentError = validateHardOfflineParent(models, strategy, config);
   const builderStageChecks = getComboBuilderStageChecks({
     name,
     nameError,
@@ -2112,7 +2013,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
       ? builderStageChecks.basics
       : builderStage === "steps"
         ? builderStageChecks.steps
-        : builderStage === "intelligent"
+        : builderStage === "guarded-priority" || builderStage === "intelligent"
           ? true
           : true;
   const currentStageIndex = visibleStageMeta.findIndex(
@@ -2136,7 +2037,10 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
     saving ||
     hasNoModels ||
     hasInvalidWeightedTotal ||
-    hasCostOptimizedWithoutPricing;
+    hasCostOptimizedWithoutPricing ||
+    hasInvalidOfflineRule ||
+    hasInvalidOfflineRuleDraft ||
+    !!hardOfflineParentError;
   const readinessChecks = [
     {
       id: "name",
@@ -2155,6 +2059,15 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
         strategy === "weighted"
           ? getI18nOrFallback(t, "readinessCheckWeights", "Weighted total is 100%")
           : getI18nOrFallback(t, "readinessCheckWeightsOptional", "Weight rule not required"),
+    },
+    {
+      id: "offline-rules",
+      ok: !hasInvalidOfflineRule && !hasInvalidOfflineRuleDraft && !hardOfflineParentError,
+      label: getI18nOrFallback(
+        t,
+        "readinessCheckOfflineRules",
+        "Hard offline rules have valid JSON and cooldowns"
+      ),
     },
     {
       id: "pricing",
@@ -2181,6 +2094,16 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
         : `Set weights to 100% (current: ${weightTotal}%).`
     );
   }
+  if (hasInvalidOfflineRule || hasInvalidOfflineRuleDraft) {
+    saveBlockers.push(
+      getI18nOrFallback(
+        t,
+        "saveBlockOfflineRules",
+        "Fix the hard offline rule condition and cooldown before saving."
+      )
+    );
+  }
+  if (hardOfflineParentError) saveBlockers.push(hardOfflineParentError);
   if (hasCostOptimizedWithoutPricing) {
     saveBlockers.push(
       getI18nOrFallback(
@@ -2409,7 +2332,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
       return;
     }
 
-    const nextModels = [...models, nextStep];
+    const nextModels = ensureOfflineRuleStepIds([...models, nextStep]);
     setModels(nextModels);
     setBuilderError("");
     setBuilderAllowedConnectionIds([]);
@@ -2466,7 +2389,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
       return;
     }
 
-    setModels([...models, nextStep]);
+    setModels(ensureOfflineRuleStepIds([...models, nextStep]));
     setManualModelInput("");
     setManualModelError("");
   };
@@ -2474,14 +2397,12 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
   const handleAddComboReference = () => {
     if (!builderComboRefName) return;
 
-    setModels([
-      ...models,
-      {
-        kind: "combo-ref",
-        comboName: builderComboRefName,
-        weight: 0,
-      },
-    ]);
+    setModels(
+      ensureOfflineRuleStepIds([
+        ...models,
+        { kind: "combo-ref", comboName: builderComboRefName, weight: 0 },
+      ])
+    );
     setBuilderComboRefName("");
     setBuilderError("");
   };
@@ -2510,12 +2431,16 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
       );
       return;
     }
-    setModels([...models, nextEntry]);
+    setModels(ensureOfflineRuleStepIds([...models, nextEntry]));
     setBuilderError("");
   };
 
   const handleRemoveModel = (index) => {
+    const stepKey = String(models[index]?.id || "");
     setModels(models.filter((_, i) => i !== index));
+    if (stepKey) {
+      setOfflineRuleDraftErrors((current) => clearOfflineRuleDraftError(current, stepKey));
+    }
   };
 
   // Upstream PR decolua/9router#889 (Fajar Hidayat): clicking a model that is
@@ -2541,7 +2466,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
   const handleAddModels = (selected) => {
     const { next, addedAny } = computeBatchAddModelSteps(models, selected, builderProviders);
     if (!addedAny) return;
-    setModels(next);
+    setModels(ensureOfflineRuleStepIds(next));
     setBuilderError("");
   };
 
@@ -2550,6 +2475,25 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
     if (next === models) return;
     setModels(next);
     setBuilderError("");
+  };
+
+  const handleModelStepChange = (index, nextStep) => {
+    const newModels = [...models];
+    newModels[index] = nextStep;
+    setModels(newModels);
+    const stepKey = String(models[index].id);
+    setOfflineRuleDraftErrors((current) => clearOfflineRuleDraftError(current, stepKey));
+  };
+
+  const handleOfflineRuleDraftError = (index, error) => {
+    const stepKey = String(models[index].id);
+    setOfflineRuleDraftErrors((current) => {
+      if (error) return current[stepKey] === error ? current : { ...current, [stepKey]: error };
+      if (!current[stepKey]) return current;
+      const next = { ...current };
+      delete next[stepKey];
+      return next;
+    });
   };
 
   const handleWeightChange = (index, weight) => {
@@ -2641,9 +2585,9 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
     setConfig((prev) => ({ ...prev, ...template.config }));
     if (!name.trim()) setName(template.suggestedName);
     if (template.id === "free-stack") {
-      setModels(FREE_STACK_PRESET_MODELS);
+      setModels(ensureOfflineRuleStepIds(FREE_STACK_PRESET_MODELS));
     } else if (template.id === "paid-premium") {
-      setModels(PAID_PREMIUM_PRESET_MODELS);
+      setModels(ensureOfflineRuleStepIds(PAID_PREMIUM_PRESET_MODELS));
     }
   };
 
@@ -2712,7 +2656,15 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
 
   const handleSave = async () => {
     if (!validateName(name)) return;
-    if (hasNoModels || hasInvalidWeightedTotal || hasCostOptimizedWithoutPricing) return;
+    if (
+      hasNoModels ||
+      hasInvalidWeightedTotal ||
+      hasCostOptimizedWithoutPricing ||
+      hasInvalidOfflineRule ||
+      hasInvalidOfflineRuleDraft ||
+      hardOfflineParentError
+    )
+      return;
     setSaving(true);
 
     const saveData: any = {
@@ -2730,6 +2682,16 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
     }
 
     const configToSave = sanitizeComboRuntimeConfig(config);
+    if (usesGuardedPriorityBuilderStage) {
+      configToSave.nestedComboMode = "execute";
+      configToSave.hedging = false;
+      configToSave.shadowRouting = {
+        ...(typeof configToSave.shadowRouting === "object" && configToSave.shadowRouting
+          ? configToSave.shadowRouting
+          : {}),
+        enabled: false,
+      };
+    }
     if (strategy === "round-robin") {
       if (config.concurrencyPerModel !== undefined)
         configToSave.concurrencyPerModel = config.concurrencyPerModel;
@@ -2792,8 +2754,11 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
 
   const isEdit = !!combo;
   const showBasicsSection = isExpertMode || builderStage === "basics";
-  const showStepsSection = isExpertMode || builderStage === "steps";
+  const showStepsSection =
+    isExpertMode || builderStage === "steps" || builderStage === "guarded-priority";
   const showStrategySection = isExpertMode || builderStage === "strategy";
+  const showGuardedPrioritySection =
+    usesGuardedPriorityBuilderStage && (isExpertMode || builderStage === "guarded-priority");
   const showIntelligentSection =
     usesIntelligentBuilderStage && (isExpertMode || builderStage === "intelligent");
   const showReviewSection = !isExpertMode && builderStage === "review";
@@ -3000,7 +2965,6 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
             </>
           )}
 
-          {/* Strategy Toggle */}
           {showStrategySection && (
             <div>
               <div className="flex items-center gap-1 mb-1.5">
@@ -3017,7 +2981,18 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                 {STRATEGY_OPTIONS.map((s) => (
                   <button
                     key={s.value}
-                    onClick={() => setStrategy(s.value)}
+                    onClick={() => {
+                      const transition = applyGuardedPriorityStrategyTransition(
+                        strategy,
+                        s.value,
+                        models,
+                        config
+                      );
+                      setStrategy(s.value);
+                      setModels(transition.models);
+                      setConfig(transition.config);
+                      if (transition.clearedRules) setOfflineRuleDraftErrors({});
+                    }}
                     data-testid={`strategy-option-${s.value}`}
                     title={!isExpertMode ? getStrategyDescription(t, s.value) : undefined}
                     aria-label={
@@ -3076,7 +3051,6 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
             />
           )}
 
-          {/* Models */}
           {showStepsSection && (
             <div>
               <div className="flex items-center justify-between mb-1.5">
@@ -3390,7 +3364,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                 <div className="flex flex-col gap-1 max-h-[240px] overflow-y-auto">
                   {models.map((entry, index) => (
                     <div
-                      key={`${entry.model}-${index}`}
+                      key={`${combo?.id || "new"}:${entry.id}`}
                       draggable
                       onDragStart={(e) => handleDragStart(e, index)}
                       onDragEnd={handleDragEnd}
@@ -3402,17 +3376,14 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                           : "bg-black/[0.02] dark:bg-white/[0.02] hover:bg-black/[0.04] dark:hover:bg-white/[0.04] border border-transparent"
                       } ${dragIndex === index ? "opacity-50" : ""}`}
                     >
-                      {/* Drag handle */}
                       <span className="material-symbols-outlined text-[14px] text-text-muted/40 cursor-grab shrink-0">
                         drag_indicator
                       </span>
 
-                      {/* Index badge */}
                       <span className="text-[10px] font-medium text-text-muted w-3 text-center shrink-0">
                         {index + 1}
                       </span>
 
-                      {/* Model display */}
                       <div className="flex-1 min-w-0 px-1">
                         <div className="text-xs text-text-main truncate">
                           {formatModelDisplay(entry)}
@@ -3420,16 +3391,34 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                         <div className="text-[10px] text-text-muted truncate">
                           {entry.kind === "combo-ref"
                             ? getI18nOrFallback(t, "builderComboRefStep", "Nested combo reference")
-                            : entry.connectionId
-                              ? getI18nOrFallback(t, "builderPinnedAccount", "Pinned account")
-                              : entry.providerId
-                                ? getI18nOrFallback(
-                                    t,
-                                    "builderDynamicAccountShort",
-                                    "Dynamic account"
-                                  )
-                                : getI18nOrFallback(t, "builderLegacyEntry", "Legacy model entry")}
+                            : entry.kind === "provider-wildcard"
+                              ? getI18nOrFallback(
+                                  t,
+                                  "builderProviderWildcard",
+                                  "All matching provider models"
+                                )
+                              : entry.connectionId
+                                ? getI18nOrFallback(t, "builderPinnedAccount", "Pinned account")
+                                : entry.providerId
+                                  ? getI18nOrFallback(
+                                      t,
+                                      "builderDynamicAccountShort",
+                                      "Dynamic account"
+                                    )
+                                  : getI18nOrFallback(
+                                      t,
+                                      "builderLegacyEntry",
+                                      "Legacy model entry"
+                                    )}
                         </div>
+                        {showGuardedPrioritySection && (
+                          <GuardedPriorityRuleEditor
+                            step={entry}
+                            error={offlineRuleErrors[index]}
+                            onChange={(nextStep) => handleModelStepChange(index, nextStep)}
+                            onErrorChange={(error) => handleOfflineRuleDraftError(index, error)}
+                          />
+                        )}
                       </div>
 
                       {strategy === "cost-optimized" && (
@@ -3451,7 +3440,6 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                         </span>
                       )}
 
-                      {/* Weight input (weighted mode only) */}
                       {strategy === "weighted" && (
                         <div className="flex items-center gap-0.5 shrink-0">
                           <input
@@ -3922,6 +3910,12 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                           className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-transparent focus:border-primary focus:outline-none"
                         />
                       </div>
+                    </div>
+                  )}
+                  {hasHardOfflineRule && (
+                    <div className="rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-1.5 text-[10px] text-amber-700 dark:text-amber-300">
+                      Hard offline rules require Priority strategy and Execute nested combos. The
+                      API validates this configuration before saving.
                     </div>
                   )}
                   <div className="grid grid-cols-1 gap-2 pt-2 border-t border-black/5 dark:border-white/5">
@@ -4542,19 +4536,25 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                                     "builderComboRefStep",
                                     "Nested combo reference"
                                   )
-                                : entry.connectionId
-                                  ? getI18nOrFallback(t, "builderPinnedAccount", "Pinned account")
-                                  : entry.providerId
-                                    ? getI18nOrFallback(
-                                        t,
-                                        "builderDynamicAccountShort",
-                                        "Dynamic account"
-                                      )
-                                    : getI18nOrFallback(
-                                        t,
-                                        "builderLegacyEntry",
-                                        "Legacy model entry"
-                                      )}
+                                : entry.kind === "provider-wildcard"
+                                  ? getI18nOrFallback(
+                                      t,
+                                      "builderProviderWildcard",
+                                      "All matching provider models"
+                                    )
+                                  : entry.connectionId
+                                    ? getI18nOrFallback(t, "builderPinnedAccount", "Pinned account")
+                                    : entry.providerId
+                                      ? getI18nOrFallback(
+                                          t,
+                                          "builderDynamicAccountShort",
+                                          "Dynamic account"
+                                        )
+                                      : getI18nOrFallback(
+                                          t,
+                                          "builderLegacyEntry",
+                                          "Legacy model entry"
+                                        )}
                               {strategy === "weighted" && entry.weight > 0
                                 ? ` · ${entry.weight}%`
                                 : ""}

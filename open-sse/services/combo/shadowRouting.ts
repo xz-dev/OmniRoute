@@ -131,8 +131,8 @@ export function scheduleShadowRouting(
             stream: false,
           };
           if (isModelAvailable) {
-            const available = await isModelAvailable(target.modelStr, target);
-            if (!available) {
+            const availability = await isModelAvailable(target.modelStr, target);
+            if (availability !== true) {
               recordComboShadowRequest(combo.name, target.modelStr, {
                 success: false,
                 latencyMs: Date.now() - startedAt,

@@ -34,6 +34,30 @@ function makeUpdateRequest(body) {
   });
 }
 
+const HARD_OFFLINE_CONDITION = { "omniroute.accountUnavailable": null };
+
+function hardRuleModels() {
+  return [
+    {
+      kind: "model",
+      model: "codex/gpt-5.4",
+      offlineCondition: HARD_OFFLINE_CONDITION,
+      offlineCooldownMs: 60_000,
+    },
+  ];
+}
+
+async function assertHardRuleUpdateRejected(comboId: unknown, update: unknown) {
+  const response = await comboRoute.PUT(makeUpdateRequest(update), {
+    params: Promise.resolve({ id: comboId }),
+  });
+  const body = (await response.json()) as any;
+  assert.equal(response.status, 400);
+  assert.equal(body.error.code, "COMBO_002");
+  assert.equal(body.error.message, "One or more combo fields are invalid");
+  return body;
+}
+
 function createTieredComboInput() {
   return {
     name: "tiered-codex",
@@ -205,6 +229,153 @@ test("POST /api/combos preserves legacy string combo refs during normalization",
   assert.equal(stored.models[0].comboName, "child-ref");
 });
 
+test("PUT /api/combos rejects flattening an existing hard-rule combo", async () => {
+  const combo = await combosDb.createCombo({
+    name: "hard-rule-flatten",
+    strategy: "priority",
+    models: hardRuleModels(),
+    config: { nestedComboMode: "execute", timeoutMs: 30_000 },
+  });
+
+  const body = await assertHardRuleUpdateRejected(combo.id, {
+    config: { nestedComboMode: "flatten" },
+  });
+  assert.equal(body.error.details.firstField, "config.nestedComboMode");
+  const stored = await combosDb.getComboById(String(combo.id));
+  assert.equal((stored?.config as any).nestedComboMode, "execute");
+});
+
+test("PUT /api/combos rejects adding hard-rule models to a non-priority combo", async () => {
+  const combo = await combosDb.createCombo({
+    name: "hard-rule-model-update",
+    strategy: "weighted",
+    models: ["openai/gpt-4o"],
+    config: { nestedComboMode: "execute" },
+  });
+
+  const body = await assertHardRuleUpdateRejected(combo.id, { models: hardRuleModels() });
+  assert.equal(body.error.details.firstField, "strategy");
+});
+
+test("PUT /api/combos rejects changing an existing hard-rule combo strategy", async () => {
+  const combo = await combosDb.createCombo({
+    name: "hard-rule-strategy-update",
+    strategy: "priority",
+    models: hardRuleModels(),
+    config: { nestedComboMode: "execute" },
+  });
+
+  const body = await assertHardRuleUpdateRejected(combo.id, { strategy: "round-robin" });
+  assert.equal(body.error.details.firstField, "strategy");
+});
+
+test("PUT /api/combos accepts unrelated partial updates and preserves hard-rule config", async () => {
+  const combo = await combosDb.createCombo({
+    name: "hard-rule-description-update",
+    strategy: "priority",
+    models: hardRuleModels(),
+    config: { nestedComboMode: "execute", timeoutMs: 30_000 },
+  });
+
+  const response = await comboRoute.PUT(makeUpdateRequest({ description: "still valid" }), {
+    params: Promise.resolve({ id: combo.id }),
+  });
+  const stored = await combosDb.getComboById(String(combo.id));
+
+  assert.equal(response.status, 200);
+  assert.equal(stored?.description, "still valid");
+  assert.equal((stored?.config as any).nestedComboMode, "execute");
+  assert.equal((stored?.config as any).timeoutMs, 30_000);
+});
+
+test("PUT /api/combos deep-merges supported nested config records", async () => {
+  const config = {
+    responseValidation: {
+      forbiddenSubstrings: ["error"],
+      requiredSubstrings: ["answer"],
+      minContentLength: 20,
+    },
+    weights: {
+      quota: 0.2,
+      health: 0.2,
+      costInv: 0.1,
+      latencyInv: 0.1,
+      taskFit: 0.2,
+      stability: 0.2,
+    },
+    sla: {
+      targetP95Ms: 10_000,
+      maxErrorRate: 0.1,
+      hardConstraints: true,
+    },
+    compositeTiers: {
+      defaultTier: "primary",
+      tiers: {
+        primary: { stepId: "step-primary", fallbackTier: "backup", label: "Primary" },
+        backup: { stepId: "step-backup", label: "Backup" },
+      },
+    },
+    shadowRouting: {
+      enabled: false,
+      targets: ["openai/gpt-4o-mini"],
+      sampleRate: 0.25,
+      maxTargets: 2,
+      timeoutMs: 15_000,
+    },
+    evalRouting: {
+      enabled: true,
+      suiteIds: ["routing-regression"],
+      maxAgeHours: 24,
+      minCases: 5,
+      qualityWeight: 0.7,
+      latencyWeight: 0.3,
+      cacheTtlMs: 30_000,
+    },
+    fusionTuning: {
+      minPanel: 2,
+      stragglerGraceMs: 5_000,
+      panelHardTimeoutMs: 60_000,
+      maxPanel: 4,
+    },
+    contextRequirements: {
+      minContextWindow: 8_192,
+      maxContextWindow: 128_000,
+      preferLargeContext: true,
+      contextFilterMode: "strict",
+    },
+  };
+  const combo = await combosDb.createCombo({
+    ...createTieredComboInput(),
+    config,
+  });
+
+  const response = await comboRoute.PUT(
+    makeUpdateRequest({ config: { shadowRouting: { enabled: true } } }),
+    { params: Promise.resolve({ id: combo.id }) }
+  );
+  const body = (await response.json()) as any;
+  const stored = await combosDb.getComboById(String(combo.id));
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(body.config.shadowRouting, { ...config.shadowRouting, enabled: true });
+  for (const key of [
+    "responseValidation",
+    "weights",
+    "sla",
+    "compositeTiers",
+    "evalRouting",
+    "fusionTuning",
+    "contextRequirements",
+  ]) {
+    assert.deepEqual(body.config[key], config[key]);
+    assert.deepEqual((stored?.config as any)[key], config[key]);
+  }
+  assert.deepEqual((stored?.config as any).shadowRouting, {
+    ...config.shadowRouting,
+    enabled: true,
+  });
+});
+
 test("PUT /api/combos rejects updates that orphan an existing composite tier step reference", async () => {
   const combo = await combosDb.createCombo(createTieredComboInput());
 
@@ -270,7 +441,6 @@ test("PUT /api/combos preserves legacy string combo refs during normalization", 
   assert.equal(stored.models[0].kind, "combo-ref");
   assert.equal(stored.models[0].comboName, "child-ref");
 });
-
 
 test("POST /api/combos returns a structured 400 for invariant violations", async () => {
   const response = await createRoute.POST(

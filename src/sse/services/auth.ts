@@ -812,34 +812,37 @@ function formatConnectionPrefixesForLog(ids: Iterable<string>, max = 6): string 
   return prefixes.length > 0 ? prefixes.join(",") : "none";
 }
 
+// Fail-closed: emit quota IDs only when the whole effective pool is quota-blocked.
+// prettier-ignore
+function uniqueNonEmptyIds(ids: Iterable<string | null | undefined>): string[] {
+  return [...new Set([...ids].filter((id): id is string => typeof id === "string" && id.trim().length > 0))];
+}
 function buildQuotaPreflightRateLimitedResult(
   provider: string,
-  blockedByPreflight: Array<{
-    id: string;
-    quotaPercent?: number;
-    resetAt?: string | null;
-  }>
+  blockedByPreflight: Array<{ id: string; quotaPercent?: number; resetAt?: string | null }>,
+  options: { soleCause?: boolean } = {}
 ) {
   const retryAfter =
-    getEarliestFutureDate(blockedByPreflight.map((entry) => entry.resetAt ?? null)) ||
+    getEarliestFutureDate(blockedByPreflight.map((e) => e.resetAt ?? null)) ||
     new Date(Date.now() + 5 * 60 * 1000).toISOString();
-  const blockedSummary = blockedByPreflight
-    .map((entry) => {
-      const percent = Number.isFinite(entry.quotaPercent)
-        ? `${Math.round((entry.quotaPercent as number) * 100)}%`
-        : "quota exhausted";
-      return `${entry.id.slice(0, 8)}(${percent})`;
-    })
-    .join("; ");
-
-  log.info("AUTH", `${provider} | quota preflight filtered account(s): ${blockedSummary}`);
-
+  log.info(
+    "AUTH",
+    `${provider} | quota preflight filtered account(s): ${blockedByPreflight
+      .map(
+        (e) =>
+          `${e.id.slice(0, 8)}(${Number.isFinite(e.quotaPercent) ? `${Math.round((e.quotaPercent as number) * 100)}%` : "quota exhausted"})`
+      )
+      .join("; ")}`
+  );
+  const quotaExhaustedConnectionIds =
+    options.soleCause === false ? [] : uniqueNonEmptyIds(blockedByPreflight.map((e) => e.id));
   return {
     allRateLimited: true,
     retryAfter,
     retryAfterHuman: formatRetryAfter(retryAfter),
     lastError: `All ${provider} accounts blocked by quota preflight`,
     lastErrorCode: 429,
+    ...(quotaExhaustedConnectionIds.length > 0 ? { quotaExhaustedConnectionIds } : {}),
   };
 }
 
@@ -1183,11 +1186,12 @@ export async function getProviderCredentials(
 
     let modelLockedCount = 0;
     let familyLockedCount = 0;
+    let genericUnavailableCount = 0; // non-quota unavailability in effective pool
     const connectionFilterStatus = new Map<string, string>();
     // Filter out unavailable accounts and excluded connection
     const availableConnections = connections.filter((c) => {
       if (excludedConnectionIds.has(c.id)) {
-        connectionFilterStatus.set(c.id, "excluded");
+        connectionFilterStatus.set(c.id, "excluded"); // may be prior quota cool
         return false;
       }
       if (requestedModel && isModelExcludedByConnection(requestedModel, c.providerSpecificData)) {
@@ -1197,19 +1201,23 @@ export async function getProviderCredentials(
       if (!allowSuppressedConnections) {
         if (!allowRateLimitedConnections && isAccountUnavailable(c.rateLimitedUntil)) {
           connectionFilterStatus.set(c.id, "rateLimited");
+          genericUnavailableCount += 1;
           return false;
         }
         if (isTerminalConnectionStatus(c)) {
           connectionFilterStatus.set(c.id, "terminalStatus");
+          genericUnavailableCount += 1;
           return false;
         }
         if (provider === "codex" && isCodexScopeUnavailable(c, requestedModel)) {
           connectionFilterStatus.set(c.id, "codexScopeLimited");
+          genericUnavailableCount += 1;
           return false;
         }
         // Per-model lockout: if this specific model/family is locked on this connection, skip it
         if (requestedModel && isModelLocked(provider, c.id, requestedModel)) {
           connectionFilterStatus.set(c.id, "modelLocked");
+          genericUnavailableCount += 1;
           if (
             provider === "antigravity" &&
             getQuotaScopeLabelForProvider(provider, requestedModel) === "family"
@@ -1224,6 +1232,7 @@ export async function getProviderCredentials(
       connectionFilterStatus.set(c.id, "available");
       return true;
     });
+    const quotaExhaustionIsSoleCause = genericUnavailableCount === 0;
 
     log.debug(
       "AUTH",
@@ -1406,12 +1415,17 @@ export async function getProviderCredentials(
         ? new Date(earliestResetMs).toISOString()
         : new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
+      const quotaExhaustedConnectionIds = quotaExhaustionIsSoleCause
+        ? uniqueNonEmptyIds(blockedByPolicy.map((entry) => entry.id))
+        : [];
+
       return {
         allRateLimited: true,
         retryAfter,
         retryAfterHuman: formatRetryAfter(retryAfter),
         lastError: `All ${provider} accounts reached configured quota threshold`,
         lastErrorCode: 429,
+        ...(quotaExhaustedConnectionIds.length > 0 ? { quotaExhaustedConnectionIds } : {}),
       };
     }
 
@@ -1449,12 +1463,17 @@ export async function getProviderCredentials(
         ? new Date(earliestResetMs).toISOString()
         : new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
+      const quotaExhaustedConnectionIds = quotaExhaustionIsSoleCause
+        ? uniqueNonEmptyIds(exhaustedQuota.map((c) => c.id))
+        : [];
+
       return {
         allRateLimited: true,
         retryAfter,
         retryAfterHuman: formatRetryAfter(retryAfter),
         lastError: `All ${provider} accounts have exhausted their quota`,
         lastErrorCode: 429,
+        ...(quotaExhaustedConnectionIds.length > 0 ? { quotaExhaustedConnectionIds } : {}),
       };
     }
 
@@ -1757,7 +1776,10 @@ export async function getProviderCredentialsWithQuotaPreflight(
 
     if (!credentials) {
       if (blockedByPreflight.length > 0) {
-        return buildQuotaPreflightRateLimitedResult(provider, blockedByPreflight);
+        // null => remaining candidates removed by preflight (sole-cause).
+        return buildQuotaPreflightRateLimitedResult(provider, blockedByPreflight, {
+          soleCause: true,
+        });
       }
       return null;
     }
@@ -1766,13 +1788,7 @@ export async function getProviderCredentialsWithQuotaPreflight(
       ("allRateLimited" in credentials && credentials.allRateLimited) ||
       ("allExpired" in credentials && credentials.allExpired)
     ) {
-      if (
-        "allRateLimited" in credentials &&
-        credentials.allRateLimited &&
-        blockedByPreflight.length > 0
-      ) {
-        return buildQuotaPreflightRateLimitedResult(provider, blockedByPreflight);
-      }
+      // Do not promote generic/mixed allRateLimited via preflight side-effects.
       return credentials;
     }
 
@@ -2028,9 +2044,17 @@ export async function markAccountUnavailable(
         return { shouldFallback: true, cooldownMs: 0 };
       }
 
-      const quotaScope = getQuotaScopeLabelForProvider(provider, model);
+      // Exact Antigravity lock: skip family-inferred cooldowns and force exact
+      // model lockout scope for antigravity failures.
+      const usesExactAntigravityLock = provider === "antigravity";
+      const quotaScope = usesExactAntigravityLock
+        ? "model"
+        : getQuotaScopeLabelForProvider(provider, model);
       const antigravityFamilyInferredBaseCooldownMs =
-        provider === "antigravity" && quotaScope === "family" && status === 429
+        !usesExactAntigravityLock &&
+        provider === "antigravity" &&
+        quotaScope === "family" &&
+        status === 429
           ? ANTIGRAVITY_FAMILY_INFERRED_BASE_COOLDOWN_MS
           : null;
       const lockout = recordModelLockoutFailure(
@@ -2053,6 +2077,7 @@ export async function markAccountUnavailable(
               ? fallbackResult.cooldownMs
               : (fallbackResult.quotaResetHintMs ?? null),
           maxCooldownMs: mlSettings.maxCooldownMs,
+          scope: usesExactAntigravityLock ? "exact" : undefined,
           // #6863 vs #7940: exactCooldownMs above is only ever set from a genuine
           // upstream signal (Retry-After/reset header or a parsed quotaResetHintMs) —
           // never a synthetic estimate — so it must bypass maxCooldownMs instead of

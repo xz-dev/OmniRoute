@@ -1,5 +1,6 @@
 export const ROUTING_STRATEGY_VALUES = [
   "priority",
+  "guarded-priority",
   "weighted",
   "round-robin",
   "context-relay",
@@ -92,6 +93,13 @@ export const ROUTING_STRATEGIES: RoutingStrategyOption[] = [
     combosDescKey: "priorityDesc",
     settingsDescKey: "priorityDesc",
     icon: "sort",
+  },
+  {
+    value: "guarded-priority",
+    labelKey: "guardedPriority",
+    combosDescKey: "guardedPriorityDesc",
+    settingsDescKey: "guardedPriorityDesc",
+    icon: "shield_lock",
   },
   {
     value: "weighted",

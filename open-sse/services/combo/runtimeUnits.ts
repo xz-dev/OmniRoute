@@ -1,7 +1,10 @@
 // Nested combo runtime unit execution — see combo.ts for integration.
 import { errorResponse } from "../../utils/error.ts";
+import { markConnectionRateLimitedUntil } from "../../../src/lib/db/providers/rateLimit.ts";
 import { recordComboRequest } from "../comboMetrics.ts";
 import { resolveDelayMs } from "./comboPredicates.ts";
+import { buildOfflineRuleFacts, matchesOfflineCondition } from "./offlineRule.ts";
+import { isNodeOffline, recordNodeOffline } from "./offlineState.ts";
 import { validateResponseQuality, releaseQualityClone } from "./validateQuality.ts";
 import type { ResponseValidationConfig } from "./responseValidation.ts";
 import type {
@@ -20,6 +23,23 @@ export type RuntimeUnitExecutionResult = {
   response: Response;
   unit: ResolvedComboUnit | null;
 };
+
+// Reserved headers may still appear on responses for defense-in-depth stripping,
+// but they are NEVER treated as authoritative. Local pre-dispatch provenance is
+// carried only via object-identity metadata keyed by the exact Response instance.
+const GUARDED_PREDISPATCH_UNAVAILABLE_HEADER = "x-omniroute-guarded-predispatch-unavailable";
+const GUARDED_QUOTA_EXHAUSTED_HEADER = "x-omniroute-guarded-quota-exhausted";
+const GUARDED_QUOTA_EXHAUSTED_IDS_HEADER = "x-omniroute-guarded-quota-exhausted-ids";
+
+type TrustedPredispatchMetadata =
+  | { kind: "generic-unavailable" }
+  | {
+      kind: "quota-exhausted";
+      quotaExhaustedConnectionIds: string[];
+      selectedConnectionId: string | null;
+    };
+
+const trustedPredispatchByResponse = new WeakMap<Response, TrustedPredispatchMetadata>();
 
 type RuntimeUnitRunner = (options: HandleComboChatOptions) => Promise<Response>;
 
@@ -40,6 +60,53 @@ function findComboByName(allCombos: ComboCollectionLike, name: string): ComboLik
 
 function unitDisplayName(unit: ResolvedComboUnit): string {
   return unit.kind === "combo-ref" ? `combo:${unit.comboName}` : unit.modelStr;
+}
+
+function rememberTrustedPredispatch(
+  response: Response,
+  metadata: TrustedPredispatchMetadata
+): Response {
+  trustedPredispatchByResponse.set(response, metadata);
+  return response;
+}
+
+function getTrustedPredispatch(response: Response): TrustedPredispatchMetadata | null {
+  return trustedPredispatchByResponse.get(response) ?? null;
+}
+
+function stripInternalGuardedHeaders(response: Response): Response {
+  const trusted = getTrustedPredispatch(response);
+  const headers = new Headers(response.headers);
+  headers.delete("x-omniroute-selected-connection-id");
+  headers.delete(GUARDED_PREDISPATCH_UNAVAILABLE_HEADER);
+  headers.delete(GUARDED_QUOTA_EXHAUSTED_HEADER);
+  headers.delete(GUARDED_QUOTA_EXHAUSTED_IDS_HEADER);
+  const stripped = new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+  // Cloning for outbound strip must preserve trusted object-identity metadata.
+  if (trusted) rememberTrustedPredispatch(stripped, trusted);
+  return stripped;
+}
+
+function selectedConnectionId(response: Response): string | null {
+  const trusted = getTrustedPredispatch(response);
+  if (trusted?.kind === "quota-exhausted" && trusted.selectedConnectionId) {
+    return trusted.selectedConnectionId;
+  }
+  // Upstream path: chat boundary overwrites this header with the real selected
+  // credentials.connectionId after dispatch. Ordinary upstream forgeries are
+  // replaced before the Guarded executor reads the value.
+  const value = response.headers.get("x-omniroute-selected-connection-id");
+  return value && value.trim().length > 0 ? value.trim() : null;
+}
+
+function trustedQuotaExhaustedConnectionIds(response: Response): string[] {
+  const trusted = getTrustedPredispatch(response);
+  if (trusted?.kind !== "quota-exhausted") return [];
+  return trusted.quotaExhaustedConnectionIds.filter((id) => id.trim().length > 0);
 }
 
 function shuffleUnits(units: ResolvedComboUnit[]): ResolvedComboUnit[] {
@@ -71,8 +138,30 @@ async function executeModelUnit(args: {
   effectiveComboStrategy: string;
 }): Promise<Response> {
   if (args.isModelAvailable) {
-    const available = await args.isModelAvailable(args.unit.modelStr, args.unit);
-    if (!available) return errorResponse(503, `Model ${args.unit.modelStr} is unavailable`);
+    const availability = await args.isModelAvailable(args.unit.modelStr, args.unit);
+    if (availability !== true) {
+      const response = errorResponse(503, `Model ${args.unit.modelStr} is unavailable`);
+      // Authoritative local quota-policy exhaustion is recorded only via the
+      // Response object identity. Headers are intentionally NOT used as authority
+      // (upstream can forge them). Generic pre-dispatch unavailability stays no-fallback.
+      if (
+        availability &&
+        typeof availability === "object" &&
+        availability.reason === "quota-exhausted" &&
+        Array.isArray(availability.quotaExhaustedConnectionIds) &&
+        availability.quotaExhaustedConnectionIds.length > 0
+      ) {
+        const exhaustedIds = availability.quotaExhaustedConnectionIds
+          .map((id) => String(id).trim())
+          .filter((id) => id.length > 0);
+        return rememberTrustedPredispatch(response, {
+          kind: "quota-exhausted",
+          quotaExhaustedConnectionIds: exhaustedIds,
+          selectedConnectionId: exhaustedIds[0] ?? null,
+        });
+      }
+      return rememberTrustedPredispatch(response, { kind: "generic-unavailable" });
+    }
   }
   return args.handleSingleModel(args.body, args.unit.modelStr, {
     ...args.unit,
@@ -161,6 +250,134 @@ function orderUnitsForStrategy(strategy: string, units: ResolvedComboUnit[]): Re
     return [selected, ...units.filter((unit) => unit.executionKey !== selected.executionKey)];
   }
   return units;
+}
+
+export async function executeHardRuleRuntimeUnitCombo(args: {
+  body: Record<string, unknown>;
+  combo: ComboLike;
+  units: ResolvedComboUnit[];
+  handleSingleModel: HandleSingleModel;
+  isModelAvailable?: IsModelAvailable;
+  log: ComboLogger;
+  config: Record<string, unknown>;
+  settings?: Record<string, unknown> | null;
+  allCombos: ComboCollectionLike;
+  signal?: AbortSignal | null;
+  nesting: ComboNestingContext;
+  baseOptions: HandleComboChatOptions;
+  runCombo: RuntimeUnitRunner;
+}): Promise<RuntimeUnitExecutionResult> {
+  for (const originalUnit of args.units) {
+    if (isNodeOffline(args.combo.name, originalUnit.stepId)) continue;
+    if (originalUnit.offlineCondition === undefined) {
+      const response = await executeRuntimeUnit({
+        body: args.body,
+        unit: originalUnit,
+        allCombos: args.allCombos,
+        handleSingleModel: args.handleSingleModel,
+        isModelAvailable: args.isModelAvailable,
+        runCombo: args.runCombo,
+        baseOptions: args.baseOptions,
+        nesting: args.nesting,
+        failoverBeforeRetry: false,
+        effectiveComboStrategy: "guarded-priority",
+      });
+      return { response: stripInternalGuardedHeaders(response), unit: originalUnit };
+    }
+
+    const attemptedConnections = new Set<string>();
+    for (;;) {
+      const unit =
+        originalUnit.kind === "model" && attemptedConnections.size > 0
+          ? {
+              ...originalUnit,
+              executionKey: `${originalUnit.executionKey}:hard-rule:${attemptedConnections.size}`,
+              ...(Array.isArray(originalUnit.allowedConnectionIds)
+                ? {
+                    allowedConnectionIds: originalUnit.allowedConnectionIds.filter(
+                      (id) => !attemptedConnections.has(id)
+                    ),
+                  }
+                : {}),
+              excludeConnectionIds: Array.from(attemptedConnections),
+            }
+          : originalUnit;
+      if (
+        unit.kind === "model" &&
+        Array.isArray(unit.allowedConnectionIds) &&
+        unit.allowedConnectionIds.length === 0
+      )
+        break;
+      const response = await executeRuntimeUnit({
+        body: args.body,
+        unit,
+        allCombos: args.allCombos,
+        handleSingleModel: args.handleSingleModel,
+        isModelAvailable: args.isModelAvailable,
+        runCombo: args.runCombo,
+        baseOptions: args.baseOptions,
+        nesting: args.nesting,
+        failoverBeforeRetry: false,
+        effectiveComboStrategy: "guarded-priority",
+      });
+      // Generic pre-dispatch unavailability (no credentials / concurrent-cap /
+      // circuit / plain cooldown) remains no-fallback. Trust only object-identity
+      // metadata from local synthesis — never ordinary response headers.
+      const trusted = getTrustedPredispatch(response);
+      if (trusted?.kind === "generic-unavailable") {
+        return { response: stripInternalGuardedHeaders(response), unit: originalUnit };
+      }
+
+      const exhaustedIds = trustedQuotaExhaustedConnectionIds(response);
+      const facts = await buildOfflineRuleFacts(response);
+      const matchesQuotaExhaustion =
+        exhaustedIds.length > 0 && matchesOfflineCondition(originalUnit.offlineCondition, facts);
+      const matchesUpstreamOffline =
+        exhaustedIds.length === 0 && matchesOfflineCondition(originalUnit.offlineCondition, facts);
+
+      if (!matchesQuotaExhaustion && !matchesUpstreamOffline) {
+        return { response: stripInternalGuardedHeaders(response), unit: originalUnit };
+      }
+
+      const cooldownMs = Math.max(0, originalUnit.offlineCooldownMs ?? 0);
+      const selectedId = selectedConnectionId(response);
+
+      // Authoritative local quota exhaustion means the remaining credential pool is
+      // empty of usable accounts (auth only returns this when every remaining
+      // account is quota-blocked). Cool those concrete accounts + the node, then
+      // advance to the next Guarded unit (paid nested). Peer-account selection
+      // for partially-exhausted pools happens inside credential selection and
+      // never reaches this allRateLimited path.
+      if (exhaustedIds.length > 0 && originalUnit.kind === "model") {
+        for (const id of exhaustedIds) {
+          attemptedConnections.add(id);
+          markConnectionRateLimitedUntil(id, cooldownMs);
+        }
+        if (originalUnit.connectionId) {
+          markConnectionRateLimitedUntil(originalUnit.connectionId, cooldownMs);
+        }
+        recordNodeOffline(args.combo.name, originalUnit.stepId, cooldownMs);
+        break;
+      }
+
+      if (originalUnit.kind === "model" && !originalUnit.connectionId && selectedId) {
+        if (!attemptedConnections.has(selectedId)) {
+          attemptedConnections.add(selectedId);
+          markConnectionRateLimitedUntil(selectedId, cooldownMs);
+          continue;
+        }
+        // Same selected connection returned after exclusion — stop account rotation.
+      }
+      if (originalUnit.kind === "model" && originalUnit.connectionId) {
+        markConnectionRateLimitedUntil(originalUnit.connectionId, cooldownMs);
+      } else if (originalUnit.kind === "model" && selectedId) {
+        markConnectionRateLimitedUntil(selectedId, cooldownMs);
+      }
+      recordNodeOffline(args.combo.name, originalUnit.stepId, cooldownMs);
+      break;
+    }
+  }
+  return { response: errorResponse(503, "All hard-rule combo nodes are cooling down"), unit: null };
 }
 
 export async function executeRuntimeUnitCombo(args: {

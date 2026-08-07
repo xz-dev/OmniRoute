@@ -7,6 +7,7 @@ export const COMBO_BUILDER_STAGES = [
   "basics",
   "steps",
   "strategy",
+  "guarded-priority",
   "intelligent",
   "review",
 ] as const;
@@ -18,6 +19,10 @@ export type ComboBuilderStageOptions = {
 
 export function isIntelligentBuilderStrategy(strategy: unknown): boolean {
   return strategy === "auto" || strategy === "lkgp";
+}
+
+export function isGuardedPriorityBuilderStrategy(strategy: unknown): boolean {
+  return strategy === "guarded-priority";
 }
 
 export type ComboEligibleConnectionLike = {
@@ -48,11 +53,11 @@ export function isEligibleActiveConnection(connection: ComboEligibleConnectionLi
 }
 
 export function getComboBuilderStages(options: ComboBuilderStageOptions = {}): ComboBuilderStage[] {
-  if (isIntelligentBuilderStrategy(options.strategy)) {
-    return [...COMBO_BUILDER_STAGES];
-  }
-
-  return COMBO_BUILDER_STAGES.filter((stage) => stage !== "intelligent");
+  return COMBO_BUILDER_STAGES.filter((stage) => {
+    if (stage === "intelligent") return isIntelligentBuilderStrategy(options.strategy);
+    if (stage === "guarded-priority") return isGuardedPriorityBuilderStrategy(options.strategy);
+    return true;
+  });
 }
 
 function isRecord(value: unknown): value is JsonRecord {
@@ -241,7 +246,9 @@ export function canAccessComboBuilderStage(
   if (stage === "basics") return true;
   if (stage === "steps") return checks.basics;
   if (stage === "strategy") return checks.basics && checks.steps;
-  if (stage === "intelligent") return checks.basics && checks.steps && checks.strategy;
+  if (stage === "guarded-priority" || stage === "intelligent") {
+    return checks.basics && checks.steps && checks.strategy;
+  }
   if (stage === "review") return checks.basics && checks.steps;
   return false;
 }

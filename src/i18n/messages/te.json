@@ -3420,6 +3420,10 @@
         "label": "Strategy",
         "description": "Routing behavior and advanced settings"
       },
+      "guarded-priority": {
+        "label": "Guarded Priority",
+        "description": "Configure each child’s Hard Offline condition and cooldown"
+      },
       "intelligent": {
         "label": "Smart Routing",
         "description": "Auto-routing candidate pool, presets, and scoring"
@@ -3506,7 +3510,13 @@
     "sessionStickinessDisabled": "స్టిక్కీనెస్ ఆఫ్",
     "kimiPresetTitle": "Kimi Coding ప్రీసెట్",
     "kimiPresetDescription": "ప్రాథమిక మోడల్‌గా Kimi K3 (Moonshot API), కాన్ఫిగర్ చేసినప్పుడు మీ Kimi Code కనెక్షన్‌లకు (kimi-coding, kimi-web) ఆటోమేటిక్ ఫాల్‌బ్యాక్‌తో.",
-    "kimiPresetCta": "ప్రీసెట్‌ను జోడించు"
+    "kimiPresetCta": "ప్రీసెట్‌ను జోడించు",
+    "guardedPriority": "Guarded Priority",
+    "guardedPriorityDesc": "Falls through in priority order only when the current node matches its Hard Offline condition and enters cooldown.",
+    "offlineRuleEnabled": "Hard Offline condition",
+    "offlineRuleCondition": "Safe JSON Logic (advanced/custom condition)",
+    "offlineRuleCooldown": "Cooldown (ms)",
+    "offlineRuleHelp": "Default: 300000 ms (5 minutes). A non-matching response never falls through."
   },
   "costs": {
     "title": "Costs",

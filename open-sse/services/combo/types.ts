@@ -67,10 +67,26 @@ export type HandleSingleModel = (
   target?: SingleModelTarget
 ) => Promise<Response>;
 
+/**
+ * Availability pre-check result.
+ * - true: credentials selected and cached for dispatch
+ * - false: generic pre-dispatch unavailability (no Hard Offline advancement)
+ * - { available:false, reason:"quota-exhausted", ... }: authoritative local
+ *   quota-policy exhaustion with connection provenance for Guarded Priority
+ */
+export type ModelAvailabilityResult =
+  | boolean
+  | {
+      available: false;
+      reason: "quota-exhausted";
+      quotaExhaustedConnectionIds: string[];
+      retryAfter?: string | null;
+    };
+
 export type IsModelAvailable = (
   modelStr: string,
   target?: ResolvedComboTarget & { allowRateLimitedConnection?: boolean }
-) => Promise<boolean> | boolean;
+) => Promise<ModelAvailabilityResult> | ModelAvailabilityResult;
 
 export type ComboRelayOptions = {
   sessionId?: string | null;
@@ -165,8 +181,12 @@ export type ResolvedComboTarget = {
   providerId: string | null;
   connectionId: string | null;
   allowedConnectionIds?: string[] | null;
+  excludeConnectionIds?: string[] | null;
   weight: number;
   label: string | null;
+  prompt?: string | null;
+  offlineCondition?: unknown;
+  offlineCooldownMs?: number;
   failoverBeforeRetry?: unknown;
   trafficType?: "production" | "shadow";
   /**
@@ -194,6 +214,8 @@ export type ResolvedComboRefTarget = {
   comboName: string;
   weight: number;
   label: string | null;
+  offlineCondition?: unknown;
+  offlineCooldownMs?: number;
 };
 
 export type ResolvedComboUnit = ResolvedComboTarget | ResolvedComboRefTarget;
