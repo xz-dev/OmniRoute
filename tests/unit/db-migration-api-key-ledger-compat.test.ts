@@ -87,8 +87,9 @@ test(
         model_access_mode TEXT NOT NULL DEFAULT 'all'
       );
       INSERT INTO api_keys (id, allowed_models, model_access_mode) VALUES
-        ('all', '[]', 'restricted'),
-        ('restricted', '["openai/gpt-4.1"]', 'all');
+        ('restricted-empty', '[]', 'restricted'),
+        ('legacy-unrestricted', '[]', 'all'),
+        ('legacy-restricted', '["openai/gpt-4.1"]', 'all');
     `);
       const files = {
         "142_api_keys_model_access_mode.sql": "this SQL must not execute directly",
@@ -101,8 +102,9 @@ test(
       assert.deepEqual(
         db.prepare("SELECT id, model_access_mode AS mode FROM api_keys ORDER BY id").all(),
         [
-          { id: "all", mode: "all" },
-          { id: "restricted", mode: "restricted" },
+          { id: "legacy-restricted", mode: "restricted" },
+          { id: "legacy-unrestricted", mode: "all" },
+          { id: "restricted-empty", mode: "restricted" },
         ]
       );
       assert.deepEqual(db.prepare("SELECT version, name FROM _omniroute_migrations").all(), [

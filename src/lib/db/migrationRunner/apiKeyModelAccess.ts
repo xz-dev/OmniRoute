@@ -20,14 +20,15 @@ export function applyApiKeyModelAccessMigration(db: SqliteAdapter): void {
 
   db.exec(`
     UPDATE api_keys
-    SET model_access_mode = CASE
-      WHEN allowed_models IS NULL OR trim(allowed_models) = '' THEN 'all'
-      WHEN json_valid(allowed_models) = 1 AND (
-        json_type(allowed_models) = 'null'
-        OR (json_type(allowed_models) = 'array' AND json_array_length(allowed_models) = 0)
-      ) THEN 'all'
-      ELSE 'restricted'
-    END;
+    SET model_access_mode = 'restricted'
+    WHERE model_access_mode = 'all'
+      AND NOT (
+        allowed_models IS NULL OR trim(allowed_models) = ''
+        OR (json_valid(allowed_models) = 1 AND (
+          json_type(allowed_models) = 'null'
+          OR (json_type(allowed_models) = 'array' AND json_array_length(allowed_models) = 0)
+        ))
+      );
   `);
 }
 
