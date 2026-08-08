@@ -39,6 +39,28 @@ test("codex native responses passthrough strips client-only params (#3317)", asy
   assert.ok(Array.isArray(result.input), "input array preserved");
 });
 
+test("codex native responses passthrough removes only orphaned function outputs", async () => {
+  const executor = new CodexExecutor();
+  const body = {
+    _nativeCodexPassthrough: true,
+    model: "gpt-5.5",
+    input: [
+      { type: "function_call", call_id: "call-kept", name: "lookup", arguments: "{}" },
+      { type: "function_call_output", call_id: "call-kept", output: "kept" },
+      { type: "function_call_output", call_id: "call-orphan", output: "removed" },
+    ],
+  };
+
+  const result = (await executor.transformRequest("gpt-5.5", body, false, {} as never)) as {
+    input: Array<Record<string, unknown>>;
+  };
+
+  assert.deepEqual(
+    result.input.filter((item) => item.type === "function_call_output"),
+    [{ type: "function_call_output", call_id: "call-kept", output: "kept" }]
+  );
+});
+
 test("codex native responses passthrough normalizes additional_tools items", async () => {
   const executor = new CodexExecutor();
   const messageContent = [{ type: "input_text", text: "run the terminal tool" }];

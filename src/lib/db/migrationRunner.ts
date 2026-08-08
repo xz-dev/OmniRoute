@@ -8,12 +8,9 @@
  *
  * All migrations run within a single transaction — all-or-nothing per file.
  *
- * Safety features:
- * - Pre-migration backup before applying any pending migrations
- * - Mass-migration detection (abort if too many pending on existing DB)
- * - Migration name mismatch warning (detects renumbering issues)
+ * Safety features: pre-migration backups, mass-migration detection, and
+ * migration-name mismatch warnings for renumbering.
  */
-
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -29,6 +26,7 @@ import {
   OPTIONAL_FTS5_MIGRATION_VERSIONS,
 } from "./migrationRunner/constants";
 import { getExtraMigrationFiles } from "./migrationRunner/extraDirs";
+import * as apiKeyModelAccess from "./migrationRunner/apiKeyModelAccess";
 
 const isNodeTestRunnerChild = typeof process.env.NODE_TEST_CONTEXT === "string";
 
@@ -481,7 +479,6 @@ function isSchemaAlreadyApplied(
       // but still burn a version-tracking slot mismatch — guard it the same
       // way as the other renumbers for consistency.
       return hasTable(db, "connection_runtime_state");
-    case "142": return hasColumn(db, "api_keys", "model_access_mode");
     default:
       return false;
   }
@@ -844,6 +841,7 @@ export function runMigrations(db: SqliteAdapter, options?: { isNewDb?: boolean }
   const files = filterSupersededDuplicateMigrations(getMigrationFiles());
   rehomeLegacyVersionSlotMigrations(db, files);
   reconcileRenumberedMigrations(db, files);
+  apiKeyModelAccess.reconcileAppliedApiKeyModelAccessMigration(db);
   const applied = getAppliedVersions(db);
   const appliedRecords = getAppliedRecords(db);
 
@@ -996,6 +994,8 @@ export function runMigrations(db: SqliteAdapter, options?: { isNewDb?: boolean }
         applyCompressionReceiptsMigration(db);
       } else if (migration.version === "042") {
         applyCompressionCombosMigration(db, migration.path);
+      } else if (migration.version === "142" && migration.name === "api_keys_model_access_mode") {
+        apiKeyModelAccess.applyApiKeyModelAccessMigration(db);
       } else {
         const sql = fs.readFileSync(migration.path, "utf-8");
         db.exec(sql);

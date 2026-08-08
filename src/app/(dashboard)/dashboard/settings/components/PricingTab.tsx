@@ -6,6 +6,7 @@ import ProviderIcon from "@/shared/components/ProviderIcon";
 import InfoTooltip from "@/shared/components/InfoTooltip";
 import { useTranslations } from "next-intl";
 import { compareTr, matchesSearch } from "@/shared/utils/turkishText";
+import { attachPricingCatalogKeys, getPricingCatalogKey } from "@/lib/pricingCatalogKeys";
 
 type CoverageFilter = "all" | "lt50" | "gte50lt100" | "full";
 type AuthFilter = "all" | "oauth" | "apikey" | "unknown";
@@ -133,19 +134,10 @@ export default function PricingTab() {
     void loadData();
   }, [loadData]);
 
-  const allProviders = useMemo(() => {
-    return Object.entries(catalog)
-      .map(([alias, info]) => {
-        const pricingKey = info.pricingKey || alias;
-        return {
-          ...info,
-          alias,
-          pricingKey,
-          pricedModels: pricingData[pricingKey] ? Object.keys(pricingData[pricingKey]).length : 0,
-        };
-      })
-      .sort((left, right) => right.modelCount - left.modelCount);
-  }, [catalog, pricingData]);
+  const allProviders = useMemo(
+    () => attachPricingCatalogKeys(catalog, pricingData),
+    [catalog, pricingData]
+  );
 
   const filteredProviders = useMemo(() => {
     const providerMatchesSearch = (provider: (typeof allProviders)[number]) => {
@@ -321,7 +313,7 @@ export default function PricingTab() {
     async (providerAlias: string, pricingKey?: string) => {
       setSaving(true);
       try {
-        const writeKey = pricingKey || providerAlias;
+        const writeKey = getPricingCatalogKey(providerAlias, pricingKey);
         const response = await fetch("/api/pricing", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -359,9 +351,8 @@ export default function PricingTab() {
       if (!confirm(t("resetPricingConfirm", { provider: providerAlias.toUpperCase() }))) return;
 
       try {
-        const writeKey = pricingKey || providerAlias;
-        const params = new URLSearchParams({ provider: writeKey });
-        const response = await fetch(`/api/pricing?${params.toString()}`, {
+        const writeKey = getPricingCatalogKey(providerAlias, pricingKey);
+        const response = await fetch(`/api/pricing?provider=${encodeURIComponent(writeKey)}`, {
           method: "DELETE",
         });
 
@@ -689,13 +680,13 @@ export default function PricingTab() {
           <ProviderSection
             key={provider.alias}
             provider={provider}
-            pricingData={pricingData[provider.pricingKey || provider.alias] || {}}
-            sourceMap={pricingSources[provider.pricingKey || provider.alias] || {}}
+            pricingData={pricingData[provider.pricingKey] || {}}
+            sourceMap={pricingSources[provider.pricingKey] || {}}
             isExpanded={expandedProviders.has(provider.alias)}
-            isEdited={editedProviders.has(provider.pricingKey || provider.alias)}
+            isEdited={editedProviders.has(provider.pricingKey)}
             onToggle={() => toggleProvider(provider.alias)}
             onPricingChange={(model, field, value) =>
-              handlePricingChange(provider.pricingKey || provider.alias, model, field, value)
+              handlePricingChange(provider.pricingKey, model, field, value)
             }
             onSave={() => void saveProvider(provider.alias, provider.pricingKey)}
             onReset={() => void resetProvider(provider.alias, provider.pricingKey)}

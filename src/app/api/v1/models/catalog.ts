@@ -30,14 +30,6 @@ import { getAllMusicModels } from "@omniroute/open-sse/config/musicRegistry";
 import { REGISTRY } from "@omniroute/open-sse/config/providerRegistry";
 import { CODEX_NATIVE_UNPREFIXED_MODELS } from "@omniroute/open-sse/services/model";
 import { resolveNestedComboTargets } from "@omniroute/open-sse/services/combo";
-import {
-  AUTO_TEMPLATE_VARIANTS,
-  AUTO_SUFFIX_VARIANTS,
-  AUTO_FAMILY_IDS,
-  createBuiltinAutoCombo,
-  prepareBuiltinAutoComboInputs,
-  isPaidTierAutoId,
-} from "@omniroute/open-sse/services/autoCombo/builtinCatalog";
 import type { SyncedAvailableModel } from "@/lib/db/models";
 import { getAllActiveSyncedModels } from "@/lib/db/models/activeSyncedCatalog";
 import { getModelCatalogCacheVersion } from "@/lib/db/readCache";
@@ -49,9 +41,8 @@ import {
   INTERNAL_PROXY_ERROR,
   getCanonicalModelMetadata,
   getCatalogDiagnosticsHeaders,
-  type CatalogEnrichmentSnapshot,
 } from "@/lib/modelMetadataRegistry";
-import { getModelsDevPricing, getSyncedCapability } from "@/lib/modelsDevSync";
+import { getSyncedCapability } from "@/lib/modelsDevSync";
 import { getModelSpec } from "@/shared/constants/modelSpecs";
 import { getModelsCatalogPrefixMode } from "@/shared/utils/featureFlags";
 import { applyCatalogPostFilters, finalizeCatalogResponse } from "./catalogResponse";
@@ -100,11 +91,8 @@ import { incrementCcDiscoveryHitCount } from "@/lib/db/ccDiscoveryMetrics";
 import { isFreeModel, providerHasFreeModels } from "@/shared/utils/freeModels";
 import { isCodexDiscoveryModelExcluded } from "@/shared/services/codexDiscoveryPolicy";
 import { buildErrorBody } from "@omniroute/open-sse/utils/error";
+import * as catalogResponsiveness from "./catalogResponsiveness";
 
-// Public API of this module is preserved after the catalog helper extraction:
-// `isVisionModelId` (vision-detection-consistency.test.ts) and
-// `getCustomVisionCapabilityFields` (llm-selector-custom-vision-models.test.ts)
-// are still importable from here.
 export { isVisionModelId } from "@/shared/constants/visionModels";
 export { getCustomVisionCapabilityFields };
 
@@ -124,12 +112,6 @@ export {
   __forceCatalogInFlightRejectionForTest,
 } from "./catalogCache";
 export type { CachedCatalog } from "./catalogCache";
-
-const BUILTIN_AUTO_YIELD_INTERVAL = 8;
-
-function yieldCatalogBuildTurn(): Promise<void> {
-  return new Promise((resolve) => setImmediate(resolve));
-}
 
 /**
  * Build unified OpenAI-compatible model catalog response.
@@ -605,64 +587,14 @@ async function buildUnifiedModelsResponseCore(
     // #6453: also advertise the `auto/<family>` combos (auto/glm, auto/minimax, ...).
     // #9418: skip the entire loop when hideAutoCombos is on — the ids are still
     // routable when sent explicitly, just not advertised in the catalog.
-    if (!hideAuto) {
-      // #9199: prepare the shared connection/settings/registry candidate snapshot once for this
-      // catalog build. Runtime auto routing still prepares fresh request-scoped inputs.
-      let preparedAutoInputs: Awaited<ReturnType<typeof prepareBuiltinAutoComboInputs>> | undefined;
-      let materializedAutoCount = 0;
-      for (const autoId of [
-        ...Object.keys(AUTO_TEMPLATE_VARIANTS),
-        ...AUTO_SUFFIX_VARIANTS,
-        ...AUTO_FAMILY_IDS,
-      ]) {
-        if (blockedProviders.has("auto") || listedIds.has(autoId)) continue; // #5192
-        // #6328 (follow-up to #6495 / #6512): REMOVE — not just hide — paid-tier
-        // auto/* ids (auto/pro-* + auto/*:pro) from the advertised catalog when the
-        // operator opts into hidePaidModels. The candidate-pool filter in
-        // virtualFactory (#6512) still gates request-time routing for the rest.
-        if (hidePaid && isPaidTierAutoId(autoId)) continue;
-        listedIds.add(autoId);
-        const baseAutoEntry = {
-          id: autoId,
-          object: "model",
-          created: timestamp,
-          owned_by: "combo",
-          permission: [],
-          root: autoId,
-          parent: null,
-        };
-        try {
-          const suffix = autoId.replace(/^auto\/?/, "");
-          if (!preparedAutoInputs) {
-            preparedAutoInputs = await prepareBuiltinAutoComboInputs();
-            await yieldCatalogBuildTurn();
-          }
-          const virtualCombo = await createBuiltinAutoCombo(autoId, suffix, preparedAutoInputs);
-          const contextLength = virtualCombo.advertisedContextLength || 128000;
-          const maxOutputTokens = virtualCombo.advertisedMaxOutputTokens || 8192;
-          models.push({
-            ...baseAutoEntry,
-            context_length: contextLength,
-            max_input_tokens: contextLength,
-            max_output_tokens: maxOutputTokens,
-            capabilities: {
-              tool_calling: true,
-              reasoning: true,
-              thinking: true,
-              temperature: true,
-            },
-          });
-        } catch (err) {
-          console.log(`[catalog] Could not materialize built-in auto model ${autoId}:`, err);
-          models.push(baseAutoEntry);
-        }
-
-        materializedAutoCount++;
-        if (materializedAutoCount % BUILTIN_AUTO_YIELD_INTERVAL === 0) {
-          await yieldCatalogBuildTurn();
-        }
-      }
-    }
+    await catalogResponsiveness.appendBuiltinAutoCatalogModels({
+      blockedProviders,
+      hideAuto,
+      hidePaid,
+      listedIds,
+      models,
+      timestamp,
+    });
 
     // Add combos first (they appear at the top) — only active ones
     for (const combo of combos) {
@@ -1094,9 +1026,7 @@ async function buildUnifiedModelsResponseCore(
     // here would discard all but the last segment and miss stored flags for
     // providers whose model IDs carry a sub-path (e.g. OpenRouter scoped models).
     const getSpecialtyModelRelativeId = (modelId: string, provider: string): string =>
-      modelId.startsWith(`${provider}/`)
-        ? modelId.slice(provider.length + 1)
-        : modelId;
+      modelId.startsWith(`${provider}/`) ? modelId.slice(provider.length + 1) : modelId;
 
     // Add embedding models (filtered by active providers)
     for (const embModel of getAllEmbeddingModels()) {
@@ -1584,21 +1514,8 @@ async function buildUnifiedModelsResponseCore(
       return modelId ? getTokenLimit(canonicalId, modelId) : getTokenLimit(canonicalId);
     };
 
-    let enrichmentSnapshot: CatalogEnrichmentSnapshot | undefined;
-    if (finalModels.some((model) => model.owned_by !== "combo")) {
-      let modelsDevPricing: ReturnType<typeof getModelsDevPricing> | null = null;
-      try {
-        modelsDevPricing = getModelsDevPricing();
-      } catch {
-        // Pricing lookup is optional; hardcoded defaults still enrich the response.
-      }
-      enrichmentSnapshot = { modelsDevPricing };
-      // The production profile identified pricing snapshot construction as the last
-      // dominant synchronous stage. Let already-queued health checks run before the
-      // remaining in-memory enrichment and JSON serialization.
-      await yieldCatalogBuildTurn();
-    }
-
+    const enrichmentSnapshot =
+      await catalogResponsiveness.prepareCatalogEnrichmentSnapshot(finalModels);
     return finalizeCatalogResponse(
       request,
       finalModels,

@@ -342,8 +342,7 @@ function stripOrphanedCodexFunctionCallOutputs(body: Record<string, unknown>): v
 
   if (outputCount === 0) return;
 
-  const before = body.input.length;
-  body.input = body.input.filter((item) => {
+  const filteredInput = body.input.filter((item) => {
     if (!item || typeof item !== "object" || Array.isArray(item)) return true;
     const record = item as Record<string, unknown>;
     if (record.type === "function_call_output" && typeof record.call_id === "string") {
@@ -351,8 +350,8 @@ function stripOrphanedCodexFunctionCallOutputs(body: Record<string, unknown>): v
     }
     return true;
   });
-
-  const removedCount = before - body.input.length;
+  const removedCount = body.input.length - filteredInput.length;
+  body.input = filteredInput;
   if (removedCount > 0) {
     console.debug(
       `[Codex] stripOrphanedCodexFunctionCallOutputs: removed ${removedCount} orphaned function_call_output item(s)`
