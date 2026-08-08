@@ -15,7 +15,12 @@ import {
 } from "@/shared/constants/modelSpecs";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 import { PROVIDER_ID_TO_ALIAS, PROVIDER_MODELS } from "@/shared/constants/models";
-import { getSyncStatus, getSyncedCapability, getModelsDevPricing } from "@/lib/modelsDevSync";
+import {
+  getSyncStatus,
+  getSyncedCapability,
+  getModelsDevPricing,
+  type PricingByProvider,
+} from "@/lib/modelsDevSync";
 import { getSyncedPricing } from "@/lib/pricingSync";
 import { getPricingForModel as getDefaultPricingForModel } from "@/shared/constants/pricing";
 import {
@@ -30,6 +35,10 @@ export const MODEL_NOT_MAPPED = "MODEL_NOT_MAPPED";
 export const INTERNAL_PROXY_ERROR = "INTERNAL_PROXY_ERROR";
 
 type JsonRecord = Record<string, unknown>;
+
+export interface CatalogEnrichmentSnapshot {
+  modelsDevPricing: PricingByProvider | null;
+}
 
 interface CatalogDiagnosticsOptions {
   request?: Request | null;
@@ -300,13 +309,14 @@ function findInsensitive<T>(obj: Record<string, T> | null | undefined, key: stri
 
 function resolveCatalogPricing(
   provider: string | null,
-  model: string | null
+  model: string | null,
+  snapshot?: CatalogEnrichmentSnapshot
 ): Record<string, number> | null {
   if (!provider || !model) return null;
 
   // Prefer models.dev synced pricing when present; fall back to hardcoded defaults.
   try {
-    const modelsDev = getModelsDevPricing() as Record<
+    const modelsDev = (snapshot ? snapshot.modelsDevPricing || {} : getModelsDevPricing()) as unknown as Record<
       string,
       Record<string, Record<string, number>>
     >;
@@ -345,7 +355,10 @@ function resolveCatalogPricing(
   // Consulted only when models.dev returned nothing, matching the order
   // already implemented in db/settings/pricing.ts::getPricing().
   try {
-    const litellm = getSyncedPricing() as Record<string, Record<string, Record<string, number>>>;
+    const litellm = getSyncedPricing() as unknown as Record<
+      string,
+      Record<string, Record<string, number>>
+    >;
     const providerPricing =
       findInsensitive(litellm, provider) || findInsensitive(litellm, provider.replace(/-cn$/, ""));
     if (providerPricing) {
@@ -388,7 +401,8 @@ function resolveCatalogPricing(
 
 export function enrichCatalogModelEntry<T extends JsonRecord>(
   entry: T,
-  input?: { provider?: string | null; model?: string | null }
+  input?: { provider?: string | null; model?: string | null },
+  snapshot?: CatalogEnrichmentSnapshot
 ): T {
   const provider =
     input?.provider ||
@@ -534,7 +548,7 @@ export function enrichCatalogModelEntry<T extends JsonRecord>(
   }
 
   if (nextEntry.pricing == null) {
-    const pricing = resolveCatalogPricing(provider, model);
+    const pricing = resolveCatalogPricing(provider, model, snapshot);
     if (pricing) nextEntry.pricing = pricing;
   }
 

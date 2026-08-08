@@ -63,13 +63,21 @@ function toOverride(row: OverrideRow): ModelCapabilityOverride | null {
   };
 }
 
+/** Nested provider → model override map used by build-local snapshots. */
+export type NestedCapabilityOverrideMap = ReadonlyMap<string, ReadonlyMap<string, number>>;
+
 export function getModelCapabilityOverride(
   provider: string | null | undefined,
   modelId: string | null | undefined,
-  key: ModelCapabilityOverrideKey
+  key: ModelCapabilityOverrideKey,
+  bulkOverrides?: NestedCapabilityOverrideMap | null
 ): number | null {
   const target = parseModelOverrideTarget(`${provider || ""}/${modelId || ""}`);
   if (!target || !isSupportedKey(key)) return null;
+
+  if (bulkOverrides) {
+    return bulkOverrides.get(target.provider)?.get(target.modelId) ?? null;
+  }
 
   try {
     const row = getDbInstance()
