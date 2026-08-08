@@ -239,7 +239,7 @@
     "open-sse/services/adobeFireflyClient.ts": 2385,
     "open-sse/services/claudeCodeCompatible.ts": 1202,
     "open-sse/services/combo.ts": 3648,
-    "open-sse/services/compression/strategySelector.ts": 1060,
+    "open-sse/services/compression/strategySelector.ts": 1061,
     "open-sse/services/rateLimitManager.ts": 1167,
     "open-sse/translator/response/openai-responses.ts": 1204,
     "open-sse/utils/cursorAgentProtobuf.ts": 1505,
@@ -285,7 +285,8 @@
     "tests/unit/provider-validation-specialty.test.ts": 2985,
     "open-sse/executors/hyperagent.ts": 1026,
     "open-sse/executors/default.ts": 1042,
-    "open-sse/executors/kiro.ts": 1069
+    "open-sse/executors/kiro.ts": 1069,
+    "_rebaseline_2026_08_06_lite_tool_truncation_toggle": "PR #9629 (xz-dev, fix/compression/lite-tool-result-truncation-toggle) own growth: open-sse/services/compression/strategySelector.ts 1060->1061 (+1 = threading options?.config?.lite into applyLiteCompression so the new Lite proactive tool-result truncation toggle reaches the compression engine from the global config). Irreducible one-line wiring at the existing Lite compression call site. Covered by tests/unit/compression/lite.test.ts (stacked Lite precedence cases)."
   },
   "testCap": 1000,
   "testFrozen": {
