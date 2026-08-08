@@ -6067,7 +6067,16 @@
     "dangerZoneDescription": "Необратимые и деструктивные действия",
     "removeProviderButton": "Удалить провайдера",
     "exportConfig": "Экспорт конфигурации",
-    "importProviderConfig": "Импорт конфигурации нового провайдера"
+    "importProviderConfig": "Импорт конфигурации нового провайдера",
+    "codexQuotaPools": "Пулы квот Codex",
+    "codexPoolAvailable": "Доступен",
+    "codexPoolPartiallyLimited": "Частично ограничен",
+    "codexPoolFullyLimited": "Полностью ограничен",
+    "codexPoolLimited": "Ограничено: {count}",
+    "codexPoolQuotaExhausted": "Квота исчерпана",
+    "codexPoolCoolingDown": "В периоде ожидания",
+    "codexPoolUsed": "использовано",
+    "codexPoolUntil": "До {value}"
   },
   "settings": {
     "title": "Настройки",

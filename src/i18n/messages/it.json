@@ -5994,7 +5994,16 @@
     "ccAliasAddModelPlaceholder": "Id modello (es. gpt-4o)",
     "ccAliasAddModelButton": "Aggiungi sostituzione",
     "ccAliasLoadError": "Impossibile caricare le impostazioni discovery-alias: {error}",
-    "ccAliasSaveError": "Impossibile salvare l'impostazione discovery-alias: {error}"
+    "ccAliasSaveError": "Impossibile salvare l'impostazione discovery-alias: {error}",
+    "codexQuotaPools": "Pool di quote Codex",
+    "codexPoolAvailable": "Disponibile",
+    "codexPoolPartiallyLimited": "Parzialmente limitato",
+    "codexPoolFullyLimited": "Completamente limitato",
+    "codexPoolLimited": "{count} limitati",
+    "codexPoolQuotaExhausted": "Quota esaurita",
+    "codexPoolCoolingDown": "In attesa",
+    "codexPoolUsed": "utilizzato",
+    "codexPoolUntil": "Fino a {value}"
   },
   "settings": {
     "title": "Impostazioni",

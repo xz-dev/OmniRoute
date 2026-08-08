@@ -782,6 +782,11 @@ export async function updateProviderConnection(id: string, data: JsonRecord) {
   );
 }
 
+export {
+  updateCodexScopedQuotaState,
+  updateCodexScopeCooldown,
+} from "./providers/codexAccountState";
+
 /**
  * Atomic conditional clear of recoverable error state on a connection row.
  *

@@ -6019,7 +6019,16 @@
     "ccAliasSaveError": "Échec de l'enregistrement du paramètre d'alias de découverte : {error}",
     "apiProtocolLabel": "Protocole API",
     "apiProtocolDefault": "Compatible avec OpenAI (par défaut)",
-    "apiProtocolHint": "Certains fournisseurs publient les mêmes modèles via plusieurs protocoles. Conservez la valeur par défaut sauf si vous avez besoin de l'alternative."
+    "apiProtocolHint": "Certains fournisseurs publient les mêmes modèles via plusieurs protocoles. Conservez la valeur par défaut sauf si vous avez besoin de l'alternative.",
+    "codexQuotaPools": "Pools de quotas Codex",
+    "codexPoolAvailable": "Disponible",
+    "codexPoolPartiallyLimited": "Partiellement limité",
+    "codexPoolFullyLimited": "Entièrement limité",
+    "codexPoolLimited": "{count} limités",
+    "codexPoolQuotaExhausted": "Quota épuisé",
+    "codexPoolCoolingDown": "En période d'attente",
+    "codexPoolUsed": "utilisé",
+    "codexPoolUntil": "Jusqu'à {value}"
   },
   "settings": {
     "title": "Paramètres",
