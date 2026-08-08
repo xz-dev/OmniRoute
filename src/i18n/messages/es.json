@@ -4919,6 +4919,7 @@
     "baseUrlHint": "Obligatorio. URL base de la API del proveedor.",
     "iconUrlLabel": "URL del icono",
     "iconUrlHint": "Opcional. URL de la imagen que se muestra como icono de este proveedor.",
+    "iconUrlInvalid": "URL de icono no válida. Use http(s):// o una URL data:image/*;base64.",
     "anthropicPrefixPlaceholder": "ac-prod",
     "openaiPrefixPlaceholder": "oc-prod",
     "anthropicBaseUrlPlaceholder": "https://api.anthropic.com/v1",
