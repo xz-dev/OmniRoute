@@ -269,9 +269,9 @@ export const liteEngine: CompressionEngine = {
       // (step wins) into stepConfig, so consume that single effective value instead of
       // AND-ing root and step values — an explicit step `true` must override a global `false`.
       compressToolResults:
-        options?.stepConfig?.compressToolResults ??
-        options?.config?.lite?.compressToolResults ??
-        true,
+        typeof options?.stepConfig?.compressToolResults === "boolean"
+          ? options.stepConfig.compressToolResults
+          : (options?.config?.lite?.compressToolResults ?? true),
     });
     return adapter.adapted ? { ...result, body: adapter.restore(result.body) } : result;
   },

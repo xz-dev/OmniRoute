@@ -472,8 +472,7 @@ function isSchemaAlreadyApplied(
       return hasColumn(db, "version_manager", "auto_restart_adopted");
     case "138":
       return hasColumn(db, "upstream_proxy_config", "fallback_backend");
-    case "140":
-      // Retroactive guard for the connection_runtime_state migration renumbered
+    case "140": // Retroactive guard for the connection_runtime_state migration renumbered
       // 135 -> 140 (#9449 landed onto the slot already taken by #8908's
       // 135_migrate_model_capability_max_token.sql — the same recurring
       // numbering-race class as the 135/136 -> 137/138 renumber above). A DB
@@ -482,12 +481,7 @@ function isSchemaAlreadyApplied(
       // but still burn a version-tracking slot mismatch — guard it the same
       // way as the other renumbers for consistency.
       return hasTable(db, "connection_runtime_state");
-    case "142":
-      // Downstream production first applied API-key model access at version 135.
-      // After ledger reconciliation moves that marker to 142, other databases
-      // that already have the physical column should record the canonical marker
-      // without re-running ALTER TABLE ADD COLUMN.
-      return hasColumn(db, "api_keys", "model_access_mode");
+    case "142": return hasColumn(db, "api_keys", "model_access_mode");
     default:
       return false;
   }
