@@ -69,6 +69,18 @@ export const RENAMED_MIGRATION_COMPATIBILITY = [
     toVersion: "059",
     toName: "manifest_routing",
   },
+  {
+    fromVersion: "135",
+    fromName: "api_keys_model_access_mode",
+    toVersion: "142",
+    toName: "api_keys_model_access_mode",
+  },
+  {
+    fromVersion: "134",
+    fromName: "migrate_model_capability_max_token",
+    toVersion: "135",
+    toName: "migrate_model_capability_max_token",
+  },
 ] as const;
 
 export const LEGACY_VERSION_SLOT_MIGRATIONS = [

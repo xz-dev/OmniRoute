@@ -482,6 +482,12 @@ function isSchemaAlreadyApplied(
       // but still burn a version-tracking slot mismatch — guard it the same
       // way as the other renumbers for consistency.
       return hasTable(db, "connection_runtime_state");
+    case "142":
+      // Downstream production first applied API-key model access at version 135.
+      // After ledger reconciliation moves that marker to 142, other databases
+      // that already have the physical column should record the canonical marker
+      // without re-running ALTER TABLE ADD COLUMN.
+      return hasColumn(db, "api_keys", "model_access_mode");
     default:
       return false;
   }

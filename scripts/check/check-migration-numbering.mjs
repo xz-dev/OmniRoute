@@ -51,9 +51,6 @@ export const KNOWN_GAPS = new Set([
   "026",
   "055",
   "121", // número queimado no ciclo v3.8.47 — 122 (#6909) mergeou antes e 121 nunca aterrissou (validação e2e 2026-07-12)
-  // Temporary downstream reservation: open PR #8908 owns 134 and production already
-  // has it. Remove this gap after #8908 lands and the integration rebase fills 134.
-  "134",
 ]);
 
 function pad3(n) {

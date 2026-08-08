@@ -1,5 +1,5 @@
 /**
- * Acceptance: migration 135 — api_keys.model_access_mode
+ * Acceptance: migration 142 — api_keys.model_access_mode
  *
  * Confirmed backfill:
  *   - Adds model_access_mode column (public shape: "all" | "restricted")
@@ -17,9 +17,9 @@ import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const MIGRATION_135_PATH = path.join(
+const MIGRATION_142_PATH = path.join(
   __dirname,
-  "../../src/lib/db/migrations/135_api_keys_model_access_mode.sql"
+  "../../src/lib/db/migrations/142_api_keys_model_access_mode.sql"
 );
 
 interface TestDb {
@@ -64,20 +64,20 @@ function hasModelAccessModeColumn(db: TestDb): boolean {
   return cols.some((col) => col.name === "model_access_mode");
 }
 
-test("R-migration: 135_api_keys_model_access_mode.sql must exist", () => {
+test("R-migration: 142_api_keys_model_access_mode.sql must exist", () => {
   assert.ok(
-    fs.existsSync(MIGRATION_135_PATH),
-    "expected src/lib/db/migrations/135_api_keys_model_access_mode.sql"
+    fs.existsSync(MIGRATION_142_PATH),
+    "expected src/lib/db/migrations/142_api_keys_model_access_mode.sql"
   );
 });
 
-test("R-migration: 135 adds model_access_mode and backfills all/restricted from allowed_models", () => {
+test("R-migration: 142 adds model_access_mode and backfills all/restricted from allowed_models", () => {
   assert.ok(
-    fs.existsSync(MIGRATION_135_PATH),
-    "expected src/lib/db/migrations/135_api_keys_model_access_mode.sql"
+    fs.existsSync(MIGRATION_142_PATH),
+    "expected src/lib/db/migrations/142_api_keys_model_access_mode.sql"
   );
 
-  const sql = fs.readFileSync(MIGRATION_135_PATH, "utf-8");
+  const sql = fs.readFileSync(MIGRATION_142_PATH, "utf-8");
   const db = makeLegacyApiKeysDb();
 
   insertKey(db, "legacy-all", "Legacy Allow All", "[]");
