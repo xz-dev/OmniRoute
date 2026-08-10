@@ -337,18 +337,7 @@ export function getSyncedCapabilities(provider?: string, modelId?: string): Capa
     }
   }
 
-  const rows = db.prepare(query).all(...params);
-  const result: CapabilitiesByProvider = {};
-
-  for (const row of rows) {
-    const record = toRecord(row);
-    const prov = typeof record.provider === "string" ? record.provider : null;
-    const mid = typeof record.model_id === "string" ? record.model_id : null;
-    if (!prov || !mid) continue;
-
-    if (!result[prov]) result[prov] = {};
-    result[prov][mid] = mapCapabilityRecord(record);
-  }
+  const result = capabilitiesFromRows(db.prepare(query).all(...params));
 
   if (!provider && !modelId) {
     cachedCapabilities = result;
@@ -372,33 +361,72 @@ const SYNCED_CAPABILITY_FALLBACK_ALIASES: Record<string, string[]> = {
   "opencode-go": ["opencode-zen"],
 };
 
+function defineEnumerableDataProperty<T extends object>(
+  target: T,
+  key: string,
+  value: unknown
+): void {
+  Object.defineProperty(target, key, {
+    value,
+    writable: true,
+    enumerable: true,
+    configurable: true,
+  });
+}
+
+function capabilitiesFromRows(rows: unknown[]): CapabilitiesByProvider {
+  const result: CapabilitiesByProvider = {};
+  for (const row of rows) {
+    const record = toRecord(row);
+    const prov = typeof record.provider === "string" ? record.provider : null;
+    const mid = typeof record.model_id === "string" ? record.model_id : null;
+    if (!prov || !mid) continue;
+    if (!Object.hasOwn(result, prov)) defineEnumerableDataProperty(result, prov, {});
+    defineEnumerableDataProperty(result[prov], mid, mapCapabilityRecord(record));
+  }
+  return result;
+}
+
+/** Uncached full-table read for a build-local capability snapshot. */
+export function loadAllSyncedCapabilitiesUncached(): CapabilitiesByProvider {
+  const db = getDbInstance();
+  ensureCapabilitiesTable();
+  return capabilitiesFromRows(db.prepare("SELECT * FROM model_capabilities").all());
+}
+
+function lookupSyncedCapabilityWithFallbacks(
+  provider: string,
+  lookup: (providerId: string) => ModelCapabilityEntry | null
+): ModelCapabilityEntry | null {
+  const direct = lookup(provider);
+  if (direct) return direct;
+  for (const alternate of SYNCED_CAPABILITY_FALLBACK_ALIASES[provider] ?? []) {
+    const found = lookup(alternate);
+    if (found) return found;
+  }
+  return null;
+}
+
 export function getSyncedCapability(
   provider: string,
-  modelId: string
+  modelId: string,
+  bulk?: CapabilitiesByProvider | null
 ): ModelCapabilityEntry | null {
   if (!provider || !modelId) return null;
 
-  // #8697-adjacent: this used to hit SQLite with a per-model SELECT on every cold
-  // call, relying on some other caller (getSyncedCapabilities() with no args) to have
-  // already warmed the whole-table cache first — no such caller sits in the /v1/models
-  // catalog build path, so a cold rebuild ran one SQLite round-trip per model per call
-  // site instead of one bulk read for the whole rebuild. Self-warm here instead of
-  // depending on an external caller.
-  if (!cachedCapabilitiesLoadedAll) {
-    getSyncedCapabilities();
+  if (bulk) {
+    return lookupSyncedCapabilityWithFallbacks(
+      provider,
+      (providerId) => bulk[providerId]?.[modelId] ?? null
+    );
   }
 
-  const lookupCached = (p: string) => cachedCapabilities?.[p]?.[modelId] ?? null;
-  const directCached = lookupCached(provider);
-  if (directCached) return directCached;
-  const fallbacks = SYNCED_CAPABILITY_FALLBACK_ALIASES[provider];
-  if (fallbacks) {
-    for (const alt of fallbacks) {
-      const found = lookupCached(alt);
-      if (found) return found;
-    }
-  }
-  return null;
+  // Ordinary runtime callers keep the existing all-row module cache.
+  if (!cachedCapabilitiesLoadedAll) getSyncedCapabilities();
+  return lookupSyncedCapabilityWithFallbacks(
+    provider,
+    (providerId) => cachedCapabilities?.[providerId]?.[modelId] ?? null
+  );
 }
 
 /**
@@ -419,11 +447,12 @@ export function saveModelsDevCapabilities(data: CapabilitiesByProvider): void {
   `);
 
   const now = new Date().toISOString();
+  let changed = false;
   const tx = db.transaction(() => {
-    del.run();
+    if (del.run().changes > 0) changed = true;
     for (const [provider, models] of Object.entries(data)) {
       for (const [modelId, cap] of Object.entries(models)) {
-        insert.run(
+        const info = insert.run(
           provider,
           modelId,
           cap.tool_call === null ? null : cap.tool_call ? 1 : 0,
@@ -445,6 +474,7 @@ export function saveModelsDevCapabilities(data: CapabilitiesByProvider): void {
           cap.interleaved_field,
           now
         );
+        if (info.changes > 0) changed = true;
       }
     }
   });
@@ -452,6 +482,7 @@ export function saveModelsDevCapabilities(data: CapabilitiesByProvider): void {
   backupDbFile("pre-write");
   cachedCapabilities = data;
   cachedCapabilitiesLoadedAll = true;
+  if (changed) invalidateDbCache("model-capabilities");
 }
 
 /**
@@ -460,10 +491,11 @@ export function saveModelsDevCapabilities(data: CapabilitiesByProvider): void {
 export function clearModelsDevCapabilities(): void {
   const db = getDbInstance();
   ensureCapabilitiesTable();
-  db.prepare("DELETE FROM model_capabilities").run();
+  const info = db.prepare("DELETE FROM model_capabilities").run();
   backupDbFile("pre-write");
   cachedCapabilities = {};
   cachedCapabilitiesLoadedAll = true;
+  if (info.changes > 0) invalidateDbCache("model-capabilities");
 }
 
 // ─── Main sync function ──────────────────────────────────
