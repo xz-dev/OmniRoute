@@ -6044,7 +6044,16 @@
     "anonymousFallbackDesc": "När alla konfigurerade anslutningar är uttömda (kvot, krediter eller utgång), använd tillfälligt denna leverantörs nyckellösa nivå. Stäng av för att hoppa över denna leverantör istället för att skicka anonyma förfrågningar — rekommenderas när den nyckellösa nivån avvisar dem (401).",
     "anonymousFallbackEnabled": "Anonym fallback aktiverad för {provider}",
     "anonymousFallbackDisabled": "Anonym fallback inaktiverad för {provider} — uttömda anslutningar kommer att hoppa över denna leverantör",
-    "anonymousFallbackUpdateFailed": "Misslyckades med att uppdatera anonym fallback-inställning"
+    "anonymousFallbackUpdateFailed": "Misslyckades med att uppdatera anonym fallback-inställning",
+    "codexQuotaPools": "Codex-kvotpooler",
+    "codexPoolAvailable": "Tillgänglig",
+    "codexPoolPartiallyLimited": "Delvis begränsad",
+    "codexPoolFullyLimited": "Helt begränsad",
+    "codexPoolLimited": "{count} begränsade",
+    "codexPoolQuotaExhausted": "Kvoten är förbrukad",
+    "codexPoolCoolingDown": "I vänteperiod",
+    "codexPoolUsed": "använt",
+    "codexPoolUntil": "Till {value}"
   },
   "settings": {
     "title": "Inställningar",

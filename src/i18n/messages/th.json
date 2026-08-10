@@ -6044,7 +6044,16 @@
     "anonymousFallbackDesc": "เมื่อการเชื่อมต่อที่กำหนดทั้งหมดหมดลง (โควตา, เครดิต, หรือหมดอายุ) ให้ใช้ชั้นที่ไม่มีคีย์ของผู้ให้บริการนี้ชั่วคราว ปิดเพื่อข้ามผู้ให้บริการนี้แทนที่จะส่งคำขอแบบไม่ระบุชื่อ — แนะนำเมื่อชั้นที่ไม่มีคีย์ปฏิเสธคำขอเหล่านั้น (401).",
     "anonymousFallbackEnabled": "เปิดใช้งานการสำรองข้อมูลแบบไม่ระบุชื่อสำหรับ {provider}",
     "anonymousFallbackDisabled": "ปิดการใช้งานการสำรองข้อมูลแบบไม่ระบุชื่อสำหรับ {provider} — การเชื่อมต่อที่หมดจะข้ามผู้ให้บริการนี้",
-    "anonymousFallbackUpdateFailed": "ไม่สามารถอัปเดตการตั้งค่าการสำรองข้อมูลที่ไม่ระบุชื่อได้"
+    "anonymousFallbackUpdateFailed": "ไม่สามารถอัปเดตการตั้งค่าการสำรองข้อมูลที่ไม่ระบุชื่อได้",
+    "codexQuotaPools": "พูลโควตา Codex",
+    "codexPoolAvailable": "พร้อมใช้งาน",
+    "codexPoolPartiallyLimited": "ถูกจำกัดบางส่วน",
+    "codexPoolFullyLimited": "ถูกจำกัดทั้งหมด",
+    "codexPoolLimited": "ถูกจำกัด {count} รายการ",
+    "codexPoolQuotaExhausted": "โควตาหมดแล้ว",
+    "codexPoolCoolingDown": "อยู่ในช่วงพัก",
+    "codexPoolUsed": "ใช้แล้ว",
+    "codexPoolUntil": "จนถึง {value}"
   },
   "settings": {
     "title": "การตั้งค่า",

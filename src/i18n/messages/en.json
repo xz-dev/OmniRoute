@@ -6006,9 +6006,7 @@
     "webTokenRequiredCredential": "Required token: {credential}",
     "webSessionGuideStep1": "Sign in to {provider} in your browser.",
     "webSessionGuideStep2": "Open the browser developer tools and inspect a request made by the web app.",
-    "webSessionGuideStep2Fast": "Fast path: install the Cookie Editor extension (chromewebstore.google.com → Cookie Editor), open it on the {provider} tab, find {credential} (select all numbered chunks if split), and click Export → Copy with the export format set to “Cookie header”.",
     "webSessionGuideStep3": "Copy the required credential from the provider's own domain. For cookies, copy only the Cookie header value and omit Cookie:.",
-    "webSessionGuideStep3Manual": "Manual path: open the browser developer tools (F12 → Network), refresh the page, open an authenticated request, and copy the Cookie header value from Request Headers — omit the Cookie: prefix.",
     "webSessionGuideStep4": "Paste it here and check the connection. If it stops working, sign in again and replace it with a fresh value.",
     "webSessionSecurityHint": "Treat this like a password: it may access your signed-in web account until it expires or is revoked.",
     "webNoAuthGuideTitle": "No credential required",
@@ -6040,11 +6038,15 @@
     "cheaperInferenceSupporterBadge": "Open Source Friend",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference backs OmniRoute as an Open Source Friend",
     "kimiPartnerLinkNote": "Partner link — supports OmniRoute at no extra cost to you",
-    "anonymousFallbackTitle": "Anonymous fallback",
-    "anonymousFallbackDesc": "When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
-    "anonymousFallbackEnabled": "Anonymous fallback enabled for {provider}",
-    "anonymousFallbackDisabled": "Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
-    "anonymousFallbackUpdateFailed": "Failed to update anonymous fallback setting"
+    "codexQuotaPools": "Codex quota pools",
+    "codexPoolAvailable": "Available",
+    "codexPoolPartiallyLimited": "Partially limited",
+    "codexPoolFullyLimited": "Fully limited",
+    "codexPoolLimited": "{count} limited",
+    "codexPoolQuotaExhausted": "Quota exhausted",
+    "codexPoolCoolingDown": "Cooling down",
+    "codexPoolUsed": "used",
+    "codexPoolUntil": "Until {value}"
   },
   "settings": {
     "title": "Settings",
@@ -7891,10 +7893,6 @@
       },
       "minMessageLength": {
         "label": "Minimum message length"
-      },
-      "compressToolResults": {
-        "label": "Proactively truncate long tool results",
-        "description": "Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10251,8 +10249,6 @@
     "copied": "Copied!",
     "run": "Run",
     "running": "Running...",
-    "loading": "Loading...",
-    "retry": "Retry",
     "response": "Response",
     "tunnel": "Tunnel",
     "send": "Send",

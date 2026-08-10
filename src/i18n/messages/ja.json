@@ -6044,7 +6044,16 @@
     "anonymousFallbackDesc": "すべての設定された接続が使い果たされた場合（クォータ、クレジット、または有効期限）、このプロバイダーのキーなしティアを一時的に使用します。このプロバイダーをスキップするにはオフにしてください。匿名リクエストを送信する代わりに、キーなしティアがそれらを拒否する場合（401）に推奨されます。",
     "anonymousFallbackEnabled": "{provider}の匿名フォールバックが有効になりました",
     "anonymousFallbackDisabled": "{provider}の匿名フォールバックが無効になりました — 接続が尽きるとこのプロバイダーはスキップされます",
-    "anonymousFallbackUpdateFailed": "匿名フォールバック設定の更新に失敗しました"
+    "anonymousFallbackUpdateFailed": "匿名フォールバック設定の更新に失敗しました",
+    "codexQuotaPools": "Codex クォータプール",
+    "codexPoolAvailable": "利用可能",
+    "codexPoolPartiallyLimited": "一部制限中",
+    "codexPoolFullyLimited": "すべて制限中",
+    "codexPoolLimited": "{count} 件が制限中",
+    "codexPoolQuotaExhausted": "クォータを使い切りました",
+    "codexPoolCoolingDown": "クールダウン中",
+    "codexPoolUsed": "使用済み",
+    "codexPoolUntil": "{value} まで"
   },
   "settings": {
     "title": "設定",

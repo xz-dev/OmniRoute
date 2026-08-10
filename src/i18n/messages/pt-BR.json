@@ -6044,7 +6044,16 @@
     "anonymousFallbackDesc": "Quando todas as conexões configuradas estiverem esgotadas (cota, créditos ou expiração), use temporariamente a camada sem chave deste provedor. Desative para ignorar este provedor em vez de enviar solicitações anônimas — recomendado quando a camada sem chave as rejeita (401).",
     "anonymousFallbackEnabled": "Fallback anônimo ativado para {provider}",
     "anonymousFallbackDisabled": "Fallback anônimo desativado para {provider} — conexões esgotadas ignorarão este provedor",
-    "anonymousFallbackUpdateFailed": "Falha ao atualizar a configuração de fallback anônimo"
+    "anonymousFallbackUpdateFailed": "Falha ao atualizar a configuração de fallback anônimo",
+    "codexQuotaPools": "Pools de cotas do Codex",
+    "codexPoolAvailable": "Disponível",
+    "codexPoolPartiallyLimited": "Parcialmente limitado",
+    "codexPoolFullyLimited": "Totalmente limitado",
+    "codexPoolLimited": "{count} limitados",
+    "codexPoolQuotaExhausted": "Cota esgotada",
+    "codexPoolCoolingDown": "Em período de espera",
+    "codexPoolUsed": "usado",
+    "codexPoolUntil": "Até {value}"
   },
   "settings": {
     "title": "Configurações",
@@ -10251,8 +10260,6 @@
     "copied": "Copiado!",
     "run": "Executar",
     "running": "Executando...",
-    "loading": "Carregando...",
-    "retry": "Tentar novamente",
     "response": "Resposta",
     "tunnel": "Tunnel",
     "send": "Enviar",

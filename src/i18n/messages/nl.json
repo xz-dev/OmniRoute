@@ -6044,7 +6044,16 @@
     "anonymousFallbackDesc": "Wanneer alle geconfigureerde verbindingen zijn uitgeput (quota, tegoeden of vervaldatum), gebruik tijdelijk de keyless-laag van deze provider. Zet uit om deze provider over te slaan in plaats van anonieme verzoeken te verzenden - aanbevolen wanneer de keyless-laag deze afwijst (401).",
     "anonymousFallbackEnabled": "Anonieme fallback ingeschakeld voor {provider}",
     "anonymousFallbackDisabled": "Anonieme fallback uitgeschakeld voor {provider} — uitgeputte verbindingen zullen deze provider overslaan",
-    "anonymousFallbackUpdateFailed": "Kon de anonieme fallback-instelling niet bijwerken"
+    "anonymousFallbackUpdateFailed": "Kon de anonieme fallback-instelling niet bijwerken",
+    "codexQuotaPools": "Codex-quotapools",
+    "codexPoolAvailable": "Beschikbaar",
+    "codexPoolPartiallyLimited": "Gedeeltelijk beperkt",
+    "codexPoolFullyLimited": "Volledig beperkt",
+    "codexPoolLimited": "{count} beperkt",
+    "codexPoolQuotaExhausted": "Quota opgebruikt",
+    "codexPoolCoolingDown": "In afkoelperiode",
+    "codexPoolUsed": "gebruikt",
+    "codexPoolUntil": "Tot {value}"
   },
   "settings": {
     "title": "Instellingen",

@@ -6044,7 +6044,16 @@
     "anonymousFallbackDesc": "Amikor az összes konfigurált kapcsolat kimerült (kvóta, kreditek vagy lejárat), ideiglenesen használja ezt a szolgáltató kulcs nélküli szintjét. Kapcsolja ki, hogy kihagyja ezt a szolgáltatót a névtelen kérések küldése helyett — ajánlott, ha a kulcs nélküli szint elutasítja őket (401).",
     "anonymousFallbackEnabled": "Névtelen visszaesés engedélyezve a(z) {provider} számára",
     "anonymousFallbackDisabled": "Névtelen visszaesés letiltva a(z) {provider} esetében — a kimerült kapcsolatok átugorják ezt a szolgáltatót",
-    "anonymousFallbackUpdateFailed": "Nem sikerült frissíteni az anonim visszaállítási beállítást"
+    "anonymousFallbackUpdateFailed": "Nem sikerült frissíteni az anonim visszaállítási beállítást",
+    "codexQuotaPools": "Codex-kvótakészletek",
+    "codexPoolAvailable": "Elérhető",
+    "codexPoolPartiallyLimited": "Részben korlátozott",
+    "codexPoolFullyLimited": "Teljesen korlátozott",
+    "codexPoolLimited": "{count} korlátozott",
+    "codexPoolQuotaExhausted": "A kvóta kimerült",
+    "codexPoolCoolingDown": "Várakozási időszakban",
+    "codexPoolUsed": "felhasználva",
+    "codexPoolUntil": "Eddig: {value}"
   },
   "settings": {
     "title": "Beállítások elemre",

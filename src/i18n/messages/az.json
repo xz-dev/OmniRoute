@@ -6044,7 +6044,16 @@
     "anonymousFallbackDesc": "Bütün konfiqurasiya olunmuş bağlantılar tükəndikdə (kvota, kreditlər və ya müddət), müvəqqəti olaraq bu təminatçının açarsız səviyyəsini istifadə edin. Anonim sorğular göndərmək əvəzinə bu təminatçını atlamaq üçün söndürün — açarsız səviyyə onları rədd etdikdə (401) tövsiyə olunur.",
     "anonymousFallbackEnabled": "{provider} üçün anonim ehtiyat aktivdir",
     "anonymousFallbackDisabled": "{provider} üçün anonim ehtiyat deaktiv edilib — tükənmiş bağlantılar bu provayderi atlayacaq",
-    "anonymousFallbackUpdateFailed": "Anonim ehtiyat parametrlərini yeniləmək mümkün olmadı"
+    "anonymousFallbackUpdateFailed": "Anonim ehtiyat parametrlərini yeniləmək mümkün olmadı",
+    "codexQuotaPools": "Codex kvota hovuzları",
+    "codexPoolAvailable": "Əlçatandır",
+    "codexPoolPartiallyLimited": "Qismən məhduddur",
+    "codexPoolFullyLimited": "Tam məhduddur",
+    "codexPoolLimited": "{count} məhduddur",
+    "codexPoolQuotaExhausted": "Kvota tükənib",
+    "codexPoolCoolingDown": "Gözləmə müddətindədir",
+    "codexPoolUsed": "istifadə edilib",
+    "codexPoolUntil": "{value} tarixinədək"
   },
   "settings": {
     "title": "Settings",

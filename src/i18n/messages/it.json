@@ -937,7 +937,7 @@
   "disabled": "Disabilitato",
   "featureFlagOmnirouteEmergencyFallbackDescription": "Indirizza le richieste con budget esaurito al provider/modello di fallback gratuito di emergenza.",
   "featureFlagArenaEloSyncEnabledDescription": "Abilita la sincronizzazione periodica dell'ELO della classifica Arena AI per le graduatorie di intelligenza dei modelli.",
-  "featureFlagExposeCcDiscoveryAliasesDescription": "Mostra gli id specchio claude/&lt;provider&gt;/&lt;model&gt; su /v1/models in modo che la scoperta dei modelli gateway di Claude Code elenchi i modelli non-Claude. Attenzione: raddoppia le voci nel catalogo per tutti i client quando abilitato globalmente.",
+  "featureFlagExposeCcDiscoveryAliasesDescription": "Mostra gli id specchio claude/<provider>/<model> su /v1/models in modo che la scoperta dei modelli gateway di Claude Code elenchi i modelli non-Claude. Attenzione: raddoppia le voci nel catalogo per tutti i client quando abilitato globalmente.",
   "sidebar": {
     "home": "Casa",
     "dashboard": "Pannello di controllo",
@@ -2521,7 +2521,7 @@
       "always": "Sempre"
     },
     "ccDiscoveryInfoButton": "Come abilitare la scoperta in Claude Code",
-    "ccDiscoveryInfoTooltip": "Mostra i modelli non-Claude sotto gli id specchio claude/&lt;provider&gt;/&lt;model&gt; così la scoperta modelli gateway di Claude Code può elencarli. Raddoppia le voci nel catalogo per tutti i client quando abilitato globalmente.",
+    "ccDiscoveryInfoTooltip": "Mostra i modelli non-Claude sotto gli id specchio claude/<provider>/<model> così la scoperta modelli gateway di Claude Code può elencarli. Raddoppia le voci nel catalogo per tutti i client quando abilitato globalmente.",
     "ccDiscoveryInfoLink": "Apri le Flag Funzionalità",
     "ccOnboardingTitle": "settings.json per la scoperta modelli gateway",
     "ccOnboardingCopy": "Copia",
@@ -5211,7 +5211,7 @@
     "interceptionLoadError": "Impossibile caricare le impostazioni di intercettazione: {error}",
     "interceptionSaveError": "Impossibile salvare le impostazioni di intercettazione: {error}",
     "ccAliasSectionTitle": "Esponi in Claude Code (claude/…)",
-    "ccAliasSectionHint": "Mostra i modelli di questo provider sotto gli id specchio claude/&lt;provider&gt;/&lt;model&gt; così la scoperta modelli gateway di Claude Code può elencarli. Disattivato per impostazione predefinita — abilitarlo raddoppia le voci nel catalogo per tutti i client.",
+    "ccAliasSectionHint": "Mostra i modelli di questo provider sotto gli id specchio claude/<provider>/<model> così la scoperta modelli gateway di Claude Code può elencarli. Disattivato per impostazione predefinita — abilitarlo raddoppia le voci nel catalogo per tutti i client.",
     "ccAliasProviderLevelLabel": "Impostazione predefinita del provider",
     "ccAliasModelOverridesLabel": "Sostituzioni per modello",
     "ccAliasModelOverrideAriaLabel": "Sostituzione per {modelId}",
@@ -6044,7 +6044,16 @@
     "anonymousFallbackDesc": "Quando tutte le connessioni configurate sono esaurite (quota, crediti o scadenza), utilizza temporaneamente il livello senza chiave di questo fornitore. Disattiva per saltare questo fornitore invece di inviare richieste anonime — consigliato quando il livello senza chiave le rifiuta (401).",
     "anonymousFallbackEnabled": "Fallback anonimo abilitato per {provider}",
     "anonymousFallbackDisabled": "Fallback anonimo disabilitato per {provider} — le connessioni esaurite salteranno questo provider",
-    "anonymousFallbackUpdateFailed": "Impossibile aggiornare l'impostazione di fallback anonimo"
+    "anonymousFallbackUpdateFailed": "Impossibile aggiornare l'impostazione di fallback anonimo",
+    "codexQuotaPools": "Pool di quote Codex",
+    "codexPoolAvailable": "Disponibile",
+    "codexPoolPartiallyLimited": "Parzialmente limitato",
+    "codexPoolFullyLimited": "Completamente limitato",
+    "codexPoolLimited": "{count} limitati",
+    "codexPoolQuotaExhausted": "Quota esaurita",
+    "codexPoolCoolingDown": "In attesa",
+    "codexPoolUsed": "utilizzato",
+    "codexPoolUntil": "Fino a {value}"
   },
   "settings": {
     "title": "Impostazioni",

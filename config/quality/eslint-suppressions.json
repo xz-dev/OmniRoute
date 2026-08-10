@@ -54,11 +54,6 @@
       "count": 1
     }
   },
-  "open-sse/handlers/chatCore/codexFailover.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "open-sse/handlers/chatCore/comboContextCache.ts": {
     "no-restricted-imports": {
       "count": 1
@@ -1673,7 +1668,7 @@
   },
   "tests/unit/base-executor-sanitize-effort.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 6
+      "count": 48
     }
   },
   "tests/unit/batch-deletion.test.ts": {
@@ -2032,6 +2027,11 @@
     }
   },
   "tests/unit/cloudflaredTunnel-extended.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
+    }
+  },
+  "tests/unit/codebuddy-cn-provider.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 3
     }

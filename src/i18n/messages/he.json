@@ -6044,7 +6044,16 @@
     "anonymousFallbackDesc": "כאשר כל החיבורים המוגדרים נוצלו (מכסה, אשראי או תאריך תפוגה), השתמש זמנית בשכבת ללא מפתח של ספק זה. כבה כדי לדלג על ספק זה במקום לשלוח בקשות אנונימיות - מומלץ כאשר שכבת ללא מפתח דוחה אותן (401).",
     "anonymousFallbackEnabled": "גיבוי אנונימי מופעל עבור {provider}",
     "anonymousFallbackDisabled": "גיבוי אנונימי מושבת עבור {provider} — חיבורים שנוצלו ידלגו על ספק זה",
-    "anonymousFallbackUpdateFailed": "נכשל בעדכון הגדרת גיבוי אנונימית"
+    "anonymousFallbackUpdateFailed": "נכשל בעדכון הגדרת גיבוי אנונימית",
+    "codexQuotaPools": "מאגרי מכסות Codex",
+    "codexPoolAvailable": "זמין",
+    "codexPoolPartiallyLimited": "מוגבל חלקית",
+    "codexPoolFullyLimited": "מוגבל לחלוטין",
+    "codexPoolLimited": "{count} מוגבלים",
+    "codexPoolQuotaExhausted": "המכסה נוצלה",
+    "codexPoolCoolingDown": "בתקופת המתנה",
+    "codexPoolUsed": "בשימוש",
+    "codexPoolUntil": "עד {value}"
   },
   "settings": {
     "title": "הגדרות",

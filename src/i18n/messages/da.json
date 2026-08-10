@@ -6044,7 +6044,16 @@
     "anonymousFallbackDesc": "Når alle konfigurerede forbindelser er udtømt (kvote, kreditter eller udløb), brug midlertidigt denne udbyders nøgleløse niveau. Sluk for at springe denne udbyder over i stedet for at sende anonyme anmodninger - anbefales når det nøgleløse niveau afviser dem (401).",
     "anonymousFallbackEnabled": "Anonym fallback aktiveret for {provider}",
     "anonymousFallbackDisabled": "Anonym fallback deaktiveret for {provider} — udtømte forbindelser vil springe denne udbyder over",
-    "anonymousFallbackUpdateFailed": "Mislykkedes med at opdatere anonym fallback-indstilling"
+    "anonymousFallbackUpdateFailed": "Mislykkedes med at opdatere anonym fallback-indstilling",
+    "codexQuotaPools": "Codex-kvotepuljer",
+    "codexPoolAvailable": "Tilgængelig",
+    "codexPoolPartiallyLimited": "Delvist begrænset",
+    "codexPoolFullyLimited": "Fuldt begrænset",
+    "codexPoolLimited": "{count} begrænset",
+    "codexPoolQuotaExhausted": "Kvoten er opbrugt",
+    "codexPoolCoolingDown": "I nedkølingsperiode",
+    "codexPoolUsed": "brugt",
+    "codexPoolUntil": "Indtil {value}"
   },
   "settings": {
     "title": "Indstillinger",

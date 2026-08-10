@@ -6044,7 +6044,16 @@
     "anonymousFallbackDesc": "जेव्हा सर्व कॉन्फिगर केलेले कनेक्शन संपतात (कोटा, क्रेडिट्स, किंवा कालावधी), तेव्हा तात्पुरते या प्रदात्याचा कीलेस स्तर वापरा. गुप्त विनंत्या पाठविण्याऐवजी या प्रदात्याला वगळण्यासाठी बंद करा — जेव्हा कीलेस स्तर त्यांना नकार देतो (401) तेव्हा शिफारस केले जाते.",
     "anonymousFallbackEnabled": "{name} साठी गुप्तFallback सक्षम आहे",
     "anonymousFallbackDisabled": "{name} साठी गुप्त fallback अक्षम — संपलेल्या कनेक्शनने या प्रदात्याला वगळले जाईल",
-    "anonymousFallbackUpdateFailed": "अज्ञात फॉलबॅक सेटिंग अपडेट करण्यात अयशस्वी"
+    "anonymousFallbackUpdateFailed": "अज्ञात फॉलबॅक सेटिंग अपडेट करण्यात अयशस्वी",
+    "codexQuotaPools": "Codex कोटा पूल",
+    "codexPoolAvailable": "उपलब्ध",
+    "codexPoolPartiallyLimited": "अंशतः मर्यादित",
+    "codexPoolFullyLimited": "पूर्णपणे मर्यादित",
+    "codexPoolLimited": "{count} मर्यादित",
+    "codexPoolQuotaExhausted": "कोटा संपला",
+    "codexPoolCoolingDown": "प्रतीक्षा कालावधीत",
+    "codexPoolUsed": "वापरले",
+    "codexPoolUntil": "{value} पर्यंत"
   },
   "settings": {
     "title": "Settings",

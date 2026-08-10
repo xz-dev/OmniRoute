@@ -6044,7 +6044,16 @@
     "anonymousFallbackDesc": "যখন সমস্ত কনফিগার করা সংযোগ শেষ হয়ে যায় (কোটা, ক্রেডিট, বা মেয়াদ শেষ), এই প্রদানকারীর কীবিহীন স্তরটি অস্থায়ীভাবে ব্যবহার করুন। অজ্ঞাত অনুরোধ পাঠানোর পরিবর্তে এই প্রদানকারীটি বাদ দিতে বন্ধ করুন — যখন কীবিহীন স্তর সেগুলি প্রত্যাখ্যান করে (401) তখন এটি সুপারিশ করা হয়।",
     "anonymousFallbackEnabled": "{name} এর জন্য অজ্ঞাত ফFallback সক্রিয় করা হয়েছে",
     "anonymousFallbackDisabled": "{provider} এর জন্য অজ্ঞাত ফ্যালব্যাক নিষ্ক্রিয় — শেষ হওয়া সংযোগগুলি এই প্রদানকারীকে বাদ দেবে",
-    "anonymousFallbackUpdateFailed": "গোপন ফallback সেটিং আপডেট করতে ব্যর্থ হয়েছে"
+    "anonymousFallbackUpdateFailed": "গোপন ফallback সেটিং আপডেট করতে ব্যর্থ হয়েছে",
+    "codexQuotaPools": "Codex কোটা পুল",
+    "codexPoolAvailable": "উপলভ্য",
+    "codexPoolPartiallyLimited": "আংশিকভাবে সীমিত",
+    "codexPoolFullyLimited": "সম্পূর্ণ সীমিত",
+    "codexPoolLimited": "{count}টি সীমিত",
+    "codexPoolQuotaExhausted": "কোটা শেষ",
+    "codexPoolCoolingDown": "কুলডাউনে আছে",
+    "codexPoolUsed": "ব্যবহৃত",
+    "codexPoolUntil": "{value} পর্যন্ত"
   },
   "settings": {
     "title": "Settings",

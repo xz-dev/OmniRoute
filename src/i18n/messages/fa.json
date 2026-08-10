@@ -6044,7 +6044,16 @@
     "anonymousFallbackDesc": "زمانی که تمام اتصالات پیکربندی‌شده تمام شده‌اند (سهمیه، اعتبار یا انقضا)، به‌طور موقت از سطح بدون کلید این ارائه‌دهنده استفاده کنید. برای رد کردن این ارائه‌دهنده به‌جای ارسال درخواست‌های ناشناس خاموش کنید — این کار زمانی توصیه می‌شود که سطح بدون کلید آن‌ها را رد کند (401).",
     "anonymousFallbackEnabled": "پشتیبانی ناشناس برای {provider} فعال شد",
     "anonymousFallbackDisabled": "پشتیبانی ناشناس برای {provider} غیرفعال شده است — اتصالات تمام شده این ارائه‌دهنده را نادیده خواهند گرفت",
-    "anonymousFallbackUpdateFailed": "به‌روزرسانی تنظیمات پشتیبان ناشناس ناموفق بود"
+    "anonymousFallbackUpdateFailed": "به‌روزرسانی تنظیمات پشتیبان ناشناس ناموفق بود",
+    "codexQuotaPools": "مخزن‌های سهمیه Codex",
+    "codexPoolAvailable": "در دسترس",
+    "codexPoolPartiallyLimited": "تا حدی محدود",
+    "codexPoolFullyLimited": "کاملاً محدود",
+    "codexPoolLimited": "{count} مورد محدود",
+    "codexPoolQuotaExhausted": "سهمیه تمام شده است",
+    "codexPoolCoolingDown": "در دوره انتظار",
+    "codexPoolUsed": "مصرف‌شده",
+    "codexPoolUntil": "تا {value}"
   },
   "settings": {
     "title": "Settings",

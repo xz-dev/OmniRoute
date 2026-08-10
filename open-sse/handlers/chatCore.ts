@@ -21,7 +21,6 @@ import { assembleStreamingResponseHeaders } from "./chatCore/streamingResponseHe
 import { storeStreamingSemanticCacheResponse } from "./chatCore/streamingSemanticCacheStore.ts";
 import { assembleStreamingPipeline } from "./chatCore/streamingPipeline.ts";
 import { sanitizeChatRequestBody } from "./chatCore/sanitization.ts";
-import { applyResponsesInputPolicy } from "../services/responsesInputPolicy.ts";
 import {
   getHeaderValueCaseInsensitive,
   isNoMemoryRequested,
@@ -142,8 +141,6 @@ import {
   getExplicitModelOutputCap,
   resolveInputTokenCapForGate,
 } from "@/lib/modelCapabilities.ts";
-import { checkRequestCapabilityFit, deriveRequestCapabilityRequirements, buildCapabilityMismatchMessage } from "@/shared/constants/capabilities/capabilityFilter.ts";
-import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags.ts";
 import { toPositiveInteger } from "../services/reasoningTokenBuffer.ts";
 import { normalizeThinkingForModel } from "@/shared/constants/modelSpecs.ts";
 import {
@@ -173,7 +170,6 @@ import {
   ANTIGRAVITY_PRE_RESPONSE_TIMEOUT_CODE,
   STREAM_RECOVERY,
   DEFAULT_MAX_TOKENS,
-  STREAM_DISCONNECT_GRACE_PERIOD_MS,
 } from "../config/constants.ts";
 import { createRecoverableStream, makeContinuationBody } from "../services/streamRecovery.ts";
 import {
@@ -211,6 +207,7 @@ import { stageTrace } from "./chatCore/stageTrace.ts";
 import { attachCompressionUsageReceiptAfterAnalytics as attachCompressionUsageReceiptAfterAnalyticsFor } from "./chatCore/compressionUsageReceipt.ts";
 import { prepareUpstreamBody } from "./chatCore/upstreamBody.ts";
 import { getQuotaScopeLabelForProvider } from "../services/antigravityQuotaFamily.ts";
+
 import {
   getCallLogPipelineCaptureStreamChunks,
   getCallLogPipelineMaxSizeBytes,
@@ -286,7 +283,7 @@ import {
 import { cacheReasoningFromAssistantMessage } from "../services/reasoningCache.ts";
 import { sanitizeOpenAITool } from "../services/toolSchemaSanitizer.ts";
 import { isCompactResponsesEndpoint } from "../executors/codex.ts";
-import { buildCodexQuotaPersistence } from "./chatCore/codexQuota.ts";
+import { persistCodexChildQuotaResponse } from "../services/codexAccount/index.ts";
 import { invalidateCodexQuotaCache } from "../services/codexQuotaFetcher.ts";
 import { translateNonStreamingResponse } from "./responseTranslator.ts";
 import { unwrapClineNonStreamingEnvelope } from "./chatCore/clineResponseEnvelope.ts";
@@ -370,7 +367,9 @@ import {
   isTpmExhausted,
   isRpmExhausted,
 } from "../services/geminiRateLimitTracker.ts";
+
 import { isSmallEnoughForSemanticCache } from "../utils/estimateSize.ts";
+
 /**
  * Core chat handler - shared between SSE and Worker
  * Returns { success, response, status, error } for caller to handle fallback
@@ -390,8 +389,10 @@ import { isSmallEnoughForSemanticCache } from "../utils/estimateSize.ts";
  * @param {boolean} options.isCombo - Whether this request is from a combo
  * @param {string} options.connectionId - Connection ID for settings lookup
  */
+
 // extractSystemRoleMessages extracted to chatCore/claudeSystemRole.ts (#3501); re-exported above so
 // existing importers (e.g. tests/unit/system-role-extraction.test.ts) keep resolving it from here.
+
 export async function handleChatCore({
   body,
   modelInfo,
@@ -427,6 +428,7 @@ export async function handleChatCore({
       /* fail open */
     }
   }
+
   // Per-request model-routing metadata (first extracted slice of the request-setup phase).
   const { apiFormat, customModelTargetFormat, requestedModel } = resolveChatCoreRequestSetup(
     modelInfo,
@@ -440,6 +442,7 @@ export async function handleChatCore({
   // (not Math.random) purely to satisfy CodeQL js/insecure-randomness — this id
   // is a log-correlation token, not a security secret.
   const traceId = globalThis.crypto.randomUUID().slice(0, 6);
+
   // Emit request.started event for real-time dashboard
   setImmediate(() => {
     emit("request.started", {
@@ -523,6 +526,7 @@ export async function handleChatCore({
       `long-running goal mode enabled: readinessMax=${agentGoalPolicy.readinessMaxTimeoutMs}ms streamRecovery=${agentGoalPolicy.streamRecoveryEnabled}`
     );
   }
+
   let effectiveServiceTier: EffectiveServiceTier = "standard";
   // Codex service-tier resolvers extracted to chatCore/serviceTier.ts (#3501); bind the per-request
   // provider/credentials once and delegate so the existing call sites stay byte-identical.
@@ -551,6 +555,7 @@ export async function handleChatCore({
       })
     ).catch(() => {});
   };
+
   // Key-health updater extracted to chatCore/keyHealth.ts (#3501); bind the per-request log once
   // and delegate so the existing call sites stay byte-identical.
   const recordKeyHealthStatus = (
@@ -558,40 +563,7 @@ export async function handleChatCore({
     creds: Record<string, unknown> | null | undefined,
     transport?: string
   ): void => recordKeyHealthStatusFor(status, creds, log, transport);
-  const persistCodexQuotaState = async (headers: Record<string, string> | null, status = 0) => {
-    const currentConnectionId = getCurrentConnectionId();
-    if (provider !== "codex" || !currentConnectionId || !headers) return;
-    try {
-      const existingProviderData =
-        credentials?.providerSpecificData && typeof credentials.providerSpecificData === "object"
-          ? (credentials.providerSpecificData as Record<string, unknown>)
-          : {};
-      // Pure payload build extracted to chatCore/codexQuota.ts (#3501). Returns null when the
-      // response carries no quota headers (nothing to persist).
-      const built = buildCodexQuotaPersistence({
-        headers,
-        existingProviderData,
-        modelForScope: model || requestedModel || "",
-        status,
-      });
-      if (!built) return;
-      if (built.exhaustionLog) {
-        log?.debug?.("CODEX", built.exhaustionLog);
-      }
-      // Invalidate the preflight cache for this connection so the next
-      // isModelAvailable check fetches fresh quota data.
-      if (status === 429) {
-        invalidateCodexQuotaCache(currentConnectionId);
-      }
-      await updateProviderConnection(currentConnectionId, {
-        providerSpecificData: built.nextProviderData,
-      });
-      credentials.providerSpecificData = built.nextProviderData;
-    } catch (err) {
-      const errMessage = err instanceof Error ? err.message : String(err);
-      log?.debug?.("CODEX", `Failed to persist codex quota state: ${errMessage}`);
-    }
-  };
+
   // ── Phase 9.2: Idempotency check ──
   // Resolve the idempotency key once here and reuse it at the Phase 9.2 save site below,
   // rather than re-deriving it. (#3821-review LEDGER-6)
@@ -610,11 +582,13 @@ export async function handleChatCore({
   if (idempotencyHit) {
     return idempotencyHit;
   }
+
   // T07: Inject connectionId into credentials so executors can rotate API keys
   // using providerSpecificData.extraApiKeys (API Key Round-Robin feature)
   if (connectionId && credentials && !credentials.connectionId) {
     credentials.connectionId = connectionId;
   }
+
   // Endpoint/format resolution extracted to chatCore/requestFormat.ts (#3501); pure derivation
   // from the inbound request, destructured so every downstream use stays byte-identical.
   const {
@@ -1055,13 +1029,6 @@ export async function handleChatCore({
   });
   if (cacheHit) {
     return cacheHit;
-  }
-
-  if (targetFormat === FORMATS.OPENAI_RESPONSES && body && typeof body === "object") {
-    applyResponsesInputPolicy(
-      body as Record<string, unknown>,
-      credentials?.providerSpecificData?.preserveEncryptedReasoning === true
-    );
   }
 
   body = sanitizeChatRequestBody(body, sourceFormat, targetFormat);
@@ -2257,19 +2224,8 @@ export async function handleChatCore({
   // the latter is a Kiro/Claude passthrough alias channel with string values,
   // while namespace identities carry `{namespace, name}` for the #7936 response
   // seam. Extract first because Kiro merge may reuse `_toolNameMap` below.
-  //
-  // #9780 — prefer the dedicated channel: on a pivot the openai->claude/gemini
-  // step publishes its own alias map on `_toolNameMap`, so that property alone
-  // yields aliases here. The `_toolNameMap` read stays as the fallback for the
-  // non-pivot producers (executors/base.ts, cliproxyapi.ts, antigravity).
-  const namespaceIdentityMap = translatedBody._namespaceToolIdentityMap;
   const requestToolIdentityMap =
-    namespaceIdentityMap instanceof Map
-      ? namespaceIdentityMap
-      : translatedBody._toolNameMap instanceof Map
-        ? translatedBody._toolNameMap
-        : null;
-  delete translatedBody._namespaceToolIdentityMap;
+    translatedBody._toolNameMap instanceof Map ? translatedBody._toolNameMap : null;
   delete translatedBody._toolNameMap;
 
   // Kiro: sanitize tool schemas before dispatch. Kiro returns 400 "Improperly
@@ -2640,16 +2596,7 @@ export async function handleChatCore({
     }
   }
   // === /Quota Share enforcement PRE-hook ===
-  if (isFeatureFlagEnabled("CAPABILITY_FILTER_ENABLED")) {
-    const fit = checkRequestCapabilityFit(getResolvedModelCapabilities({ provider, model: effectiveModel }),
-      deriveRequestCapabilityRequirements(body as Record<string, unknown>), provider);
-    if (!fit.compatible) {
-      const msg = buildCapabilityMismatchMessage(fit.terminalReason!, provider, effectiveModel);
-      log?.warn?.("CAPABILITY", msg);
-      trackPendingRequest(model, provider, connectionId, false);
-      return createErrorResult(400, msg, null, fit.terminalReason, "invalid_request_error");
-    }
-  }
+
   // Get executor for this provider (with optional upstream proxy routing)
   const executor = await resolveExecutorWithProxy(provider);
   const getExecutionCredentials = () =>
@@ -2818,6 +2765,29 @@ export async function handleChatCore({
               const res = normalizeExecutorResult(rawExecutorResult);
               trace("post_executor", { status: res?.response?.status });
 
+              if (provider === "codex" && attemptConnectionId) {
+                try {
+                  const persistedQuota = await persistCodexChildQuotaResponse({
+                    connectionId: String(attemptConnectionId),
+                    model: modelToCall || model || requestedModel || "",
+                    headers: normalizeHeaders(res.response.headers),
+                    status: res.response.status,
+                  });
+                  if (persistedQuota) {
+                    execCreds.providerSpecificData = persistedQuota.providerSpecificData;
+                    if (persistedQuota.exhaustionLog) {
+                      log?.debug?.("CODEX", persistedQuota.exhaustionLog);
+                    }
+                  }
+                  if (res.response.status === 429) {
+                    invalidateCodexQuotaCache(String(attemptConnectionId));
+                  }
+                } catch (err) {
+                  const errMessage = err instanceof Error ? err.message : String(err);
+                  log?.debug?.("CODEX", `Failed to persist codex quota state: ${errMessage}`);
+                }
+              }
+
               // Track Gemini RPM + RPD request counts for 429 classification
               if (provider === "gemini") {
                 incrementRequestCount(modelToCall);
@@ -2871,29 +2841,15 @@ export async function handleChatCore({
                   `429 on connection ${String(failedConnectionId).slice(0, 8)} (attempt ${attempts + 1}/${maxAttempts}), rotating account`
                 );
 
-                // Mark only the current Codex model scope as rate-limited.
+                // Mark only the current Codex model scope as rate-limited. A connection-wide
+                // cooldown here would let a Spark limit suppress independent Sol/Terra traffic.
                 if (failedConnectionId) {
                   await markCodexScopeRateLimited({
                     failedConnectionId: String(failedConnectionId),
                     model: modelToCall || model || requestedModel || null,
                     rateLimitedUntil: new Date(Date.now() + (retryAfterMs || 60_000)).toISOString(),
-                    credentials,
+                    credentials: execCreds || credentials,
                   });
-                  // Fix B: also persist the cooldown to
-                  // `provider_connections.rate_limited_until`. Without this,
-                  // the Codex 429 cascade survives the current request (via
-                  // `markCodexScopeRateLimited`'s in-memory Map) but is lost
-                  // on process restart — the same exhausted Codex key is
-                  // re-picked on the very next request. Mirrors
-                  // `open-sse/executors/antigravity.ts:343`.
-                  // Best-effort: never crash the chat path on DB write failure.
-                  try {
-                    const { setConnectionRateLimitUntil } = await import("@/lib/db/providers");
-                    const untilMs = Date.now() + (retryAfterMs || 60_000);
-                    setConnectionRateLimitUntil(String(failedConnectionId), untilMs);
-                  } catch {
-                    // ignore — best effort
-                  }
                   if (!codexExcludedIds.includes(String(failedConnectionId))) {
                     codexExcludedIds.push(String(failedConnectionId));
                   }
@@ -3604,8 +3560,6 @@ export async function handleChatCore({
       }
     }
   }
-
-  await persistCodexQuotaState(normalizeHeaders(providerResponse.headers), providerResponse.status);
 
   // Check provider response - return error info for fallback handling
   providerFailure: if (!providerResponse.ok) {
@@ -4346,14 +4300,9 @@ export async function handleChatCore({
     try {
       const firstChoice = translatedResponse?.choices?.[0];
       const msg = firstChoice?.message;
-      // The response being cached now will be replayed as history on the *next*
-      // turn, where the read side (translator/index.ts) keys the lookup by the
-      // message's real position in that future `messages` array — i.e. right
-      // after everything the client sent this turn.
-      const bodyMessages = (body as { messages?: unknown[] } | null | undefined)?.messages;
       cacheReasoningFromAssistantMessage(msg, provider, model, {
         requestId: skillRequestId,
-        messageIndex: Array.isArray(bodyMessages) ? bodyMessages.length : 0,
+        messageIndex: 0,
       });
     } catch {
       // Cache capture is non-critical — never block the response
@@ -4778,15 +4727,12 @@ export async function handleChatCore({
     // with tool_calls so it can be replayed on subsequent turns (DeepSeek V4, Kimi K2, etc.)
     if (normalizedStreamStatus === 200 && streamResponseBody) {
       try {
-        const streamBody = streamResponseBody as Record<string, unknown>;
-        const choices = streamBody.choices as { message?: Record<string, unknown> }[] | undefined;
+        const body = streamResponseBody as Record<string, unknown>;
+        const choices = body.choices as { message?: Record<string, unknown> }[] | undefined;
         const msg = choices?.[0]?.message;
-        // See the non-streaming capture above: messageIndex must match the
-        // position this message will occupy in the *next* turn's history.
-        const bodyMessages = (body as { messages?: unknown[] } | null | undefined)?.messages;
         cacheReasoningFromAssistantMessage(msg, provider, model, {
           requestId: skillRequestId,
-          messageIndex: Array.isArray(bodyMessages) ? bodyMessages.length : 0,
+          messageIndex: 0,
         });
       } catch {
         // Cache capture is non-critical — never block the stream
@@ -4929,20 +4875,13 @@ export async function handleChatCore({
   });
   const handleStreamFailure = streamFailureFinalizers.handleStreamFailure;
   onPipelineStreamError = streamFailureFinalizers.onPipelineStreamError;
-  // #9653: gives a genuine, race-delayed completion a chance to land (see
-  // createClientDisconnectGraceHandler's doc comment) before persisting a false
-  // 499/0-tokens for a request that actually delivered its full response.
-  onClientDisconnectFinalize = streamFailure.createClientDisconnectGraceHandler({
-    isStreamCompletionRecorded: () => streamCompletionRecorded,
-    gracePeriodMs: STREAM_DISCONNECT_GRACE_PERIOD_MS,
-    finalize: (event) =>
-      handleStreamFailure({
-        status: 499,
-        message: `Client disconnected: ${event.reason}`,
-        code: "client_disconnected",
-        type: "client_disconnected",
-      }),
-  });
+  onClientDisconnectFinalize = (event) =>
+    handleStreamFailure({
+      status: 499,
+      message: `Client disconnected: ${event.reason}`,
+      code: "client_disconnected",
+      type: "client_disconnected",
+    });
 
   // For providers using Responses API format, translate stream back to openai (Chat Completions) format
   // UNLESS client is Droid CLI which expects openai-responses format back
@@ -5053,6 +4992,7 @@ export async function handleChatCore({
     }),
   };
 }
+
 export function isTokenExpiringSoon(expiresAt, bufferMs = 5 * 60 * 1000) {
   if (!expiresAt) return false;
   const expiresAtMs = new Date(expiresAt).getTime();

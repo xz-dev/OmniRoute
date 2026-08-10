@@ -6044,7 +6044,16 @@
     "anonymousFallbackDesc": "Když jsou všechny nakonfigurované připojení vyčerpány (kvóta, kredity nebo expirace), dočasně použijte bezklíčovou úroveň tohoto poskytovatele. Vypněte, abyste tohoto poskytovatele přeskočili místo odesílání anonymních požadavků — doporučeno, když bezklíčová úroveň je odmítá (401).",
     "anonymousFallbackEnabled": "Anonymní záložní možnost povolena pro {provider}",
     "anonymousFallbackDisabled": "Anonymní záložní možnost zakázána pro {provider} — vyčerpané připojení tuto službu přeskočí",
-    "anonymousFallbackUpdateFailed": "Nepodařilo se aktualizovat nastavení anonymního záložního režimu"
+    "anonymousFallbackUpdateFailed": "Nepodařilo se aktualizovat nastavení anonymního záložního režimu",
+    "codexQuotaPools": "Fondy kvót Codex",
+    "codexPoolAvailable": "Dostupný",
+    "codexPoolPartiallyLimited": "Částečně omezený",
+    "codexPoolFullyLimited": "Plně omezený",
+    "codexPoolLimited": "Omezeno: {count}",
+    "codexPoolQuotaExhausted": "Kvóta vyčerpána",
+    "codexPoolCoolingDown": "Probíhá čekací lhůta",
+    "codexPoolUsed": "využito",
+    "codexPoolUntil": "Do {value}"
   },
   "settings": {
     "title": "Nastavení",
