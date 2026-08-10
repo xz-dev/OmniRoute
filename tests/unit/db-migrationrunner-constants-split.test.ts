@@ -91,17 +91,14 @@ describe("migrationRunner/constants — large-table integrity", () => {
     // both manifest_routing collisions (052→059 and 056→059) must survive
     const manifest = RENAMED_MIGRATION_COMPATIBILITY.filter((e) => e.toName === "manifest_routing");
     assert.deepEqual(manifest.map((e) => e.fromVersion).sort(), ["052", "056"]);
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-2), {
-      fromVersion: "134",
-      fromName: "ccr_blocks",
-      toVersion: "139",
-      toName: "ccr_blocks",
-    });
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-1), {
-      fromVersion: "139",
-      fromName: "job_registry",
-      toVersion: "146",
-      toName: "job_registry",
+    const apiKeyModelAccess = RENAMED_MIGRATION_COMPATIBILITY.find(
+      (e) => e.fromVersion === "135" && e.fromName === "api_keys_model_access_mode"
+    );
+    assert.deepEqual(apiKeyModelAccess, {
+      fromVersion: "135",
+      fromName: "api_keys_model_access_mode",
+      toVersion: "143",
+      toName: "api_keys_model_access_mode",
     });
   });
 

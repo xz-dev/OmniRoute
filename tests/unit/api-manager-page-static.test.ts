@@ -9,6 +9,10 @@ const pagePath = path.join(
   repoRoot,
   "src/app/(dashboard)/dashboard/api-manager/ApiManagerPageClient.tsx"
 );
+const providerModelPermissionListPath = path.join(
+  repoRoot,
+  "src/app/(dashboard)/dashboard/api-manager/components/ProviderModelPermissionList.tsx"
+);
 const messagesDir = path.join(repoRoot, "src/i18n/messages");
 
 const selfServiceScopeMessageKeys = [
@@ -87,11 +91,12 @@ test("permissions modal switch buttons declare button type", () => {
 
 test("permissions modal exposes Claude Code default wildcard model", () => {
   const source = readApiManagerPage();
+  const modelListSource = fs.readFileSync(providerModelPermissionListPath, "utf8");
 
   assert.match(source, /const CLAUDE_CODE_DEFAULT_MODEL_ID = "cc\/\*";/);
   assert.match(source, /const CLAUDE_CODE_DEFAULT_MODEL_NAME = "Claude Code default";/);
   assert.match(source, /withClaudeCodeDefaultModel\(allModels\)/);
-  assert.match(source, /getModelDisplayName\(model\.id\)/);
+  assert.match(modelListSource, /getModelDisplayName\(model\.id\)/);
   assert.match(
     source,
     /modelId === CLAUDE_CODE_DEFAULT_MODEL_ID\s+\?\s+CLAUDE_CODE_DEFAULT_MODEL_NAME\s+:\s+modelId/
@@ -108,7 +113,7 @@ test("permissions modal expands Claude Code default families in selected models 
   assert.match(source, /id: "opus",\s+label: "opus"/);
   assert.match(source, /id: "sonnet",\s+label: "sonnet"/);
   assert.match(source, /id: "haiku",\s+label: "haiku"/);
-  assert.match(source, /const orderedSelectedModels = useMemo/);
+  assert.match(source, /const orderedSelectedProviderScopes = useMemo/);
   assert.match(source, /modelId === CLAUDE_CODE_DEFAULT_MODEL_ID/);
   assert.match(source, /setClaudeCodeFamiliesExpanded/);
   assert.match(
@@ -131,7 +136,10 @@ test("API-key model fallback preserves combo pseudo-models", () => {
   const source = readApiManagerPage();
   const fallbackBlock = source.slice(
     source.indexOf("const [fallbackRes, combosRes] = await Promise.all"),
-    source.indexOf("} catch (error)", source.indexOf("const [fallbackRes, combosRes] = await Promise.all"))
+    source.indexOf(
+      "} catch (error)",
+      source.indexOf("const [fallbackRes, combosRes] = await Promise.all")
+    )
   );
 
   assert.match(fallbackBlock, /fetch\("\/api\/models\?all=true"\)/);
@@ -139,6 +147,42 @@ test("API-key model fallback preserves combo pseudo-models", () => {
   assert.match(fallbackBlock, /owned_by: "combo"/);
   assert.match(fallbackBlock, /\[\.\.\.comboModels, \.\.\.modelEntries\]/);
   assert.match(fallbackBlock, /seen\.has\(m\.id\)/);
+});
+
+test("provider wildcard permissions render separately from exact models", () => {
+  const source = readApiManagerPage();
+
+  assert.match(
+    source,
+    /const \{ providerWildcards, exactModels \} = restoreProviderScopeSelection\(/,
+    "the API-key row must split provider wildcards from exact model selections"
+  );
+  assert.match(source, /const isModelRestricted =/);
+  assert.match(source, /const providerCount = providerWildcards\.length;/);
+  assert.match(source, /const modelCount = exactModels\.length;/);
+  assert.match(source, /formatProviderModelPermissionSummary\(\s*providerCount,/);
+  assert.doesNotMatch(source, /modelsCount\", \{ count: key\.allowedModels!\.length \}/);
+
+  const summaryStart = source.indexOf("{/* Selected Models Summary");
+  const summaryEnd = source.indexOf("{/* Search and Model Selection", summaryStart);
+  const summary = source.slice(summaryStart, summaryEnd);
+  assert.match(summary, /\{tc\("providers"\)\}/);
+  assert.match(summary, /\{tc\("models"\)\}/);
+  assert.match(summary, /\{selectedPermissionSummary\}/);
+  assert.match(summary, /orderedSelectedProviderScopes\.map/);
+  assert.match(summary, /selectedExactModels\.map/);
+  assert.doesNotMatch(summary, /orderedSelectedModels\.map/);
+
+  const infoBannerStart = source.indexOf(
+    "{/* Info Banner */}",
+    source.indexOf("const PermissionsModal")
+  );
+  const infoBannerEnd = source.indexOf("{/* Key Active Toggle */}", infoBannerStart);
+  const infoBanner = source.slice(infoBannerStart, infoBannerEnd);
+  assert.match(
+    infoBanner,
+    /selectedProviderCount > 0\s*\? selectedPermissionSummary\s*:\s*totalModels === 0/
+  );
 });
 
 test("self-service API key scope labels do not expose missing placeholders", () => {

@@ -234,25 +234,27 @@ export function getCombosCacheVersion(): number {
 
 // ──────────────── Model Catalog Cache Invalidation Signal ────────────────
 //
-// #6408 added a request-shape-keyed (prefix/isCodex/apiKey/configuredOnly) TTL
-// cache around the unified /v1/models builder (src/app/api/v1/models/catalog.ts)
-// to coalesce concurrent/bursty GETs. That cache key does not vary with the
-// underlying DB state the builder reads (connections, settings, combos), so
-// writes need an explicit invalidation signal. Same import-cycle
+// #6408 added a request-shape-keyed (prefix/isCodex/apiKey) TTL cache around the
+// unified /v1/models builder (src/app/api/v1/models/catalog.ts) to coalesce
+// concurrent/bursty GETs. That cache key does not vary with the underlying DB
+// state the builder reads (connections, settings, combos), so a write followed by
+// a read within the ~1.5s TTL replayed the pre-write response. Same import-cycle
 // constraint as combosCacheVersion above (a db module must not import the route
-// module): catalogCache.ts compares this version on every access and builder
-// completion, then hard-invalidates snapshots and old-generation work when it moves.
+// module) — catalog.ts instead compares this version on every access and drops its
+// whole cache the moment it moves, so any write that calls invalidateDbCache() makes
+// the next read miss immediately instead of waiting out the TTL.
 let modelCatalogCacheVersion = 0;
 
 /**
- * Current model-catalog-cache version. A change means catalog-backed state was
- * written and the next read must synchronously build the new generation.
+ * Current model-catalog-cache version. `getUnifiedModelsResponse()` folds this
+ * into its response cache key; a change means settings/connections/combos were
+ * written since the cache was populated and the cached body is stale.
  */
 export function getModelCatalogCacheVersion(): number {
   return modelCatalogCacheVersion;
 }
 
-/** Invalidate only the unified model catalog response cache. */
+/** Bump only the unified model-catalog generation. */
 export function invalidateModelCatalogCache(): void {
   modelCatalogCacheVersion++;
 }
@@ -286,5 +288,5 @@ export function invalidateDbCache(
   // Settings/connections/combos all feed the unified model catalog builder
   // (blockedProviders + hidePaidModels, provider connections + excludedModels,
   // combo definitions, respectively) — pricing does too, via isFreeModel().
-  modelCatalogCacheVersion++;
+  invalidateModelCatalogCache();
 }

@@ -29,6 +29,7 @@ import {
   OPTIONAL_FTS5_MIGRATION_VERSIONS,
 } from "./migrationRunner/constants";
 import { getExtraMigrationFiles } from "./migrationRunner/extraDirs";
+import * as apiKeyModelAccess from "./migrationRunner/apiKeyModelAccess";
 
 const isNodeTestRunnerChild = typeof process.env.NODE_TEST_CONTEXT === "string";
 
@@ -472,11 +473,6 @@ function isSchemaAlreadyApplied(
       return hasColumn(db, "version_manager", "auto_restart_adopted");
     case "138":
       return hasColumn(db, "upstream_proxy_config", "fallback_backend");
-    case "139":
-      // Retroactive guard for the 134 → 139 renumber: ccr_blocks landed on the 134
-      // slot already taken by proxy_logs_egress_ip. A DB that already applied
-      // ccr_blocks under the old 134 number has the table — skip the re-run.
-      return hasTable(db, "ccr_blocks");
     case "140":
       // Retroactive guard for the connection_runtime_state migration renumbered
       // 135 -> 140 (#9449 landed onto the slot already taken by #8908's
@@ -849,6 +845,7 @@ export function runMigrations(db: SqliteAdapter, options?: { isNewDb?: boolean }
   const files = filterSupersededDuplicateMigrations(getMigrationFiles());
   rehomeLegacyVersionSlotMigrations(db, files);
   reconcileRenumberedMigrations(db, files);
+  apiKeyModelAccess.reconcileAppliedApiKeyModelAccessMigration(db);
   const applied = getAppliedVersions(db);
   const appliedRecords = getAppliedRecords(db);
 
@@ -1001,6 +998,8 @@ export function runMigrations(db: SqliteAdapter, options?: { isNewDb?: boolean }
         applyCompressionReceiptsMigration(db);
       } else if (migration.version === "042") {
         applyCompressionCombosMigration(db, migration.path);
+      } else if (migration.version === "143" && migration.name === "api_keys_model_access_mode") {
+        apiKeyModelAccess.applyApiKeyModelAccessMigration(db);
       } else {
         const sql = fs.readFileSync(migration.path, "utf-8");
         db.exec(sql);
