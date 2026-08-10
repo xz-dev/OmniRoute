@@ -42,19 +42,14 @@ export const KNOWN_DUPLICATE_VERSIONS = new Set([
 
 // ---------------------------------------------------------------------------
 // ALLOWLIST 2 — gaps de sequência CONHECIDOS.
-// Fonte: auditoria do disco (src/lib/db/migrations/) — a sequência pula 026 e 055.
-// Estes números nunca tiveram arquivo físico (slots legados que viraram outros
-// números via RENAMED_MIGRATION_COMPATIBILITY em migrationRunner.ts). Congelados
-// para que o gate bloqueie apenas NOVOS buracos inexplicados na sequência.
+// Fonte: auditoria do disco (src/lib/db/migrations/). Além dos slots legados,
+// 144–145 seguem reservados pelas migrations Radar da série empilhada.
+// O job registry foi promovido de 139 para 146 pela tabela
+// RENAMED_MIGRATION_COMPATIBILITY para não ocupar esses slots em trânsito.
+// O stale-enforcement remove automaticamente cada reserva quando o arquivo
+// correspondente aterrissar na release.
 // ---------------------------------------------------------------------------
-export const KNOWN_GAPS = new Set([
-  "026",
-  "055",
-  "121", // número queimado no ciclo v3.8.47 — 122 (#6909) mergeou antes e 121 nunca aterrissou (validação e2e 2026-07-12)
-  // Temporary downstream reservation: open PR #8908 owns 134 and production already
-  // has it. Remove this gap after #8908 lands and the integration rebase fills 134.
-  "134",
-]);
+export const KNOWN_GAPS = new Set(["026", "055", "121", "144", "145"]); // 121: número queimado no ciclo v3.8.47 — 122 (#6909) mergeou antes e 121 nunca aterrissou (validação e2e 2026-07-12)
 
 function pad3(n) {
   return String(n).padStart(3, "0");

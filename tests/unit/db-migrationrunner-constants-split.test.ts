@@ -70,8 +70,8 @@ describe("migrationRunner/constants — exact small-table snapshots", () => {
 // ── large tables — count + shape + spot-checks (corruption guard) ─────────────
 
 describe("migrationRunner/constants — large-table integrity", () => {
-  it("RENAMED_MIGRATION_COMPATIBILITY has 12 well-formed entries", () => {
-    assert.equal(RENAMED_MIGRATION_COMPATIBILITY.length, 12);
+  it("RENAMED_MIGRATION_COMPATIBILITY has 14 well-formed entries", () => {
+    assert.equal(RENAMED_MIGRATION_COMPATIBILITY.length, 14);
     for (const e of RENAMED_MIGRATION_COMPATIBILITY) {
       assert.equal(typeof e.fromVersion, "string");
       assert.equal(typeof e.fromName, "string");
@@ -91,15 +91,34 @@ describe("migrationRunner/constants — large-table integrity", () => {
     // both manifest_routing collisions (052→059 and 056→059) must survive
     const manifest = RENAMED_MIGRATION_COMPATIBILITY.filter((e) => e.toName === "manifest_routing");
     assert.deepEqual(manifest.map((e) => e.fromVersion).sort(), ["052", "056"]);
-    const apiKeyModelAccess = RENAMED_MIGRATION_COMPATIBILITY.find(
-      (e) => e.fromVersion === "135" && e.fromName === "api_keys_model_access_mode"
-    );
-    assert.deepEqual(apiKeyModelAccess, {
-      fromVersion: "135",
-      fromName: "api_keys_model_access_mode",
-      toVersion: "143",
-      toName: "api_keys_model_access_mode",
-    });
+    for (const expected of [
+      {
+        fromVersion: "134",
+        fromName: "ccr_blocks",
+        toVersion: "139",
+        toName: "ccr_blocks",
+      },
+      {
+        fromVersion: "139",
+        fromName: "job_registry",
+        toVersion: "146",
+        toName: "job_registry",
+      },
+      {
+        fromVersion: "135",
+        fromName: "api_keys_model_access_mode",
+        toVersion: "143",
+        toName: "api_keys_model_access_mode",
+      },
+    ]) {
+      assert.deepEqual(
+        RENAMED_MIGRATION_COMPATIBILITY.find(
+          (entry) =>
+            entry.fromVersion === expected.fromVersion && entry.fromName === expected.fromName
+        ),
+        expected
+      );
+    }
   });
 
   it("PHYSICAL_SCHEMA_SENTINELS has 15 well-formed entries incl. the newest 064", () => {

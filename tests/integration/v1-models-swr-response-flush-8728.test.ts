@@ -89,12 +89,21 @@ test("the /v1/models route wires Next after() as its response-flush-safe schedul
     path.join(REPO_ROOT, "src/app/api/v1/models/route.ts"),
     "utf8"
   );
+  const catalogSource = fs.readFileSync(
+    path.join(REPO_ROOT, "src/app/api/v1/models/catalog.ts"),
+    "utf8"
+  );
   const cacheSource = fs.readFileSync(
     path.join(REPO_ROOT, "src/app/api/v1/models/catalogCache.ts"),
     "utf8"
   );
   assert.match(routeSource, /import\s+\{\s*after\s*\}\s+from\s+["']next\/server["']/);
   assert.match(routeSource, /scheduleBackgroundRefresh:\s*\(task\)\s*=>\s*after\(task\)/);
+  assert.match(
+    catalogSource,
+    /resolveCachedCatalogResponse\([\s\S]*?buildCatalogPayload,\s*cachePolicy,\s*\{\s*hideAutoCombos:/,
+    "the public catalog caller must pass policy before catalog settings"
+  );
   assert.match(cacheSource, /import\s+\{\s*after\s*\}\s+from\s+["']next\/server["']/);
   assert.match(cacheSource, /function defaultBackgroundRefreshScheduler[\s\S]*?after\(task\)/);
 });

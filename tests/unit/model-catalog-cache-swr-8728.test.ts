@@ -106,6 +106,36 @@ test("ordinary TTL expiry serves the last success indefinitely and schedules one
   assert.equal(catalogCache.__getCatalogBuilderRunsForTest(), 2);
 });
 
+test("catalog settings select distinct cache keys while policy controls SWR scheduling", async () => {
+  const { policy, tasks } = createPolicyQueue();
+  const settingsA = { hideAutoCombos: true, hideNoThinkVariants: false };
+  const settingsB = { hideAutoCombos: false, hideNoThinkVariants: true };
+
+  const resolveWithSettings = (
+    body: string,
+    settings: { hideAutoCombos: boolean; hideNoThinkVariants: boolean }
+  ) =>
+    catalogCache.resolveCachedCatalogResponse(
+      request(),
+      { corsHeaders: {}, diagnosticHeaders: {} },
+      async () => payload(body),
+      policy,
+      settings
+    );
+
+  assert.equal(await (await resolveWithSettings("settings-a", settingsA)).text(), "settings-a");
+  assert.equal(await (await resolveWithSettings("settings-b", settingsB)).text(), "settings-b");
+  assert.equal(catalogCache.__getCatalogBuilderRunsForTest(), 2);
+
+  catalogCache.__expireCatalogCacheForTest();
+  assert.equal(await (await resolveWithSettings("refresh-a", settingsA)).text(), "settings-a");
+  assert.equal(tasks.length, 1, "the injected scheduler must receive the stale refresh task");
+
+  await tasks[0]();
+  assert.equal(await (await resolveWithSettings("unused", settingsA)).text(), "refresh-a");
+  assert.equal(await (await resolveWithSettings("unused", settingsB)).text(), "settings-b");
+});
+
 test("unsuccessful cold payloads are returned but never cached", async () => {
   const first = await resolve(async () => payload("temporary failure", 503));
   assert.equal(first.status, 503);

@@ -70,6 +70,18 @@ export const RENAMED_MIGRATION_COMPATIBILITY = [
     toName: "manifest_routing",
   },
   {
+    fromVersion: "134",
+    fromName: "ccr_blocks",
+    toVersion: "139",
+    toName: "ccr_blocks",
+  },
+  {
+    fromVersion: "139",
+    fromName: "job_registry",
+    toVersion: "146",
+    toName: "job_registry",
+  },
+  {
     fromVersion: "135",
     fromName: "api_keys_model_access_mode",
     toVersion: "143",
