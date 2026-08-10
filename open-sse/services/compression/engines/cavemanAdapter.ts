@@ -262,7 +262,6 @@ export const liteEngine: CompressionEngine = {
   },
   apply(body, options) {
     const adapter = adaptBodyForCompression(body);
-    const stepCompressToolResults = options?.stepConfig?.compressToolResults;
     const result = applyLiteCompression(adapter.body, {
       ...options,
       preserveSystemPrompt: options?.config?.preserveSystemPrompt !== false,
@@ -270,9 +269,9 @@ export const liteEngine: CompressionEngine = {
       // (step wins) into stepConfig, so consume that single effective value instead of
       // AND-ing root and step values — an explicit step `true` must override a global `false`.
       compressToolResults:
-        typeof stepCompressToolResults === "boolean"
-          ? stepCompressToolResults
-          : (options?.config?.lite?.compressToolResults ?? true),
+        options?.stepConfig?.compressToolResults ??
+        options?.config?.lite?.compressToolResults ??
+        true,
     });
     return adapter.adapted ? { ...result, body: adapter.restore(result.body) } : result;
   },
