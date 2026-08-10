@@ -3236,6 +3236,8 @@
     "pricingMissing": "无定价",
     "pricingAvailableShort": "已定价",
     "pricingMissingShort": "无定价",
+    "fallbackOnlyOnQuotaExhaustion": "仅配额/额度耗尽时进入下一目标",
+    "fallbackOnlyOnQuotaExhaustionShort": "仅配额耗尽回退",
     "warningRoundRobinSingleModel": "轮询策略至少有 2 个模型时才最有价值。",
     "warningCostOptimizedPartialPricing": "在 {total} 个模型中，只有 {priced} 个有定价信息。路由可能只具备部分成本感知能力。",
     "warningCostOptimizedNoPricing": "该组合未找到任何定价数据。成本优化策略的路由结果可能不符合预期。",

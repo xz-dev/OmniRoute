@@ -15,6 +15,8 @@ import Tooltip from "@/shared/components/Tooltip";
 import { ComboCompressionModeSelect } from "@/shared/components/compression/ComboCompressionModeSelect";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { FieldLabelWithHelp, WeightTotalBar } from "./parts";
+import { ComboTargetOptions } from "./ComboQuotaOnlyFallbackToggle";
+import { applyQuotaOnlyFallbackConfig, setQuotaOnlyFallback } from "./comboQuotaOnlyFallback";
 import { useComboProxyAssignments } from "./useComboProxyAssignments";
 import { ResponseValidationEditor, type ResponseValidationValue } from "./ResponseValidationEditor";
 import ReasoningTokenBufferToggle from "./ReasoningTokenBufferToggle";
@@ -2769,7 +2771,11 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
       saveData.description = null;
     }
 
-    const configToSave = sanitizeComboRuntimeConfig(config);
+    const configToSave = applyQuotaOnlyFallbackConfig(
+      strategy,
+      models,
+      sanitizeComboRuntimeConfig(config)
+    );
     if (strategy === "round-robin") {
       if (config.concurrencyPerModel !== undefined)
         configToSave.concurrencyPerModel = config.concurrencyPerModel;
@@ -3482,24 +3488,16 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                         </div>
                       </div>
 
-                      {strategy === "cost-optimized" && (
-                        <span
-                          className={`text-[9px] px-1.5 py-0.5 rounded-full uppercase font-semibold ${
-                            hasPricingForModel(entry.model)
-                              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                              : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                          }`}
-                          title={
-                            hasPricingForModel(entry.model)
-                              ? getI18nOrFallback(t, "pricingAvailable", "Pricing available")
-                              : getI18nOrFallback(t, "pricingMissing", "No pricing")
-                          }
-                        >
-                          {hasPricingForModel(entry.model)
-                            ? getI18nOrFallback(t, "pricingAvailableShort", "priced")
-                            : getI18nOrFallback(t, "pricingMissingShort", "no-price")}
-                        </span>
-                      )}
+                      <ComboTargetOptions
+                        strategy={strategy}
+                        entry={entry}
+                        index={index}
+                        onCheckedChange={(stepIndex, enabled) =>
+                          setModels(setQuotaOnlyFallback(models, stepIndex, enabled))
+                        }
+                        hasPricing={hasPricingForModel(entry.model)}
+                        translate={(key, fallback) => getI18nOrFallback(t, key, fallback)}
+                      />
 
                       {/* Weight input (weighted mode only) */}
                       {strategy === "weighted" && (

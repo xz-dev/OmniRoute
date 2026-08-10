@@ -573,6 +573,82 @@ test("tryRuntimeUnitDispatch: round-robin rotates across successive dispatches",
   );
 });
 
+test("tryRuntimeUnitDispatch: sticky weighted keeps quota-only fallback dormant", async () => {
+  const combo = {
+    ...twoRefCombo("weighted-quota-dormant", "weighted", { stickyWeightedLimit: 5 }),
+    models: [
+      { kind: "combo-ref", comboName: "leafA", fallbackOnlyOnQuotaExhaustion: true },
+      { kind: "combo-ref", comboName: "leafB" },
+    ],
+  };
+  const ctx = setup(combo);
+  const units = resolveComboRuntimeUnits(ctx.combo, [ctx.combo, LEAF_A, LEAF_B], "execute", 3);
+  const protectedUnit = units.find(
+    (unit) => unit.kind === "combo-ref" && unit.fallbackOnlyOnQuotaExhaustion === true
+  );
+  assert.ok(protectedUnit);
+  recordStickyWeightedSuccess(combo.name, protectedUnit.executionKey, 5);
+
+  const recursedInto: string[] = [];
+  const result = await tryRuntimeUnitDispatch({
+    body: ctx.body,
+    combo: ctx.combo,
+    config: ctx.config,
+    strategy: "weighted",
+    allCombos: [ctx.combo, LEAF_A, LEAF_B],
+    handleSingleModel: async () => okResponse("raw"),
+    handleSingleModelWithTimeout: async () => okResponse("wrapped"),
+    log: ctx.log,
+    settings: {},
+    runCombo: async (options) => {
+      recursedInto.push(options.combo.name);
+      return options.combo.name === "leafA"
+        ? new Response("unavailable", { status: 503 })
+        : okResponse("backup");
+    },
+  });
+  assert.equal(result?.status, 200);
+  assert.deepEqual(recursedInto, [protectedUnit.comboName, protectedUnit.comboName, "leafB"]);
+});
+
+test("tryRuntimeUnitDispatch: protected execute response validation returns local 502", async () => {
+  const combo = {
+    name: "protected-quality-execute",
+    strategy: "priority",
+    models: [
+      { kind: "model", model: "p/invalid", fallbackOnlyOnQuotaExhaustion: true },
+      COMBO_REF_STEP,
+    ],
+    config: {
+      nestedComboMode: "execute",
+      maxRetries: 0,
+      responseValidation: { minContentLength: 100 },
+    },
+  };
+  const ctx = setup(combo);
+  const calls: string[] = [];
+  const result = await tryRuntimeUnitDispatch({
+    body: ctx.body,
+    combo: ctx.combo,
+    config: ctx.config,
+    strategy: "priority",
+    allCombos: [ctx.combo, LEAF_COMBO],
+    handleSingleModel: async () => okResponse("raw"),
+    handleSingleModelWithTimeout: async (_body, modelStr) => {
+      calls.push(modelStr);
+      return okResponse("short");
+    },
+    log: ctx.log,
+    settings: {},
+    runCombo: async () => {
+      calls.push("backup");
+      return okResponse("backup");
+    },
+  });
+  assert.equal(result?.status, 502);
+  assert.deepEqual(calls, ["p/invalid"]);
+});
+
 test("tryRuntimeUnitDispatch: weighted honors a previously recorded sticky unit", async () => {
   const combo = twoRefCombo("weighted-sticky", "weighted", { stickyWeightedLimit: 5 });
   const ctx = setup(combo);

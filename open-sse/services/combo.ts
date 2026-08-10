@@ -219,6 +219,11 @@ import {
 } from "./combo/quotaExhaustionCutoff.ts";
 import { expandTargetsByFingerprints } from "./combo/fingerprintExpansion.ts";
 import { resolveComboTargetPipeline } from "./combo/targetResolution.ts";
+import {
+  isQuotaExhaustionResponse,
+  recordQuotaExhaustionClassification,
+  withQuotaExhaustionClassification,
+} from "./combo/quotaExhaustion.ts";
 
 export { RESET_WINDOW_NAMES, QUOTA_SOFT_DEPRIORITIZE_FACTOR, setCandidateQuotaSoftPenalty };
 export { scoreAutoTargets, expandAutoComboCandidatePool };
@@ -813,6 +818,26 @@ export async function handleComboChat({
   // Accumulator for per-model error details across targets in the current set try.
   // Reset at the start of each set retry (same lifecycle as lastError/recordedAttempts).
   let comboErrors: Array<{ model: string; status: number; error: string }> = [];
+  // Quota trust spans set retries and recursive cooldown re-dispatches. Once any
+  // failure is non-quota, a nested caller must never treat this dispatch as quota-only.
+  let observedFailure = false;
+  let allObservedFailuresQuota = true;
+  const targetFailureTrust = new Map<
+    string,
+    { observedFailure: boolean; allObservedFailuresQuota: boolean }
+  >();
+  const observeFailure = (quotaExhausted: boolean, targetExecutionKey?: string) => {
+    observedFailure = true;
+    allObservedFailuresQuota &&= quotaExhausted;
+    if (!targetExecutionKey) return;
+    const trust = targetFailureTrust.get(targetExecutionKey) ?? {
+      observedFailure: false,
+      allObservedFailuresQuota: true,
+    };
+    trust.observedFailure = true;
+    trust.allObservedFailuresQuota &&= quotaExhausted;
+    targetFailureTrust.set(targetExecutionKey, trust);
+  };
 
   // FASE 2.1: per-connection concurrency limit for quota-share. The gating in
   // selectQuotaShareTarget is fail-open and cannot hard-limit a single-connection
@@ -900,6 +925,9 @@ export async function handleComboChat({
       let anySuccess = false;
       const abortControllers = new Map<number, AbortController>();
       const zeroLatencyOptimizationsEnabled = config.zeroLatencyOptimizationsEnabled === true;
+      const hasProtectedPriorityTarget =
+        strategy === "priority" &&
+        orderedTargets.some((target) => target.fallbackOnlyOnQuotaExhaustion === true);
 
       const executeTarget = async (
         i: number
@@ -908,12 +936,20 @@ export async function handleComboChat({
         const modelStr = target.modelStr;
         const rawModel = parseModel(modelStr).model || modelStr;
         const provider = target.provider;
+        const protectedPriorityTarget =
+          strategy === "priority" && target.fallbackOnlyOnQuotaExhaustion === true;
+        const stopProtectedPriorityTarget = (message: string) => {
+          observeFailure(false, target.executionKey);
+          return protectedPriorityTarget
+            ? { ok: false, response: errorResponse(503, message) }
+            : null;
+        };
 
         const cb = getCircuitBreaker(provider);
         if (cb.getStatus().state === "OPEN") {
           log.info("COMBO", `Skipping ${modelStr} — circuit breaker OPEN for ${provider}`);
           if (i > 0) fallbackCount++;
-          return null;
+          return stopProtectedPriorityTarget(`Provider ${provider} circuit breaker is open`);
         }
 
         if (
@@ -923,7 +959,7 @@ export async function handleComboChat({
         ) {
           log.info("COMBO", `Skipping ${modelStr} — provider ${provider} in global cooldown`);
           if (i > 0) fallbackCount++;
-          return null;
+          return stopProtectedPriorityTarget(`Provider ${provider} is in cooldown`);
         }
 
         // Use pre-screened profile if available, otherwise fetch on demand
@@ -950,14 +986,14 @@ export async function handleComboChat({
         if (exhaustedSkip) {
           log.info("COMBO", exhaustedSkip);
           if (i > 0) fallbackCount++;
-          return null;
+          return stopProtectedPriorityTarget(`Target ${modelStr} is unavailable`);
         }
 
         // Pre-check: skip models locked by the resilience system (model-level lockout)
         if (provider && rawModel && isModelLocked(provider, target.connectionId || "", rawModel)) {
           log.info("COMBO", `Skipping ${modelStr} — model locked by resilience (cooldown active)`);
           if (i > 0) fallbackCount++;
-          return null;
+          return stopProtectedPriorityTarget(`Model ${modelStr} is locked`);
         }
 
         // #5923 (Finding #4) — honor the same opt-in quota-exhaustion cutoff the
@@ -983,6 +1019,16 @@ export async function handleComboChat({
               `Skipping ${modelStr} — quota exhaustion cutoff (${quotaCutoff.reason || "quota_exhausted"})`
             );
             if (i > 0) fallbackCount++;
+            observeFailure(true, target.executionKey);
+            if (protectedPriorityTarget) {
+              const protectedTargetTrust = targetFailureTrust.get(target.executionKey);
+              if (!protectedTargetTrust?.allObservedFailuresQuota) {
+                return {
+                  ok: false,
+                  response: errorResponse(503, `Target ${modelStr} is unavailable`),
+                };
+              }
+            }
             return null;
           }
         }
@@ -1000,7 +1046,7 @@ export async function handleComboChat({
               `Skipping ${modelStr} — no credentials available or model excluded`
             );
             if (i > 0) fallbackCount++;
-            return null;
+            return stopProtectedPriorityTarget(`Model ${modelStr} is unavailable`);
           }
         }
 
@@ -1011,7 +1057,7 @@ export async function handleComboChat({
           if (gateResult.allowed === false) {
             logCredentialSkip(log, modelStr, gateResult.reason || "Credential gate blocked");
             if (i > 0) fallbackCount++;
-            return null;
+            return stopProtectedPriorityTarget(`Credential gate blocked ${modelStr}`);
           }
 
           // Concurrency gate: fail-fast skip when connection is at max_concurrent capacity (e.g. Featherless 1/1)
@@ -1025,7 +1071,7 @@ export async function handleComboChat({
               `Skipping ${modelStr} — connection ${connectionId} is at max concurrency cap (${maxConcurrentCap})`
             );
             if (i > 0) fallbackCount++;
-            return null;
+            return stopProtectedPriorityTarget(`Connection capacity reached for ${modelStr}`);
           }
         }
 
@@ -1080,7 +1126,7 @@ export async function handleComboChat({
                   "COMBO",
                   `Predictive TTFT Circuit Breaker: skipping ${modelStr} (avg ${m.avgLatencyMs}ms > max ${config.predictiveTtftMs}ms)`
                 );
-                return null;
+                return stopProtectedPriorityTarget(`Predictive latency check rejected ${modelStr}`);
               }
             }
           }
@@ -1278,7 +1324,13 @@ export async function handleComboChat({
                 error: `Quality: ${quality.reason}`,
                 latencyMs: Date.now() - startTime,
               });
-              return null;
+              observeFailure(false, target.executionKey);
+              return protectedPriorityTarget
+                ? {
+                    ok: false,
+                    response: errorResponse(502, "Upstream response failed quality validation"),
+                  }
+                : null;
             }
 
             // Success decay: a healthy response walks the model's lockout failure
@@ -1629,7 +1681,7 @@ export async function handleComboChat({
             result.status,
             errorText,
             0,
-            null,
+            protectedPriorityTarget ? rawModel : null,
             provider,
             result.headers,
             profile,
@@ -1759,6 +1811,15 @@ export async function handleComboChat({
             recordProviderFailure(provider, log, targetWithConnection.connectionId, profile);
           }
 
+          const quotaExhausted = await isQuotaExhaustionResponse(
+            result,
+            provider,
+            rawModel,
+            profile
+          );
+          recordQuotaExhaustionClassification(result, quotaExhausted);
+          observeFailure(quotaExhausted, target.executionKey);
+
           // Check if this is a transient error worth retrying on same model.
           // A token-limit 429 is terminal for the client — never retry it.
           const isTransient =
@@ -1767,6 +1828,7 @@ export async function handleComboChat({
             [408, 429, 500, 502, 503, 504].includes(result.status);
           if (retry < maxRetries && isTransient && !providerExhausted) {
             if (
+              !protectedPriorityTarget &&
               provider &&
               rawModel &&
               isModelLocked(provider, targetWithConnection.connectionId || "", rawModel)
@@ -1789,7 +1851,7 @@ export async function handleComboChat({
             // once the model is cooling down, retrying it would waste an upstream
             // call and extend the cooldown via exponential backoff.
             let lockoutRecorded = false;
-            if (provider && rawModel && retry === 0 && !scopedFailure) {
+            if (!protectedPriorityTarget && provider && rawModel && retry === 0 && !scopedFailure) {
               const mlSettings = resolveModelLockoutSettings(settings);
               if (mlSettings.enabled && mlSettings.errorCodes.includes(result.status)) {
                 recordModelLockoutFailure(
@@ -1829,6 +1891,22 @@ export async function handleComboChat({
           }
 
           // Done retrying this model
+          const protectedTargetTrust = targetFailureTrust.get(target.executionKey);
+          if (
+            protectedPriorityTarget &&
+            (!protectedTargetTrust?.observedFailure ||
+              !protectedTargetTrust.allObservedFailuresQuota)
+          ) {
+            recordComboRequest(combo.name, modelStr, {
+              success: false,
+              latencyMs: Date.now() - startTime,
+              fallbackCount,
+              strategy,
+              target: toRecordedTarget(target),
+            });
+            recordedAttempts++;
+            return { ok: false, response: result };
+          }
           recordComboRequest(combo.name, modelStr, {
             success: false,
             latencyMs: Date.now() - startTime,
@@ -1957,7 +2035,12 @@ export async function handleComboChat({
         runningTasks.add(task);
         task.finally(() => runningTasks.delete(task));
 
-        if (zeroLatencyOptimizationsEnabled && config.hedging && i + 1 < orderedTargets.length) {
+        if (
+          zeroLatencyOptimizationsEnabled &&
+          config.hedging &&
+          !hasProtectedPriorityTarget &&
+          i + 1 < orderedTargets.length
+        ) {
           const hedgeDelay = resolveDelayMs(config.hedgeDelayMs, 500);
           let timeoutResolve: () => void;
           const timeoutPromise = new Promise<void>((r) => {
@@ -2044,11 +2127,14 @@ export async function handleComboChat({
             latencyMs,
             fallbackCount,
           });
-          return errorResponseWithComboDiagnostics(
-            503,
-            "Service temporarily unavailable: all targets were skipped by pre-dispatch filters",
-            buildComboDiag("all_targets_skipped"),
-            { code: "ALL_TARGETS_SKIPPED", type: "service_unavailable" }
+          return withQuotaExhaustionClassification(
+            errorResponseWithComboDiagnostics(
+              503,
+              "Service temporarily unavailable: all targets were skipped by pre-dispatch filters",
+              buildComboDiag("all_targets_skipped"),
+              { code: "ALL_TARGETS_SKIPPED", type: "service_unavailable" }
+            ),
+            observedFailure ? allObservedFailuresQuota : null
           );
         }
         notifyWebhookEvent("request.failed", {
@@ -2139,7 +2225,10 @@ export async function handleComboChat({
       if (earliestRetryAfter && isRetryAfterEligibleStatus(status)) {
         const retryHuman = formatRetryAfter(toRetryAfterDisplayValue(earliestRetryAfter));
         log.warn("COMBO", `All models failed | ${msg} (${retryHuman})`);
-        return unavailableResponse(status, msg, earliestRetryAfter, retryHuman);
+        return withQuotaExhaustionClassification(
+          unavailableResponse(status, msg, earliestRetryAfter, retryHuman),
+          observedFailure ? allObservedFailuresQuota : null
+        );
       }
 
       // Silent-stop fix: bump the failure counter (pin clears on 3rd consecutive) and emit
@@ -2155,10 +2244,13 @@ export async function handleComboChat({
         );
       }
       const retryAfterSeconds = undefined;
-      return errorResponseWithComboDiagnostics(
-        status,
-        msg,
-        buildComboDiag(lastError ?? "all_models_failed", retryAfterSeconds)
+      return withQuotaExhaustionClassification(
+        errorResponseWithComboDiagnostics(
+          status,
+          msg,
+          buildComboDiag(lastError ?? "all_models_failed", retryAfterSeconds)
+        ),
+        observedFailure ? allObservedFailuresQuota : null
       );
     }
 

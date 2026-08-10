@@ -3236,6 +3236,8 @@
     "pricingMissing": "No pricing",
     "pricingAvailableShort": "priced",
     "pricingMissingShort": "no-price",
+    "fallbackOnlyOnQuotaExhaustion": "Only advance on quota exhaustion",
+    "fallbackOnlyOnQuotaExhaustionShort": "quota-only fallback",
     "warningRoundRobinSingleModel": "Round-robin is most useful with at least 2 models.",
     "warningCostOptimizedPartialPricing": "Only {priced} of {total} models have pricing. Routing may be partially cost-aware.",
     "warningCostOptimizedNoPricing": "No pricing data found for this combo. Cost-optimized may route unexpectedly.",
