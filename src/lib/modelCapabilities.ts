@@ -12,16 +12,20 @@ import {
 } from "@/shared/constants/modelSpecs";
 import { getSyncedCapability } from "@/lib/modelsDevSync";
 import { MODELS_DEV_PROVIDER_MAP } from "@/lib/modelsDevSync/transform";
-import {
-  getModelContextOverrideRecord,
-  type ModelContextOverrideSource,
-} from "@/lib/db/modelContextOverrides";
+import { getModelContextOverrideRecord } from "@/lib/db/modelContextOverrides";
 import { getModelCapabilityOverride } from "@/lib/db/modelCapabilityOverrides";
 import { getDbInstance } from "@/lib/db/core";
 import { getKeyValue } from "@/lib/db/models/shared";
 import type { ModelCapabilityResolutionSnapshot } from "@/lib/modelCapabilityResolutionSnapshot";
+import {
+  isResolutionSnapshot,
+  resolveClampedMaxInputLimit,
+  type ResolvedLimitSource,
+} from "@/lib/modelCapabilityLimits";
 
 export type { ModelCapabilityResolutionSnapshot } from "@/lib/modelCapabilityResolutionSnapshot";
+export type { ResolvedLimitSource } from "@/lib/modelCapabilityLimits";
+export { isPersistedResolvedLimitSource } from "@/lib/modelCapabilityLimits";
 export { createModelCapabilityResolutionSnapshot } from "@/lib/modelCapabilityResolutionSnapshot";
 import { isVisionModelId } from "@/shared/constants/visionModels";
 import { getUnsupportedParams } from "@omniroute/open-sse/config/providerRegistry.ts";
@@ -117,24 +121,6 @@ type SyncedCapabilities = ReturnType<typeof getSyncedCapability>;
  */
 export interface ResolveModelCapabilitiesOptions {
   persistedOverrides?: boolean;
-}
-
-function isResolutionSnapshot(
-  value: ResolveModelCapabilitiesOptions | ModelCapabilityResolutionSnapshot | undefined
-): value is ModelCapabilityResolutionSnapshot {
-  return !!value && "synced" in value && "contextOverrides" in value;
-}
-
-export type ResolvedLimitSource =
-  | ModelContextOverrideSource
-  | "capability-override"
-  | "authoritative-fallback"
-  | "synced"
-  | "registry"
-  | "spec";
-
-export function isPersistedResolvedLimitSource(source: ResolvedLimitSource | null): boolean {
-  return source === "manual" || source === "auto:discovery" || source === "capability-override";
 }
 
 export interface ResolvedModelCapabilities {
@@ -792,26 +778,15 @@ export function getResolvedModelCapabilities(
   const maxTokenOverride = usePersistedOverrides
     ? getOutputTokenCapabilityOverride(resolved, resolutionSnapshot)
     : null;
-  const maxInputCandidate =
-    maxInputOverride ??
-    (typeof registryModel?.maxInputTokens === "number" ? registryModel.maxInputTokens : null) ??
-    authoritativeContextWindow ??
-    synced?.limit_input ??
-    contextWindow;
-  const maxInputCandidateSource: ResolvedLimitSource | null =
-    maxInputOverride !== null
-      ? "capability-override"
-      : typeof registryModel?.maxInputTokens === "number"
-        ? "registry"
-        : authoritativeContextWindow !== null
-          ? "authoritative-fallback"
-          : typeof synced?.limit_input === "number"
-            ? "synced"
-            : contextWindowSource;
-  const maxInputClamped =
-    maxInputCandidate !== null && contextWindow !== null && maxInputCandidate > contextWindow;
-  const maxInputTokens = maxInputClamped ? contextWindow : maxInputCandidate;
-  const maxInputTokensSource = maxInputClamped ? contextWindowSource : maxInputCandidateSource;
+  const { value: maxInputTokens, source: maxInputTokensSource } = resolveClampedMaxInputLimit({
+    override: maxInputOverride,
+    registry:
+      typeof registryModel?.maxInputTokens === "number" ? registryModel.maxInputTokens : null,
+    authoritative: authoritativeContextWindow,
+    synced: synced?.limit_input ?? null,
+    contextWindow,
+    contextWindowSource,
+  });
 
   // Vision consults leaf static metadata for path-shaped ids; other capability
   // fields keep using the non-leaf `spec` from getStaticSpec() above.
