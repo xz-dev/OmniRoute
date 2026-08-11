@@ -78,7 +78,17 @@ export function projectCodexAccountPool(
     const cooldownActive = Boolean(
       state.rateLimitedUntil && new Date(state.rateLimitedUntil).getTime() > now
     );
-    const unavailable = cooldownActive || hydration.exhaustedWindow !== null;
+    const exhaustedWindow = hydration.exhaustedWindow;
+    const exhaustedResetAt =
+      exhaustedWindow === "5h"
+        ? hydration.quotaState?.resetAt5h
+        : exhaustedWindow === "7d"
+          ? hydration.quotaState?.resetAt7d
+          : null;
+    const exhaustionActive = Boolean(
+      exhaustedWindow && exhaustedResetAt && new Date(exhaustedResetAt).getTime() > now
+    );
+    const unavailable = cooldownActive || exhaustionActive;
     return {
       key: child.key,
       unavailable,
@@ -87,7 +97,7 @@ export function projectCodexAccountPool(
         rateLimitedUntil: cooldownActive ? state.rateLimitedUntil : null,
       },
       quota: {
-        exhaustedWindow: hydration.exhaustedWindow,
+        exhaustedWindow: exhaustionActive ? exhaustedWindow : null,
         observedAt: hydration.quotaState?.observedAt ?? null,
         windows: { "5h": quotaWindow("5h"), "7d": quotaWindow("7d") },
       },
@@ -117,6 +127,34 @@ export function resolveCodexAccount(
   if (typeof model !== "string" || model.trim().length === 0) return pool.parent;
   const scope = getCodexModelScope(model);
   return pool.children.find((account) => account.scope === scope) || pool.parent;
+}
+
+function inspectResolvedCodexChild(
+  connection: CodexAccountConnection,
+  model: string | null | undefined,
+  now = Date.now()
+) {
+  const pool = createCodexAccountPool(connection);
+  const state = inspectCodexAccount(pool, resolveCodexAccount(pool, model), now);
+  return state.kind === "child" ? state : null;
+}
+
+/** Return whether the requested model's virtual child is currently unavailable. */
+export function isCodexChildUnavailable(
+  connection: CodexAccountConnection,
+  model: string | null | undefined,
+  now = Date.now()
+): boolean {
+  return inspectResolvedCodexChild(connection, model, now)?.unavailable ?? false;
+}
+
+/** Return the active cooldown for the requested model's virtual child. */
+export function getCodexChildCooldown(
+  connection: CodexAccountConnection,
+  model: string | null | undefined,
+  now = Date.now()
+): string | null {
+  return inspectResolvedCodexChild(connection, model, now)?.rateLimitedUntil ?? null;
 }
 
 export {
