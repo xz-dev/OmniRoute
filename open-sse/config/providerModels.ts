@@ -170,11 +170,11 @@ export function findModelName(aliasOrId: string, modelId: string): string {
 }
 
 export function getModelTargetFormat(aliasOrId: string, modelId: string): string | null {
-  // Accept either the public alias ("cmd") or the raw provider id ("command-code"),
-  // mirroring getProviderModels (same pattern as #2798/#3870).
   const alias = PROVIDER_ID_TO_ALIAS[aliasOrId] || aliasOrId;
-  const models = PROVIDER_MODELS[alias];
-  const found = models?.find((m) => m.id === modelId);
+  const prefixes = [`${aliasOrId}/`, `${alias}/`];
+  const prefix = prefixes.find((value) => modelId.startsWith(value));
+  const bareModelId = prefix ? modelId.slice(prefix.length) : modelId;
+  const found = PROVIDER_MODELS[alias]?.find((m) => m.id === bareModelId);
   if (found?.targetFormat) return found.targetFormat;
   // #5842: OpenAI "*-pro" reasoning models (o1-pro, gpt-5.x-pro) are only served by
   // the native /v1/responses endpoint — /v1/chat/completions 404s ("only supported
@@ -182,16 +182,11 @@ export function getModelTargetFormat(aliasOrId: string, modelId: string): string
   // covers dynamically-synced ids that post-date the catalog (same spirit as the gh
   // executor's /codex/i routing, 9router#102). Scoped to the openai alias so other
   // providers shipping *-pro ids keep their own endpoint semantics.
-  if (alias === "openai" && /-pro$/i.test(modelId)) return "openai-responses";
-  // Model-level targetFormat is provider-scoped: a catalog entry declares how THIS
-  // provider's endpoint serves the model. When the provider has its own catalog but
-  // the model is not in it, do NOT import the global entry's tag — it encodes the
-  // DECLARING provider's endpoint semantics (e.g. ghe-copilot tags gpt-5.6-* as
-  // openai-responses, which must not hijack command-code's chat-shaped
-  // /alpha/generate → 502 "Invalid prompt: messages must not be empty"). Providers
-  // with no catalog at all keep the global fallback as their only metadata source.
-  if (models) return null;
-  return getGlobalModel(modelId)?.targetFormat ?? null;
+  if (alias === "openai" && /-pro$/i.test(bareModelId)) return "openai-responses";
+  // targetFormat describes the declaring provider's wire protocol, so it must never
+  // fall back to a same-named model from another provider. This also applies to custom
+  // compatible providers without a static catalog.
+  return null;
 }
 
 export function getModelStripTypes(aliasOrId: string, modelId: string): string[] {
