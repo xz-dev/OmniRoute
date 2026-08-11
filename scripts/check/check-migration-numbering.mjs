@@ -49,7 +49,15 @@ export const KNOWN_DUPLICATE_VERSIONS = new Set([
 // O stale-enforcement remove automaticamente cada reserva quando o arquivo
 // correspondente aterrissar na release.
 // ---------------------------------------------------------------------------
-export const KNOWN_GAPS = new Set(["026", "055", "121", "144", "145"]); // 121: número queimado no ciclo v3.8.47 — 122 (#6909) mergeou antes e 121 nunca aterrissou (validação e2e 2026-07-12)
+export const KNOWN_GAPS = new Set([
+  "026",
+  "055",
+  "121", // número queimado no ciclo v3.8.47 — 122 (#6909) mergeou antes e 121 nunca aterrissou (validação e2e 2026-07-12)
+  "144",
+  "145",
+  "147", // reserved by open PR #9313
+  "148", // reserved by open PRs #10001 and #10047
+]);
 
 function pad3(n) {
   return String(n).padStart(3, "0");

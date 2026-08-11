@@ -106,6 +106,8 @@ test("frozen allowlists match the documented legacy and stacked-series gaps", ()
   assert.equal((KNOWN_GAPS as Set<string>).has("143"), false);
   assert.ok((KNOWN_GAPS as Set<string>).has("144"));
   assert.ok((KNOWN_GAPS as Set<string>).has("145"));
+  assert.ok((KNOWN_GAPS as Set<string>).has("147"));
+  assert.ok((KNOWN_GAPS as Set<string>).has("148"));
   // "041" was removed from KNOWN_DUPLICATE_VERSIONS in 6A.3 (stale: no physical
   // duplicate for that prefix on disk anymore — only 041_compression_receipts.sql exists).
   assert.equal((KNOWN_DUPLICATE_VERSIONS as Set<string>).has("041"), false);
