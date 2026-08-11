@@ -20,8 +20,9 @@ async function resetStorage() {
         fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
       }
       break;
-    } catch (error: any) {
-      if ((error?.code === "EBUSY" || error?.code === "EPERM") && attempt < 9) {
+    } catch (error) {
+      const code = error instanceof Error && "code" in error ? error.code : undefined;
+      if ((code === "EBUSY" || code === "EPERM") && attempt < 9) {
         await new Promise((resolve) => setTimeout(resolve, 50 * (attempt + 1)));
       } else {
         throw error;
@@ -89,11 +90,24 @@ test("createComboSchema rejects non-integer context_length", () => {
   assert.equal(result.success, false);
 });
 
-test("createComboSchema accepts omitted context_length", () => {
-  const result = schemas.createComboSchema.safeParse({
-    name: "TestCombo",
+test("createComboSchema defaults context aggregation to minimum and accepts maximum", () => {
+  const omitted = schemas.createComboSchema.safeParse({ name: "DefaultCombo" });
+  assert.equal(omitted.success, true);
+  if (omitted.success) assert.equal(omitted.data.context_length_aggregation, "min");
+
+  const maximum = schemas.createComboSchema.safeParse({
+    name: "MaximumCombo",
+    context_length_aggregation: "max",
   });
-  assert.equal(result.success, true);
+  assert.equal(maximum.success, true);
+
+  assert.equal(
+    schemas.createComboSchema.safeParse({
+      name: "InvalidCombo",
+      context_length_aggregation: "average",
+    }).success,
+    false
+  );
 });
 
 // ─── Zod Schema Validation (updateComboSchema) ───
@@ -146,13 +160,19 @@ test("createCombo with context_length stores it correctly", async () => {
   assert.equal(retrieved?.context_length, 128000);
 });
 
-test("createCombo without context_length stores undefined", async () => {
+test("create and update persist context_length_aggregation", async () => {
   const combo = await combosDb.createCombo({
     name: "NoCtxCombo",
     models: [{ provider: "openai", model: "gpt-4.1" }],
+    context_length_aggregation: "max",
   });
 
   assert.equal(combo.context_length, undefined);
+  assert.equal(combo.context_length_aggregation, "max");
+  assert.equal((await combosDb.getComboById(combo.id))?.context_length_aggregation, "max");
+
+  const updated = await combosDb.updateCombo(combo.id, { context_length_aggregation: "min" });
+  assert.equal(updated?.context_length_aggregation, "min");
 });
 
 test("updateCombo can set context_length", async () => {
@@ -260,6 +280,6 @@ test("updateCombo with negative context_length is rejected by schema", () => {
 test("updateCombo with string context_length is rejected by schema", () => {
   const result = schemas.updateComboSchema.safeParse({
     context_length: "128000",
-  } as any);
+  });
   assert.equal(result.success, false);
 });

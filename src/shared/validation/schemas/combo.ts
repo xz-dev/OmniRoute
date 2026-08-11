@@ -329,6 +329,7 @@ export const createComboSchema = z
     tool_filter_regex: z.string().max(1000).optional(),
     context_cache_protection: z.boolean().optional(),
     context_length: z.number().int().min(1000).max(2000000).optional(),
+    context_length_aggregation: z.enum(["min", "max"]).optional().default("min"),
     // Optional embedding dimensions override for embedding combos.
     // When set, the value is injected into every upstream embedding request as
     // the `dimensions` field (and translated to `outputDimensionality` for Gemini).
@@ -389,6 +390,7 @@ export const updateComboSchema = z
     tool_filter_regex: z.string().max(1000).optional(),
     context_cache_protection: z.boolean().optional(),
     context_length: z.number().int().min(1000).max(2000000).optional().nullable(),
+    context_length_aggregation: z.enum(["min", "max"]).optional(),
     compressionOverride: comboCompressionOverrideSchema.optional(),
     dimensions: z
       .string()
@@ -410,6 +412,7 @@ export const updateComboSchema = z
       value.tool_filter_regex === undefined &&
       value.context_cache_protection === undefined &&
       value.context_length === undefined &&
+      value.context_length_aggregation === undefined &&
       value.compressionOverride === undefined &&
       value.dimensions === undefined
     ) {
