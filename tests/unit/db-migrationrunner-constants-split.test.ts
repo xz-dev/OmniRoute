@@ -70,8 +70,8 @@ describe("migrationRunner/constants — exact small-table snapshots", () => {
 // ── large tables — count + shape + spot-checks (corruption guard) ─────────────
 
 describe("migrationRunner/constants — large-table integrity", () => {
-  it("RENAMED_MIGRATION_COMPATIBILITY has 12 well-formed entries", () => {
-    assert.equal(RENAMED_MIGRATION_COMPATIBILITY.length, 12);
+  it("RENAMED_MIGRATION_COMPATIBILITY has 14 well-formed entries", () => {
+    assert.equal(RENAMED_MIGRATION_COMPATIBILITY.length, 14);
     for (const e of RENAMED_MIGRATION_COMPATIBILITY) {
       assert.equal(typeof e.fromVersion, "string");
       assert.equal(typeof e.fromName, "string");
@@ -91,7 +91,12 @@ describe("migrationRunner/constants — large-table integrity", () => {
     // both manifest_routing collisions (052→059 and 056→059) must survive
     const manifest = RENAMED_MIGRATION_COMPATIBILITY.filter((e) => e.toName === "manifest_routing");
     assert.deepEqual(manifest.map((e) => e.fromVersion).sort(), ["052", "056"]);
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-2), {
+    const modelAccess = RENAMED_MIGRATION_COMPATIBILITY.filter(
+      (e) => e.toName === "api_keys_model_access_mode"
+    );
+    assert.deepEqual(modelAccess.map((e) => e.fromVersion).sort(), ["142", "143"]);
+    assert.ok(modelAccess.every((e) => e.toVersion === "147"));
+    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-4), {
       fromVersion: "134",
       fromName: "ccr_blocks",
       toVersion: "139",
