@@ -253,13 +253,22 @@ export function readCallArtifact(relativePath: string | null): {
   }
 }
 
-export function deleteCallArtifact(relativePath: string | null): boolean {
-  if (!CALL_LOGS_DIR || !relativePath) return false;
+export function deleteCallArtifact(relativePath: string | null, baseDir = CALL_LOGS_DIR): boolean {
+  if (!baseDir || !relativePath) return false;
 
   try {
-    const absPath = path.join(CALL_LOGS_DIR, relativePath);
+    const resolvedBaseDir = path.resolve(baseDir);
+    const absPath = path.join(resolvedBaseDir, relativePath);
     if (!fs.existsSync(absPath)) return false;
     fs.rmSync(absPath, { force: true });
+    const parentDir = path.dirname(absPath);
+    if (parentDir !== resolvedBaseDir) {
+      try {
+        fs.rmdirSync(parentDir);
+      } catch {
+        // Directory is non-empty or already gone.
+      }
+    }
     return true;
   } catch {
     return false;

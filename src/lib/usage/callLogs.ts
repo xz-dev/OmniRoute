@@ -9,7 +9,11 @@ import fs from "node:fs";
 import path from "node:path";
 import type { RequestPipelinePayloads } from "@omniroute/open-sse/utils/requestLogger.ts";
 import { getDbInstance } from "../db/core";
-import { collectReferencedArtifacts, selectCallLogIdsBefore } from "./callLogsBoundedQueries";
+import {
+  findReferencedArtifacts,
+  selectCallLogIdsBefore,
+  selectOverflowArtifactPaths,
+} from "./callLogsBoundedQueries";
 import { getRequestDetailLogByCallLogId } from "../db/detailedLogs";
 import { shouldPersistToDisk } from "./migrations";
 import { getCallLogApiKeyContext } from "./callLogApiKeyContext";
@@ -27,9 +31,7 @@ import { getCallLogMaxEntries, getCallLogRetentionDays, getCallLogsTableMaxRows 
 import { pickDisplayValue } from "@/shared/utils/maskEmail";
 import {
   CALL_LOGS_DIR,
-  cleanupEmptyCallLogDirs,
   deleteCallArtifact,
-  listCallLogArtifactFiles,
   readCallArtifact,
   type CallLogArtifact,
   type CallLogDetailState,
@@ -49,6 +51,8 @@ import {
 type JsonRecord = Record<string, unknown>;
 
 const CALL_LOG_ROTATE_THROTTLE_MS = 60_000;
+const CALL_LOG_ROTATE_BATCH_SIZE = 100;
+const CALL_LOG_ORPHAN_MIN_AGE_MS = 5 * 60_000;
 const pendingCallLogSaves = new Set<Promise<void>>();
 let callLogSavesClosing = false;
 let lastCallLogRotationScheduledAt = 0;
@@ -342,11 +346,6 @@ function clearArtifactReference(relativePath: string, nextState: CallLogDetailSt
   ).run(nextState, relativePath);
 }
 
-function listReferencedArtifacts() {
-  // #5618: paged to avoid an unbounded `.all()` OOM on large call_logs tables.
-  return collectReferencedArtifacts();
-}
-
 // #5217: SQLite caps a statement at SQLITE_MAX_VARIABLE_NUMBER bound params
 // (~999 on many builds). Callers like trimCallLogsToMaxRows() passed up to 5000
 // ids in one `IN (...)` → "too many SQL variables" aborted trimming. Chunk well
@@ -377,7 +376,6 @@ function deleteCallLogRowsByIds(ids: string[]): DeleteResult {
       }
     }
   }
-  cleanupEmptyCallLogDirs();
 
   return {
     deletedRows,
@@ -385,42 +383,171 @@ function deleteCallLogRowsByIds(ids: string[]): DeleteResult {
   };
 }
 
-export function cleanupOrphanCallLogFiles(baseDir = CALL_LOGS_DIR) {
+type OrphanScanCursor = {
+  baseDir: string;
+  root: fs.Dir;
+  day: fs.Dir | null;
+  dayName: string | null;
+  pendingDayName: string | null;
+};
+
+type OrphanScanBatch = {
+  candidates: string[];
+  exhausted: boolean;
+  scannedEntries: number;
+};
+
+let orphanScanCursor: OrphanScanCursor | null = null;
+
+function closeOrphanScanCursor(): void {
+  try {
+    orphanScanCursor?.day?.closeSync();
+  } catch {}
+  try {
+    orphanScanCursor?.root.closeSync();
+  } catch {}
+  orphanScanCursor = null;
+}
+
+function readOrphanCandidates(
+  baseDir: string,
+  candidateLimit: number,
+  scanLimit: number
+): OrphanScanBatch {
+  let scannedEntries = 0;
+  if (!orphanScanCursor || orphanScanCursor.baseDir !== baseDir) {
+    closeOrphanScanCursor();
+    if (scannedEntries >= scanLimit) {
+      return { candidates: [], exhausted: false, scannedEntries };
+    }
+    scannedEntries++;
+    orphanScanCursor = {
+      baseDir,
+      root: fs.opendirSync(baseDir),
+      day: null,
+      dayName: null,
+      pendingDayName: null,
+    };
+  }
+
+  const candidates: string[] = [];
+  let exhausted = false;
+  while (candidates.length < candidateLimit && scannedEntries < scanLimit) {
+    if (!orphanScanCursor.day) {
+      if (orphanScanCursor.pendingDayName) {
+        scannedEntries++;
+        const dayName = orphanScanCursor.pendingDayName;
+        orphanScanCursor.pendingDayName = null;
+        try {
+          orphanScanCursor.day = fs.opendirSync(path.join(baseDir, dayName));
+          orphanScanCursor.dayName = dayName;
+        } catch {
+          continue;
+        }
+        continue;
+      }
+
+      scannedEntries++;
+      const dayEntry = orphanScanCursor.root.readSync();
+      if (!dayEntry) {
+        closeOrphanScanCursor();
+        exhausted = true;
+        break;
+      }
+      if (!dayEntry.isDirectory()) continue;
+      orphanScanCursor.pendingDayName = dayEntry.name;
+      continue;
+    }
+
+    scannedEntries++;
+    const fileEntry = orphanScanCursor.day.readSync();
+    if (!fileEntry) {
+      try {
+        orphanScanCursor.day.closeSync();
+      } catch {}
+      orphanScanCursor.day = null;
+      orphanScanCursor.dayName = null;
+      continue;
+    }
+    if (!fileEntry.isFile() || !fileEntry.name.endsWith(".json")) continue;
+    candidates.push(path.posix.join(orphanScanCursor.dayName!, fileEntry.name));
+  }
+  return { candidates, exhausted, scannedEntries };
+}
+
+export function cleanupOrphanCallLogFiles(
+  baseDir = CALL_LOGS_DIR,
+  options: { maxCandidates?: number; maxScanEntries?: number; minAgeMs?: number } = {}
+) {
   if (!baseDir || !fs.existsSync(baseDir)) return 0;
 
+  const maxCandidates = options.maxCandidates ?? Number.POSITIVE_INFINITY;
+  const maxScanEntries = options.maxScanEntries ?? Number.POSITIVE_INFINITY;
+  const minAgeMs = options.minAgeMs ?? 0;
+  if (maxCandidates <= 0 || maxScanEntries <= 0) return 0;
+
   try {
-    const referenced = listReferencedArtifacts();
     let deleted = 0;
-    for (const file of listCallLogArtifactFiles(baseDir)) {
-      if (referenced.has(file.relativePath)) continue;
-      if (deleteCallArtifact(file.relativePath)) {
-        deleted++;
+    let remainingCandidates = maxCandidates;
+    let remainingScanEntries = maxScanEntries;
+    while (remainingCandidates > 0 && remainingScanEntries > 0) {
+      const { candidates, exhausted, scannedEntries } = readOrphanCandidates(
+        baseDir,
+        Math.min(remainingCandidates, DELETE_ID_CHUNK_SIZE),
+        remainingScanEntries
+      );
+      remainingCandidates -= candidates.length;
+      remainingScanEntries -= scannedEntries;
+      const oldEnough = candidates.filter((relativePath) => {
+        if (minAgeMs <= 0) return true;
+        try {
+          return Date.now() - fs.statSync(path.join(baseDir, relativePath)).mtimeMs >= minAgeMs;
+        } catch {
+          return false;
+        }
+      });
+      const referenced = findReferencedArtifacts(oldEnough);
+      for (const relativePath of oldEnough) {
+        if (!referenced.has(relativePath) && deleteCallArtifact(relativePath, baseDir)) deleted++;
       }
+      if (exhausted || scannedEntries === 0) break;
     }
-    cleanupEmptyCallLogDirs(baseDir);
     return deleted;
   } catch (error) {
+    closeOrphanScanCursor();
     console.error("[callLogs] Failed to prune orphan request artifacts:", (error as Error).message);
     return 0;
   }
 }
 
-export function cleanupOverflowCallLogFiles(baseDir = CALL_LOGS_DIR, maxEntries?: number) {
+export function cleanupOverflowCallLogFiles(
+  baseDir = CALL_LOGS_DIR,
+  maxEntries?: number,
+  maxDeletes = Number.POSITIVE_INFINITY
+) {
   if (!baseDir || !fs.existsSync(baseDir)) return 0;
 
   const limit = maxEntries ?? getCallLogMaxEntries();
-  if (!Number.isInteger(limit) || limit < 1) return 0;
+  if (!Number.isInteger(limit) || limit < 1 || maxDeletes <= 0) return 0;
 
   try {
     let deleted = 0;
-    const files = listCallLogArtifactFiles(baseDir);
-    for (const file of files.slice(limit)) {
-      if (deleteCallArtifact(file.relativePath)) {
-        clearArtifactReference(file.relativePath, "missing");
-        deleted++;
+    while (deleted < maxDeletes) {
+      const paths = selectOverflowArtifactPaths(
+        limit,
+        Math.min(DELETE_ID_CHUNK_SIZE, maxDeletes - deleted)
+      );
+      if (paths.length === 0) break;
+      let progress = 0;
+      for (const relativePath of paths) {
+        if (deleteCallArtifact(relativePath, baseDir)) {
+          clearArtifactReference(relativePath, "missing");
+          deleted++;
+          progress++;
+        }
       }
+      if (progress === 0) break;
     }
-    cleanupEmptyCallLogDirs(baseDir);
     return deleted;
   } catch (error) {
     console.error(
@@ -431,12 +558,14 @@ export function cleanupOverflowCallLogFiles(baseDir = CALL_LOGS_DIR, maxEntries?
   }
 }
 
-export function deleteCallLogsBefore(cutoff: string): DeleteResult {
-  // #5618: page the id selection so a large backlog never loads in one `.all()`.
+export function deleteCallLogsBefore(
+  cutoff: string,
+  maxDeletes = Number.POSITIVE_INFINITY
+): DeleteResult {
   let deletedRows = 0;
   let deletedArtifacts = 0;
-  for (;;) {
-    const ids = selectCallLogIdsBefore(cutoff);
+  while (deletedRows < maxDeletes) {
+    const ids = selectCallLogIdsBefore(cutoff, Math.min(5000, maxDeletes - deletedRows));
     if (ids.length === 0) break;
     const result = deleteCallLogRowsByIds(ids);
     deletedRows += result.deletedRows;
@@ -446,23 +575,25 @@ export function deleteCallLogsBefore(cutoff: string): DeleteResult {
   return { deletedRows, deletedArtifacts };
 }
 
-export function trimCallLogsToMaxRows(maxRows = getCallLogsTableMaxRows()) {
-  if (!Number.isInteger(maxRows) || maxRows < 1) {
+export function trimCallLogsToMaxRows(
+  maxRows = getCallLogsTableMaxRows(),
+  maxDeletes = Number.POSITIVE_INFINITY
+) {
+  if (!Number.isInteger(maxRows) || maxRows < 1 || maxDeletes <= 0) {
     return { deletedRows: 0, deletedArtifacts: 0 };
   }
 
   const db = getDbInstance();
   let deletedRows = 0;
   let deletedArtifacts = 0;
-  const batchSize = 5000;
 
-  while (true) {
+  while (deletedRows < maxDeletes) {
     const currentCount = db.prepare("SELECT COUNT(*) AS cnt FROM call_logs").get() as {
       cnt: number;
     };
     if (currentCount.cnt <= maxRows) break;
 
-    const toDelete = Math.min(currentCount.cnt - maxRows, batchSize);
+    const toDelete = Math.min(currentCount.cnt - maxRows, 5000, maxDeletes - deletedRows);
     const ids = db
       .prepare("SELECT id FROM call_logs ORDER BY timestamp ASC LIMIT ?")
       .all(toDelete)
@@ -767,10 +898,14 @@ export function rotateCallLogs() {
     const retentionMs = getCallLogRetentionDays() * 24 * 60 * 60 * 1000;
     const cutoff = new Date(Date.now() - retentionMs).toISOString();
 
-    deleteCallLogsBefore(cutoff);
-    trimCallLogsToMaxRows(getCallLogsTableMaxRows());
-    cleanupOverflowCallLogFiles(CALL_LOGS_DIR, getCallLogMaxEntries());
-    cleanupOrphanCallLogFiles(CALL_LOGS_DIR);
+    deleteCallLogsBefore(cutoff, CALL_LOG_ROTATE_BATCH_SIZE);
+    trimCallLogsToMaxRows(getCallLogsTableMaxRows(), CALL_LOG_ROTATE_BATCH_SIZE);
+    cleanupOverflowCallLogFiles(CALL_LOGS_DIR, getCallLogMaxEntries(), CALL_LOG_ROTATE_BATCH_SIZE);
+    cleanupOrphanCallLogFiles(CALL_LOGS_DIR, {
+      maxCandidates: CALL_LOG_ROTATE_BATCH_SIZE,
+      maxScanEntries: CALL_LOG_ROTATE_BATCH_SIZE,
+      minAgeMs: CALL_LOG_ORPHAN_MIN_AGE_MS,
+    });
   } catch (error) {
     console.error("[callLogs] Failed to rotate request artifacts:", (error as Error).message);
   }
