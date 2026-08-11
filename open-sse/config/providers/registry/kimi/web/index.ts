@@ -1,8 +1,8 @@
 import type { RegistryEntry } from "../../../shared.ts";
 
 export const KIMI_WEB_STATIC_MODELS = [
-  { id: "k3", name: "K3", supportsReasoning: true },
-  { id: "k2d6", name: "K2.6", supportsReasoning: true },
+  { id: "k3", name: "K3", supportsReasoning: true, toolCalling: false },
+  { id: "k2d6", name: "K2.6", supportsReasoning: true, toolCalling: false },
 ];
 
 export const kimi_webProvider: RegistryEntry = {
