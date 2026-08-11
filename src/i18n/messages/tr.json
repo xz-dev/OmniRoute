@@ -3535,9 +3535,13 @@
     "agentFeaturesToolFilterHint": "Aracılar için araç filtresi normal ifadesi",
     "agentFeaturesContextCacheHint": "Aracı araçları için bağlam içi önbelleği etkinleştirin",
     "agentFeaturesContextCacheProtection": "Önbelleği aracı aracı mutasyonlarından koruyun",
-    "agentFeaturesContextLength": "Bağlam uzunluğu",
+    "agentFeaturesContextLength": "__MISSING__:Manual context length",
     "agentFeaturesContextLengthPlaceholder": "örneğin 128000",
-    "agentFeaturesContextLengthHint": "/v1/models'de bu birleşimin bağlam penceresini tanımlar.",
+    "contextAggregationLabel": "__MISSING__:Context aggregation",
+    "contextAggregationMin": "__MISSING__:Minimum (safe default)",
+    "contextAggregationMax": "__MISSING__:Maximum",
+    "contextAggregationWarning": "__MISSING__:Maximum may exceed smaller targets; input/output limits remain conservative.",
+    "agentFeaturesContextLengthHint": "__MISSING__:Manual value overrides target aggregation.",
     "agentFeaturesContextLengthErrorInteger": "Bağlam uzunluğu geçerli bir tam sayı olmalıdır",
     "agentFeaturesContextLengthErrorRange": "Bağlam uzunluğu 1000 ile 2000000 arasında olmalıdır",
     "compressionOverride": "Sıkıştırmayı Geçersiz Kılma",
@@ -12142,6 +12146,28 @@
     "unknown": "bilinmeyen",
     "unknownProvider": "bilinmeyen sağlayıcı",
     "unknownModel": "bilinmeyen model",
+    "contextDiagnostics": {
+      "title": "__MISSING__:Context diagnostics",
+      "summary": "__MISSING__:{mode} · {source} · effective {effective} · {count} known · min {min} · max {max}",
+      "mode": { "min": "__MISSING__:Minimum", "max": "__MISSING__:Maximum" },
+      "sources": {
+        "manual": "__MISSING__:Manual",
+        "aggregated": "__MISSING__:Aggregated",
+        "unknown": "__MISSING__:Unknown"
+      },
+      "providerModel": "__MISSING__:Provider/model",
+      "context": "__MISSING__:Context",
+      "input": "__MISSING__:Input",
+      "output": "__MISSING__:Output",
+      "sourceHeader": "__MISSING__:Source",
+      "noTargets": "__MISSING__:No resolved targets.",
+      "unknownReason": {
+        "target-unresolved": "__MISSING__:Target unresolved",
+        "metadata-unresolved": "__MISSING__:Metadata unresolved",
+        "metadata-source-unknown": "__MISSING__:Metadata source unknown",
+        "context-limit-unknown": "__MISSING__:Context limit unknown"
+      }
+    },
     "resolvedTargetMetrics": "{requests} istek · {success} başarılı · {latency} · kota {quota}"
   },
   "usageLimits": {
@@ -12595,4 +12621,3 @@
   "capabilityFilter.structuredOutputMismatch": "Sağlayıcı yapılandırılmış çıktıyı desteklemiyor",
   "capabilityFilter.contextWindowMismatch": "Talep sağlayıcı bağlam penceresini aşıyor"
 }
-

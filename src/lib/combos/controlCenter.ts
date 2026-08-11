@@ -1,3 +1,5 @@
+import { toNumber } from "@/shared/utils/numeric";
+
 import { normalizeComboModels, type ComboStep } from "./steps";
 
 type JsonRecord = Record<string, unknown>;
@@ -11,6 +13,27 @@ export interface ComboControlCenterCombo {
   models?: unknown[];
   isActive?: boolean | null;
   config?: JsonRecord | null;
+  context_length_aggregation?: "min" | "max";
+  context_diagnostics?: {
+    mode: "min" | "max";
+    source: "manual" | "aggregated" | "unknown";
+    effective_context_length?: number;
+    manual_context_length?: number;
+    known_min?: number;
+    known_max?: number;
+    known_count: number;
+    targets: Array<{
+      provider: string;
+      model: string;
+      context_length?: number;
+      max_input_tokens?: number;
+      max_output_tokens?: number;
+      context_source?: string;
+      input_source?: string;
+      output_source?: string;
+      unknown_reason?: string;
+    }>;
+  };
 }
 
 export interface ComboControlCenterMetrics {
@@ -96,10 +119,6 @@ export interface ComboControlCenterSummary {
 
 function isRecord(value: unknown): value is JsonRecord {
   return !!value && typeof value === "object" && !Array.isArray(value);
-}
-
-function toNumber(value: unknown, fallback = 0): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
 function toString(value: unknown): string | null {

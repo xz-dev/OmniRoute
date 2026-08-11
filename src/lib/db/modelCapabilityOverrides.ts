@@ -63,7 +63,7 @@ function toOverride(row: OverrideRow): ModelCapabilityOverride | null {
   };
 }
 
-/** Nested provider → model → max_token map used by build-local snapshots. */
+/** Nested provider → model → one capability-key map used by build-local snapshots. */
 export type NestedMaxTokenOverrideMap = ReadonlyMap<string, ReadonlyMap<string, number>>;
 
 export function getModelCapabilityOverride(
@@ -76,7 +76,6 @@ export function getModelCapabilityOverride(
   if (!target || !isSupportedKey(key)) return null;
 
   if (bulkMaxTokenOverrides) {
-    if (key !== "max_token") return null;
     return bulkMaxTokenOverrides.get(target.provider)?.get(target.modelId) ?? null;
   }
 

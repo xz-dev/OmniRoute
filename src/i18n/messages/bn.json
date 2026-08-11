@@ -3535,9 +3535,13 @@
     "agentFeaturesToolFilterHint": "Tool filter regex for agents",
     "agentFeaturesContextCacheHint": "Enable in-context cache for agent tools",
     "agentFeaturesContextCacheProtection": "Protect cache from agent tool mutations",
-    "agentFeaturesContextLength": "প্রসঙ্গ দৈর্ঘ্য",
+    "agentFeaturesContextLength": "__MISSING__:Manual context length",
     "agentFeaturesContextLengthPlaceholder": "যেমন 128000",
-    "agentFeaturesContextLengthHint": "/v1/মডেলে এই কম্বোর জন্য প্রসঙ্গ উইন্ডো সংজ্ঞায়িত করে।",
+    "contextAggregationLabel": "__MISSING__:Context aggregation",
+    "contextAggregationMin": "__MISSING__:Minimum (safe default)",
+    "contextAggregationMax": "__MISSING__:Maximum",
+    "contextAggregationWarning": "__MISSING__:Maximum may exceed smaller targets; input/output limits remain conservative.",
+    "agentFeaturesContextLengthHint": "__MISSING__:Manual value overrides target aggregation.",
     "agentFeaturesContextLengthErrorInteger": "প্রসঙ্গ দৈর্ঘ্য একটি বৈধ পূর্ণসংখ্যা হতে হবে",
     "agentFeaturesContextLengthErrorRange": "প্রসঙ্গ দৈর্ঘ্য 1000 এবং 2000000 এর মধ্যে হতে হবে",
     "compressionOverride": "কম্প্রেশন ওভাররাইড",
@@ -12142,6 +12146,28 @@
     "unknown": "অজানা",
     "unknownProvider": "অজানা প্রোভাইডার",
     "unknownModel": "অজানা মডেল",
+    "contextDiagnostics": {
+      "title": "__MISSING__:Context diagnostics",
+      "summary": "__MISSING__:{mode} · {source} · effective {effective} · {count} known · min {min} · max {max}",
+      "mode": { "min": "__MISSING__:Minimum", "max": "__MISSING__:Maximum" },
+      "sources": {
+        "manual": "__MISSING__:Manual",
+        "aggregated": "__MISSING__:Aggregated",
+        "unknown": "__MISSING__:Unknown"
+      },
+      "providerModel": "__MISSING__:Provider/model",
+      "context": "__MISSING__:Context",
+      "input": "__MISSING__:Input",
+      "output": "__MISSING__:Output",
+      "sourceHeader": "__MISSING__:Source",
+      "noTargets": "__MISSING__:No resolved targets.",
+      "unknownReason": {
+        "target-unresolved": "__MISSING__:Target unresolved",
+        "metadata-unresolved": "__MISSING__:Metadata unresolved",
+        "metadata-source-unknown": "__MISSING__:Metadata source unknown",
+        "context-limit-unknown": "__MISSING__:Context limit unknown"
+      }
+    },
     "resolvedTargetMetrics": "{requests} req · {success} সফল · {latency} · কোটা {quota}"
   },
   "usageLimits": {
@@ -12595,4 +12621,3 @@
   "capabilityFilter.structuredOutputMismatch": "প্রোভাইডার স্ট্রাকচারড আউটপুট সমর্থন করে না",
   "capabilityFilter.contextWindowMismatch": "অনুরোধটি প্রদানকারীর প্রসঙ্গ উইন্ডো অতিক্রম করেছে"
 }
-

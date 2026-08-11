@@ -32,7 +32,10 @@ const TEST_DATA_DIR = fs.mkdtempSync(
 process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../src/lib/db/core.ts");
-const { computeComboContextLength } = await import("../../src/lib/combos/comboContext.ts");
+const contextOverrides = await import("../../src/lib/db/modelContextOverrides.ts");
+const capabilityOverrides = await import("../../src/lib/db/modelCapabilityOverrides.ts");
+const { buildComboContextDiagnostics, computeComboContextLength } =
+  await import("../../src/lib/combos/comboContext.ts");
 
 test.after(() => {
   core.resetDbInstance();
@@ -56,19 +59,116 @@ test("computeComboContextLength resolves a registry-known, prefixed member (glm/
   );
 });
 
-test("computeComboContextLength takes the minimum across multiple prefixed, registry-known members", () => {
-  const combo = {
+test("computeComboContextLength defaults to minimum and supports maximum", () => {
+  const base = {
     name: "prefix-resolution-probe-multi",
-    // glm-4.5 (128,000) is the smaller of the two known windows.
     models: ["glm/glm-5.2", "glm/glm-4.5"],
   };
 
-  const result = computeComboContextLength(combo, []);
-
+  assert.equal(computeComboContextLength(base, []), 128000);
   assert.equal(
-    result,
-    128000,
-    "the minimum across all resolved (prefix-stripped) members should win, " +
-      "matching the catalog's minKnownNumber semantics"
+    computeComboContextLength({ ...base, context_length_aggregation: "max" }, []),
+    1000000
   );
+  assert.equal(
+    computeComboContextLength(
+      { ...base, context_length: 372000, context_length_aggregation: "max" },
+      []
+    ),
+    372000
+  );
+});
+
+test("combo context diagnostics report accurate per-field provenance", () => {
+  const diagnostics = buildComboContextDiagnostics(
+    {
+      name: "source-probe",
+      models: ["glm/glm-5.2"],
+    },
+    []
+  );
+
+  const target = diagnostics.targets[0];
+  assert.equal(target.context_source, "authoritative-fallback");
+  assert.equal(target.input_source, "authoritative-fallback");
+  assert.equal(target.output_source, "registry");
+  assert.equal(Object.hasOwn(target, "source"), false);
+});
+
+test("combo context diagnostics include override-only custom targets alone and mixed", () => {
+  const target = "custom-dynamic/override-only-model";
+  assert.equal(
+    contextOverrides.setModelContextOverride("custom-dynamic", "override-only-model", 64000),
+    true
+  );
+  assert.equal(
+    capabilityOverrides.setModelCapabilityOverride(target, "max_input_tokens", 50000),
+    true
+  );
+  assert.equal(
+    capabilityOverrides.setModelCapabilityOverride(target, "max_output_tokens", 7000),
+    true
+  );
+
+  const alone = buildComboContextDiagnostics({ name: "override-only", models: [target] }, []);
+  assert.deepEqual(
+    {
+      effective: alone.effective_context_length,
+      min: alone.known_min,
+      max: alone.known_max,
+      count: alone.known_count,
+      target: alone.targets[0],
+    },
+    {
+      effective: 64000,
+      min: 64000,
+      max: 64000,
+      count: 1,
+      target: {
+        provider: "custom-dynamic",
+        model: "override-only-model",
+        context_length: 64000,
+        max_input_tokens: 50000,
+        max_output_tokens: 7000,
+        context_source: "manual",
+        input_source: "capability-override",
+        output_source: "capability-override",
+      },
+    }
+  );
+
+  const mixed = {
+    name: "override-only-mixed",
+    models: [target, "glm/glm-5.2"],
+  };
+  const minimum = buildComboContextDiagnostics(mixed, []);
+  const maximum = buildComboContextDiagnostics({ ...mixed, context_length_aggregation: "max" }, []);
+  assert.deepEqual(
+    {
+      effective: minimum.effective_context_length,
+      min: minimum.known_min,
+      max: minimum.known_max,
+      count: minimum.known_count,
+    },
+    { effective: 64000, min: 64000, max: 1000000, count: 2 }
+  );
+  assert.equal(maximum.effective_context_length, 1000000);
+});
+
+test("combo context diagnostics ignore unknown targets and report known bounds", () => {
+  const diagnostics = buildComboContextDiagnostics(
+    {
+      name: "diagnostic-probe",
+      context_length_aggregation: "max",
+      models: ["glm/glm-5.2", "unknown-provider/unknown-model"],
+    },
+    []
+  );
+
+  assert.equal(diagnostics.effective_context_length, 1000000);
+  assert.equal(diagnostics.known_min, 1000000);
+  assert.equal(diagnostics.known_max, 1000000);
+  assert.equal(diagnostics.known_count, 1);
+  assert.equal(diagnostics.targets.length, 2);
+  assert.ok(diagnostics.targets[1].unknown_reason);
 });

@@ -84,10 +84,18 @@ describe("model capability overrides", () => {
     assert.deepEqual(
       {
         contextWindow: base.contextWindow,
+        contextWindowSource: base.contextWindowSource,
         maxInputTokens: base.maxInputTokens,
+        maxInputTokensSource: base.maxInputTokensSource,
         maxOutputTokens: base.maxOutputTokens,
       },
-      { contextWindow: 372000, maxInputTokens: 372000, maxOutputTokens: 123456 }
+      {
+        contextWindow: 372000,
+        contextWindowSource: "manual",
+        maxInputTokens: 372000,
+        maxInputTokensSource: "manual",
+        maxOutputTokens: 123456,
+      }
     );
     assert.equal(overrides.removeModelCapabilityOverride(target, "max_output_tokens"), true);
     assert.notEqual(caps.getResolvedModelCapabilities(target).maxOutputTokens, 123456);
@@ -96,6 +104,26 @@ describe("model capability overrides", () => {
     assert.notEqual(effort.contextWindow, 372000);
     assert.notEqual(effort.maxInputTokens, 372000);
     assert.notEqual(effort.maxOutputTokens, 123456);
+  });
+
+  it("uses persisted context provenance when it clamps a registry input limit", () => {
+    assert.equal(contextOverrides.setModelContextOverride("openai", "gpt-4o", 64000), true);
+
+    const resolved = caps.getResolvedModelCapabilities({ provider: "openai", model: "gpt-4o" });
+    assert.deepEqual(
+      {
+        contextWindow: resolved.contextWindow,
+        contextWindowSource: resolved.contextWindowSource,
+        maxInputTokens: resolved.maxInputTokens,
+        maxInputTokensSource: resolved.maxInputTokensSource,
+      },
+      {
+        contextWindow: 64000,
+        contextWindowSource: "manual",
+        maxInputTokens: 64000,
+        maxInputTokensSource: "manual",
+      }
+    );
   });
 
   it("applies overrides stored under provider-scoped model aliases", () => {

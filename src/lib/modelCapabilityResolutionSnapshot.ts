@@ -9,26 +9,32 @@
  * collide via delimiter composition.
  */
 import { listModelCapabilityOverrides } from "@/lib/db/modelCapabilityOverrides";
-import { listModelContextOverrides } from "@/lib/db/modelContextOverrides";
+import {
+  listModelContextOverrides,
+  type ModelContextOverride,
+} from "@/lib/db/modelContextOverrides";
 import {
   loadAllSyncedCapabilitiesUncached,
   type CapabilitiesByProvider,
 } from "@/lib/modelsDevSync";
 
-/** Nested provider → model → numeric override map (collision-free). */
-export type NestedOverrideMap = ReadonlyMap<string, ReadonlyMap<string, number>>;
+/** Nested provider → model → override map (collision-free). */
+export type NestedOverrideMap<T = number> = ReadonlyMap<string, ReadonlyMap<string, T>>;
 
 export interface ModelCapabilityResolutionSnapshot {
   readonly synced: CapabilitiesByProvider;
+  /** Retained name for #9199 compatibility; contains modern max_output_tokens rows. */
   readonly maxTokenOverrides: NestedOverrideMap;
+  readonly inputTokenOverrides: NestedOverrideMap;
   readonly contextOverrides: NestedOverrideMap;
+  readonly contextOverrideRecords: NestedOverrideMap<ModelContextOverride>;
 }
 
-function setNestedOverride(
-  map: Map<string, Map<string, number>>,
+function setNestedOverride<T>(
+  map: Map<string, Map<string, T>>,
   provider: string,
   modelId: string,
-  value: number
+  value: T
 ): void {
   let byModel = map.get(provider);
   if (!byModel) {
@@ -47,19 +53,24 @@ export function createModelCapabilityResolutionSnapshot(): ModelCapabilityResolu
   const synced = loadAllSyncedCapabilitiesUncached();
 
   const maxTokenOverrides = new Map<string, Map<string, number>>();
+  const inputTokenOverrides = new Map<string, Map<string, number>>();
   for (const entry of listModelCapabilityOverrides()) {
-    if (entry.key !== "max_token") continue;
-    setNestedOverride(maxTokenOverrides, entry.provider, entry.modelId, entry.value);
+    const target = entry.key === "max_input_tokens" ? inputTokenOverrides : maxTokenOverrides;
+    setNestedOverride(target, entry.provider, entry.modelId, entry.value);
   }
 
   const contextOverrides = new Map<string, Map<string, number>>();
+  const contextOverrideRecords = new Map<string, Map<string, ModelContextOverride>>();
   for (const entry of listModelContextOverrides()) {
     setNestedOverride(contextOverrides, entry.provider, entry.modelId, entry.realContext);
+    setNestedOverride(contextOverrideRecords, entry.provider, entry.modelId, entry);
   }
 
   return {
     synced,
     maxTokenOverrides,
+    inputTokenOverrides,
     contextOverrides,
+    contextOverrideRecords,
   };
 }

@@ -3535,9 +3535,13 @@
     "agentFeaturesToolFilterHint": "只有名稱匹配此正則的工具才會轉發給提供者。留空則轉發所有工具。",
     "agentFeaturesContextCacheHint": "跨輪次鎖定提供者/模型以保持快取會話。內部標籤在轉發給提供者前會被移除。",
     "agentFeaturesContextCacheProtection": "上下文快取保護",
-    "agentFeaturesContextLength": "上下文長度",
+    "agentFeaturesContextLength": "__MISSING__:Manual context length",
     "agentFeaturesContextLengthPlaceholder": "例如128000",
-    "agentFeaturesContextLengthHint": "在 /v1/models 中定義此組合的上下文視窗。",
+    "contextAggregationLabel": "__MISSING__:Context aggregation",
+    "contextAggregationMin": "__MISSING__:Minimum (safe default)",
+    "contextAggregationMax": "__MISSING__:Maximum",
+    "contextAggregationWarning": "__MISSING__:Maximum may exceed smaller targets; input/output limits remain conservative.",
+    "agentFeaturesContextLengthHint": "__MISSING__:Manual value overrides target aggregation.",
     "agentFeaturesContextLengthErrorInteger": "上下文長度必須是有效整數",
     "agentFeaturesContextLengthErrorRange": "上下文長度必須介於 1000 到 2000000 之間",
     "compressionOverride": "壓縮覆蓋",
@@ -12143,6 +12147,28 @@
     "unknown": "未知",
     "unknownProvider": "未知提供者",
     "unknownModel": "未知模型",
+    "contextDiagnostics": {
+      "title": "__MISSING__:Context diagnostics",
+      "summary": "__MISSING__:{mode} · {source} · effective {effective} · {count} known · min {min} · max {max}",
+      "mode": { "min": "__MISSING__:Minimum", "max": "__MISSING__:Maximum" },
+      "sources": {
+        "manual": "__MISSING__:Manual",
+        "aggregated": "__MISSING__:Aggregated",
+        "unknown": "__MISSING__:Unknown"
+      },
+      "providerModel": "__MISSING__:Provider/model",
+      "context": "__MISSING__:Context",
+      "input": "__MISSING__:Input",
+      "output": "__MISSING__:Output",
+      "sourceHeader": "__MISSING__:Source",
+      "noTargets": "__MISSING__:No resolved targets.",
+      "unknownReason": {
+        "target-unresolved": "__MISSING__:Target unresolved",
+        "metadata-unresolved": "__MISSING__:Metadata unresolved",
+        "metadata-source-unknown": "__MISSING__:Metadata source unknown",
+        "context-limit-unknown": "__MISSING__:Context limit unknown"
+      }
+    },
     "resolvedTargetMetrics": "{requests} 請求 · {success} 成功 · {latency} · 配額 {quota}"
   },
   "usageLimits": {
@@ -12596,4 +12622,3 @@
   "capabilityFilter.structuredOutputMismatch": "提供者不支援結構化輸出",
   "capabilityFilter.contextWindowMismatch": "請求超出提供者上下文窗口"
 }
-

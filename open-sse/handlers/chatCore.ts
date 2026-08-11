@@ -143,7 +143,11 @@ import {
   getExplicitModelOutputCap,
   resolveInputTokenCapForGate,
 } from "@/lib/modelCapabilities.ts";
-import { checkRequestCapabilityFit, deriveRequestCapabilityRequirements, buildCapabilityMismatchMessage } from "@/shared/constants/capabilities/capabilityFilter.ts";
+import {
+  checkRequestCapabilityFit,
+  deriveRequestCapabilityRequirements,
+  buildCapabilityMismatchMessage,
+} from "@/shared/constants/capabilities/capabilityFilter.ts";
 import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags.ts";
 import { toPositiveInteger } from "../services/reasoningTokenBuffer.ts";
 import { normalizeThinkingForModel } from "@/shared/constants/modelSpecs.ts";
@@ -1708,10 +1712,8 @@ export async function handleChatCore({
             .map((t: { modelStr?: string; provider?: string }) =>
               getComboTargetTokenLimit({ modelStr: t.modelStr, provider: t.provider })
             )
-            .filter(
-              (limit): limit is number =>
-                typeof limit === "number" && Number.isFinite(limit) && limit > 0
-            );
+            .filter((target) => target.specific)
+            .map((target) => target.limit);
         }
         // chatCore executes per concrete target (handleSingleModel resolves
         // provider/effectiveModel before delegating). Compress against THIS
@@ -1721,6 +1723,12 @@ export async function handleChatCore({
         const resolved = resolveComboContextLimit({
           provider,
           model: effectiveModel,
+          comboContextLength:
+            comboConfig && typeof comboConfig.context_length === "number"
+              ? comboConfig.context_length
+              : undefined,
+          comboContextAggregation:
+            comboConfig?.context_length_aggregation === "max" ? "max" : "min",
           comboTargetLimits,
         });
         contextLimit = resolved.limit;
@@ -2612,8 +2620,11 @@ export async function handleChatCore({
   }
   // === /Quota Share enforcement PRE-hook ===
   if (isFeatureFlagEnabled("CAPABILITY_FILTER_ENABLED")) {
-    const fit = checkRequestCapabilityFit(getResolvedModelCapabilities({ provider, model: effectiveModel }),
-      deriveRequestCapabilityRequirements(body as Record<string, unknown>), provider);
+    const fit = checkRequestCapabilityFit(
+      getResolvedModelCapabilities({ provider, model: effectiveModel }),
+      deriveRequestCapabilityRequirements(body as Record<string, unknown>),
+      provider
+    );
     if (!fit.compatible) {
       const msg = buildCapabilityMismatchMessage(fit.terminalReason!, provider, effectiveModel);
       log?.warn?.("CAPABILITY", msg);

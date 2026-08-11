@@ -3535,9 +3535,13 @@
     "agentFeaturesToolFilterHint": "에이전트에 대한 도구 필터 정규식",
     "agentFeaturesContextCacheHint": "에이전트 도구에 대한 컨텍스트 내 캐시 활성화",
     "agentFeaturesContextCacheProtection": "에이전트 도구 변형으로부터 캐시를 보호하세요.",
-    "agentFeaturesContextLength": "컨텍스트 길이",
+    "agentFeaturesContextLength": "__MISSING__:Manual context length",
     "agentFeaturesContextLengthPlaceholder": "예를 들어 128000",
-    "agentFeaturesContextLengthHint": "/v1/models에서 이 콤보에 대한 컨텍스트 창을 정의합니다.",
+    "contextAggregationLabel": "__MISSING__:Context aggregation",
+    "contextAggregationMin": "__MISSING__:Minimum (safe default)",
+    "contextAggregationMax": "__MISSING__:Maximum",
+    "contextAggregationWarning": "__MISSING__:Maximum may exceed smaller targets; input/output limits remain conservative.",
+    "agentFeaturesContextLengthHint": "__MISSING__:Manual value overrides target aggregation.",
     "agentFeaturesContextLengthErrorInteger": "컨텍스트 길이는 유효한 정수여야 합니다.",
     "agentFeaturesContextLengthErrorRange": "컨텍스트 길이는 1000에서 2000000 사이여야 합니다.",
     "compressionOverride": "압축 재정의",
@@ -12142,6 +12146,28 @@
     "unknown": "알 수 없음",
     "unknownProvider": "알 수 없는 제공업체",
     "unknownModel": "알 수 없는 모델",
+    "contextDiagnostics": {
+      "title": "__MISSING__:Context diagnostics",
+      "summary": "__MISSING__:{mode} · {source} · effective {effective} · {count} known · min {min} · max {max}",
+      "mode": { "min": "__MISSING__:Minimum", "max": "__MISSING__:Maximum" },
+      "sources": {
+        "manual": "__MISSING__:Manual",
+        "aggregated": "__MISSING__:Aggregated",
+        "unknown": "__MISSING__:Unknown"
+      },
+      "providerModel": "__MISSING__:Provider/model",
+      "context": "__MISSING__:Context",
+      "input": "__MISSING__:Input",
+      "output": "__MISSING__:Output",
+      "sourceHeader": "__MISSING__:Source",
+      "noTargets": "__MISSING__:No resolved targets.",
+      "unknownReason": {
+        "target-unresolved": "__MISSING__:Target unresolved",
+        "metadata-unresolved": "__MISSING__:Metadata unresolved",
+        "metadata-source-unknown": "__MISSING__:Metadata source unknown",
+        "context-limit-unknown": "__MISSING__:Context limit unknown"
+      }
+    },
     "resolvedTargetMetrics": "{requests} 요청 · {success} 성공 · {latency} · 할당량 {quota}"
   },
   "usageLimits": {
@@ -12595,4 +12621,3 @@
   "capabilityFilter.structuredOutputMismatch": "제공자가 구조화된 출력을 지원하지 않습니다",
   "capabilityFilter.contextWindowMismatch": "요청이 공급자 컨텍스트 창을 초과했습니다"
 }
-

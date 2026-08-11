@@ -1,15 +1,11 @@
 import { PROVIDER_MODELS, PROVIDER_ID_TO_ALIAS } from "@/shared/constants/models";
 import { NOAUTH_PROVIDERS } from "@/shared/constants/providers";
-import {
-  getCachedRawProviderConnections,
-  getCombos,
-  getAllCustomModels,
-  getSettings,
-  getCachedProviderNodes,
-  getModelIsHidden,
-  getModelAliases,
-  getDatabaseSettings,
-} from "@/lib/localDb";
+import { getCombos } from "@/lib/db/combos";
+import { getDatabaseSettings } from "@/lib/db/databaseSettings";
+import { getAllCustomModels, getModelIsHidden } from "@/lib/db/models";
+import { getModelAliases } from "@/lib/db/models/aliases";
+import { getCachedProviderNodes, getCachedRawProviderConnections } from "@/lib/db/readCache";
+import { getSettings } from "@/lib/db/settings";
 import { createLazyConnectionView } from "@/lib/db/providers/lazyConnectionView";
 import { extractAliasBackedModels } from "./aliasBackedModels";
 import {
@@ -104,6 +100,8 @@ import { incrementCcDiscoveryHitCount } from "@/lib/db/ccDiscoveryMetrics";
 import { isFreeModel, providerHasFreeModels } from "@/shared/utils/freeModels";
 import { isCodexDiscoveryModelExcluded } from "@/shared/services/codexDiscoveryPolicy";
 import { buildErrorBody } from "@omniroute/open-sse/utils/error";
+import { aggregateKnownNumbers } from "@/lib/combos/comboContext";
+import { isPersistedResolvedLimitSource } from "@/lib/modelCapabilities";
 
 // Public API of this module is preserved after the catalog helper extraction:
 // `isVisionModelId` (vision-detection-consistency.test.ts) and
@@ -415,7 +413,16 @@ async function buildUnifiedModelsResponseCore(
       if (!canonical) return null;
 
       const source = canonical.metadata.source;
-      if (!source.providerRegistry && !source.staticSpec && !source.syncedCapability) return null;
+      const hasRecognizedMetadata =
+        source.providerRegistry || source.staticSpec || source.syncedCapability;
+      const hasPersistedLimit =
+        (isPositiveFiniteNumber(canonical.limits.contextWindow) &&
+          isPersistedResolvedLimitSource(canonical.limits.contextWindowSource)) ||
+        (isPositiveFiniteNumber(canonical.limits.maxInputTokens) &&
+          isPersistedResolvedLimitSource(canonical.limits.maxInputTokensSource)) ||
+        (isPositiveFiniteNumber(canonical.limits.maxOutputTokens) &&
+          isPersistedResolvedLimitSource(canonical.limits.maxOutputTokensSource));
+      if (!hasRecognizedMetadata && !hasPersistedLimit) return null;
 
       const providerId = canonical.provider || targetModel.providerId;
       const modelId = canonical.model || targetModel.modelId;
@@ -425,32 +432,15 @@ async function buildUnifiedModelsResponseCore(
       const syncedInputModalities = parseJsonStringArray(synced?.modalities_input);
       const syncedOutputModalities = parseJsonStringArray(synced?.modalities_output);
 
-      const syncedContext = isPositiveFiniteNumber(synced?.limit_context)
-        ? synced.limit_context
+      const contextLength = isPositiveFiniteNumber(canonical.limits.contextWindow)
+        ? canonical.limits.contextWindow
         : undefined;
-      const registryContext = isPositiveFiniteNumber(registryModel?.contextLength)
-        ? registryModel.contextLength
+      const maxInputTokens = isPositiveFiniteNumber(canonical.limits.maxInputTokens)
+        ? canonical.limits.maxInputTokens
         : undefined;
-      const specContext = isPositiveFiniteNumber(spec?.contextWindow)
-        ? spec.contextWindow
+      const maxOutputTokens = isPositiveFiniteNumber(canonical.limits.maxOutputTokens)
+        ? canonical.limits.maxOutputTokens
         : undefined;
-      const contextLength =
-        syncedContext ??
-        registryContext ??
-        specContext ??
-        (getTokenLimit(providerId, modelId) || undefined);
-      const registryInputLimit = isPositiveFiniteNumber(registryModel?.maxInputTokens)
-        ? registryModel.maxInputTokens
-        : undefined;
-      const syncedInputLimit = isPositiveFiniteNumber(synced?.limit_input)
-        ? synced.limit_input
-        : undefined;
-      const maxInputTokens = registryInputLimit ?? syncedInputLimit ?? contextLength;
-      const maxOutputTokens = isPositiveFiniteNumber(synced?.limit_output)
-        ? synced.limit_output
-        : isPositiveFiniteNumber(spec?.maxOutputTokens)
-          ? spec.maxOutputTokens
-          : undefined;
 
       const syncedVision =
         typeof synced?.attachment === "boolean"
@@ -536,7 +526,10 @@ async function buildUnifiedModelsResponseCore(
       if (knownMetadata.length === 0) return baseMetadata;
       const contextLength =
         explicitContextLength ??
-        minKnownNumber(knownMetadata.map((metadata) => metadata.contextLength));
+        aggregateKnownNumbers(
+          knownMetadata.map((metadata) => metadata.contextLength),
+          combo.context_length_aggregation === "max" ? "max" : "min"
+        );
       const maxInputTokens = minKnownNumber(
         knownMetadata.map((metadata) => metadata.maxInputTokens)
       );

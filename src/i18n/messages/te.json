@@ -3535,9 +3535,13 @@
     "agentFeaturesToolFilterHint": "Tool filter regex for agents",
     "agentFeaturesContextCacheHint": "Enable in-context cache for agent tools",
     "agentFeaturesContextCacheProtection": "Protect cache from agent tool mutations",
-    "agentFeaturesContextLength": "సందర్భ నిడివి",
+    "agentFeaturesContextLength": "__MISSING__:Manual context length",
     "agentFeaturesContextLengthPlaceholder": "ఉదా 128000",
-    "agentFeaturesContextLengthHint": "/v1/మోడల్స్‌లో ఈ కాంబో కోసం సందర్భ విండోను నిర్వచిస్తుంది.",
+    "contextAggregationLabel": "__MISSING__:Context aggregation",
+    "contextAggregationMin": "__MISSING__:Minimum (safe default)",
+    "contextAggregationMax": "__MISSING__:Maximum",
+    "contextAggregationWarning": "__MISSING__:Maximum may exceed smaller targets; input/output limits remain conservative.",
+    "agentFeaturesContextLengthHint": "__MISSING__:Manual value overrides target aggregation.",
     "agentFeaturesContextLengthErrorInteger": "సందర్భం పొడవు తప్పనిసరిగా చెల్లుబాటు అయ్యే పూర్ణాంకం అయి ఉండాలి",
     "agentFeaturesContextLengthErrorRange": "సందర్భ నిడివి తప్పనిసరిగా 1000 మరియు 2000000 మధ్య ఉండాలి",
     "compressionOverride": "కంప్రెషన్ ఓవర్‌రైడ్",
@@ -12142,6 +12146,28 @@
     "unknown": "తెలియదు",
     "unknownProvider": "తెలియని ప్రొవైడర్",
     "unknownModel": "తెలియని మోడల్",
+    "contextDiagnostics": {
+      "title": "__MISSING__:Context diagnostics",
+      "summary": "__MISSING__:{mode} · {source} · effective {effective} · {count} known · min {min} · max {max}",
+      "mode": { "min": "__MISSING__:Minimum", "max": "__MISSING__:Maximum" },
+      "sources": {
+        "manual": "__MISSING__:Manual",
+        "aggregated": "__MISSING__:Aggregated",
+        "unknown": "__MISSING__:Unknown"
+      },
+      "providerModel": "__MISSING__:Provider/model",
+      "context": "__MISSING__:Context",
+      "input": "__MISSING__:Input",
+      "output": "__MISSING__:Output",
+      "sourceHeader": "__MISSING__:Source",
+      "noTargets": "__MISSING__:No resolved targets.",
+      "unknownReason": {
+        "target-unresolved": "__MISSING__:Target unresolved",
+        "metadata-unresolved": "__MISSING__:Metadata unresolved",
+        "metadata-source-unknown": "__MISSING__:Metadata source unknown",
+        "context-limit-unknown": "__MISSING__:Context limit unknown"
+      }
+    },
     "resolvedTargetMetrics": "{requests} req · {success} విజయం · {latency} · కోటా {quota}"
   },
   "usageLimits": {
@@ -12595,4 +12621,3 @@
   "capabilityFilter.structuredOutputMismatch": "ప్రొవైడర్ నిర్మిత అవుట్‌పుట్‌ను మద్దతు ఇవ్వదు",
   "capabilityFilter.contextWindowMismatch": "అనువర్తన ప్రదాత యొక్క సందర్భం కిటికీని మించు కోరింపు"
 }
-

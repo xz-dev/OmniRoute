@@ -1,136 +1,170 @@
-/**
- * Combo context-length computation.
- *
- * Computes the effective context_window for a combo using the same resolution
- * chain as the catalog's `getComboTargetCatalogMetadata`:
- *   synced → registry → spec → getTokenLimit
- *
- * Only models that are registered in at least one data source (provider registry,
- * static specs, or synced capabilities) contribute to the result — matching the
- * catalog's `minKnownNumber` semantics that excludes unsourced models.
- */
-
 import { resolveNestedComboTargets } from "@omniroute/open-sse/services/combo";
 import { getCanonicalModelMetadata } from "@/lib/modelMetadataRegistry";
-import { getSyncedCapability } from "@/lib/modelsDevSync";
-import { getModelSpec } from "@/shared/constants/modelSpecs";
-import { PROVIDER_MODELS, PROVIDER_ID_TO_ALIAS } from "@/shared/constants/models";
-import { getTokenLimit } from "@omniroute/open-sse/services/contextManager";
+import { isPersistedResolvedLimitSource } from "@/lib/modelCapabilities";
 import { buildAliasMaps, getComboTargetModelId } from "@/app/api/v1/models/catalogProviderMaps";
 
-/* ─── helpers ───────────────────────────────────────────────── */
+export type ComboContextAggregation = "min" | "max";
 
-function isPositiveFiniteNumber(v: unknown): v is number {
-  return typeof v === "number" && Number.isFinite(v) && v > 0;
+type ComboLike = {
+  models?: unknown[];
+  context_length?: number;
+  context_length_aggregation?: ComboContextAggregation;
+  name?: string;
+};
+
+type ProviderNodeLike = { id?: unknown; prefix?: unknown; name?: unknown };
+
+export interface ComboContextTargetDiagnostic {
+  provider: string;
+  model: string;
+  context_length?: number;
+  max_input_tokens?: number;
+  max_output_tokens?: number;
+  context_source?: string;
+  input_source?: string;
+  output_source?: string;
+  unknown_reason?: string;
 }
 
-/** Minimum of known (positively finite) values; undefined when none. */
-function minKnownNumber(values: Array<number | undefined>): number | undefined {
-  const known = values.filter(isPositiveFiniteNumber);
-  return known.length > 0 ? Math.min(...known) : undefined;
+export interface ComboContextDiagnostics {
+  mode: ComboContextAggregation;
+  source: "manual" | "aggregated" | "unknown";
+  effective_context_length?: number;
+  manual_context_length?: number;
+  known_min?: number;
+  known_max?: number;
+  known_count: number;
+  targets: ComboContextTargetDiagnostic[];
 }
 
-/** Look up a model in the provider-registry model list. */
-function getRegistryModel(
-  providerId: string,
-  modelId: string
-): { contextLength?: number; id?: string; name?: string } | null {
-  const alias = PROVIDER_ID_TO_ALIAS[providerId] || providerId;
-  const providerModels: Array<{ id?: string; contextLength?: number }> =
-    PROVIDER_MODELS[alias] || PROVIDER_MODELS[providerId] || [];
-  return providerModels.find((m) => m?.id === modelId) ?? null;
+function isPositiveFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
-/* ─── public API ────────────────────────────────────────────── */
-
-/**
- * Compute the effective context-length for a combo.
- *
- * Resolution order:
- * 1. Explicit `context_length` on the combo record itself.
- * 2. Minimum of member-model context windows — each member resolved via
- *    synced → registry → spec → getTokenLimit, only counting members that
- *    exist in at least one known data source (matching the catalog behavior).
- *
- * Returns `undefined` when no known context window can be determined.
- */
-export function computeComboContextLength(
-  combo: {
-    models?: unknown[];
-    context_length?: number;
-    name?: string;
-  },
-  allCombos: Array<{ models?: unknown[]; name?: string }>
+export function aggregateKnownNumbers(
+  values: Array<number | null | undefined>,
+  mode: ComboContextAggregation = "min"
 ): number | undefined {
-  // 1. Explicit context_length wins (user can override with a manual value).
-  if (isPositiveFiniteNumber(combo.context_length)) {
-    return combo.context_length;
+  const known = values.filter(isPositiveFiniteNumber);
+  if (known.length === 0) return undefined;
+  return mode === "max" ? Math.max(...known) : Math.min(...known);
+}
+
+function publicPrefix(node: ProviderNodeLike): string | null {
+  if (typeof node.prefix === "string" && node.prefix.trim()) return node.prefix.trim();
+  if (typeof node.name !== "string") return null;
+  return (
+    node.name
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-]/g, "") || null
+  );
+}
+
+export function buildComboContextDiagnostics(
+  combo: ComboLike,
+  allCombos: ComboLike[],
+  providerNodes: ProviderNodeLike[] = []
+): ComboContextDiagnostics {
+  const mode: ComboContextAggregation = combo.context_length_aggregation === "max" ? "max" : "min";
+  const maps = buildAliasMaps();
+  const nodePrefixes = new Map<string, string>();
+  for (const node of providerNodes) {
+    if (typeof node.id !== "string") continue;
+    const prefix = publicPrefix(node);
+    if (prefix) nodePrefixes.set(node.id, prefix);
   }
 
-  // 2. Resolve nested combo-refs into a flat list of (provider, model) targets.
   const targets = resolveNestedComboTargets(
     combo as Parameters<typeof resolveNestedComboTargets>[0],
     allCombos as Parameters<typeof resolveNestedComboTargets>[1]
-  );
+  ).map((target): ComboContextTargetDiagnostic => {
+    const resolved = getComboTargetModelId(maps, target);
+    if (!resolved) {
+      return {
+        provider: "unknown",
+        model: typeof target.modelStr === "string" ? target.modelStr : "unknown",
+        unknown_reason: "target-unresolved",
+      };
+    }
 
-  if (!Array.isArray(targets) || targets.length === 0) return undefined;
-
-  // 3. Per-target context resolution — same logic as the catalog's
-  //    `getComboTargetCatalogMetadata`.
-  const contextValues: number[] = [];
-  const aliasMaps = buildAliasMaps();
-
-  for (const target of targets) {
-    // 3a. Strip the provider/alias prefix off `modelStr` BEFORE the canonical
-    //     lookup. resolveNestedComboTargets() returns modelStr in "provider/model"
-    //     form (e.g. "glm/glm-5.2"), but getCanonicalModelMetadata()'s alias
-    //     lookup is keyed by the BARE registry id — passing the qualified string
-    //     straight through only matched the ~47 models with a curated
-    //     "provider/model" MODEL_SPECS alias, silently excluding the other
-    //     ~1,650 registry-only models from the min() calc below. Reusing the
-    //     catalog's own getComboTargetModelId() (catalogProviderMaps.ts) keeps
-    //     this resolution in lockstep with getComboTargetCatalogMetadata().
-    const resolvedTarget = getComboTargetModelId(aliasMaps, target);
-    if (!resolvedTarget) continue;
-
-    // 3b. Source check — only count models that exist in at least one
-    //     known data source (provider registry, static spec, synced capability).
-    //     This matches the catalog's filter that excludes unregistered models
-    //     from combo calculations.
-    const canonicalMeta = getCanonicalModelMetadata({
-      provider: resolvedTarget.providerId,
-      model: resolvedTarget.modelId,
+    const canonical = getCanonicalModelMetadata({
+      provider: resolved.providerId,
+      model: resolved.modelId,
     });
-    if (!canonicalMeta) continue;
-
-    const source = canonicalMeta.metadata?.source;
-    if (!source?.providerRegistry && !source?.staticSpec && !source?.syncedCapability) {
-      continue;
+    const publicProvider =
+      nodePrefixes.get(resolved.providerId) ||
+      maps.providerIdToAlias[resolved.providerId] ||
+      resolved.providerId;
+    if (!canonical) {
+      return {
+        provider: publicProvider,
+        model: resolved.modelId,
+        unknown_reason: "metadata-unresolved",
+      };
+    }
+    const knownSource = canonical.metadata.source;
+    const hasRecognizedMetadata =
+      knownSource.providerRegistry || knownSource.staticSpec || knownSource.syncedCapability;
+    const hasPersistedLimit =
+      (isPositiveFiniteNumber(canonical.limits.contextWindow) &&
+        isPersistedResolvedLimitSource(canonical.limits.contextWindowSource)) ||
+      (isPositiveFiniteNumber(canonical.limits.maxInputTokens) &&
+        isPersistedResolvedLimitSource(canonical.limits.maxInputTokensSource)) ||
+      (isPositiveFiniteNumber(canonical.limits.maxOutputTokens) &&
+        isPersistedResolvedLimitSource(canonical.limits.maxOutputTokensSource));
+    if (!hasRecognizedMetadata && !hasPersistedLimit) {
+      return {
+        provider: publicProvider,
+        model: canonical.model || resolved.modelId,
+        unknown_reason: "metadata-source-unknown",
+      };
     }
 
-    const providerId = canonicalMeta.provider || resolvedTarget.providerId;
-    const modelId = canonicalMeta.model || resolvedTarget.modelId;
-
-    // 3c. Resolve window: synced → registry → spec → getTokenLimit
-    const synced = getSyncedCapability(providerId, modelId);
-    const spec = getModelSpec(modelId);
-    const registryModel = getRegistryModel(providerId, modelId);
-
-    const syncedCtx = isPositiveFiniteNumber(synced?.limit_context)
-      ? (synced.limit_context as number)
+    const contextLength = isPositiveFiniteNumber(canonical.limits.contextWindow)
+      ? canonical.limits.contextWindow
       : undefined;
-    const registryCtx = isPositiveFiniteNumber(registryModel?.contextLength)
-      ? registryModel.contextLength
-      : undefined;
-    const specCtx = isPositiveFiniteNumber(spec?.contextWindow) ? spec.contextWindow : undefined;
+    return {
+      provider: nodePrefixes.get(canonical.provider || "") || publicProvider,
+      model: canonical.model || resolved.modelId,
+      ...(contextLength ? { context_length: contextLength } : {}),
+      ...(isPositiveFiniteNumber(canonical.limits.maxInputTokens)
+        ? { max_input_tokens: canonical.limits.maxInputTokens }
+        : {}),
+      ...(isPositiveFiniteNumber(canonical.limits.maxOutputTokens)
+        ? { max_output_tokens: canonical.limits.maxOutputTokens }
+        : {}),
+      ...(contextLength
+        ? { context_source: canonical.limits.contextWindowSource || "authoritative-fallback" }
+        : { unknown_reason: "context-limit-unknown" }),
+      ...(isPositiveFiniteNumber(canonical.limits.maxInputTokens) &&
+      canonical.limits.maxInputTokensSource
+        ? { input_source: canonical.limits.maxInputTokensSource }
+        : {}),
+      ...(isPositiveFiniteNumber(canonical.limits.maxOutputTokens) &&
+      canonical.limits.maxOutputTokensSource
+        ? { output_source: canonical.limits.maxOutputTokensSource }
+        : {}),
+    };
+  });
 
-    const targetCtx = syncedCtx ?? registryCtx ?? specCtx ?? getTokenLimit(providerId, modelId);
+  const contexts = targets.map((target) => target.context_length);
+  const knownCount = contexts.filter(isPositiveFiniteNumber).length;
+  const manual = isPositiveFiniteNumber(combo.context_length) ? combo.context_length : undefined;
+  const effective = manual ?? aggregateKnownNumbers(contexts, mode);
+  return {
+    mode,
+    source: manual ? "manual" : effective ? "aggregated" : "unknown",
+    ...(effective ? { effective_context_length: effective } : {}),
+    ...(manual ? { manual_context_length: manual } : {}),
+    ...(knownCount > 0 ? { known_min: aggregateKnownNumbers(contexts, "min") } : {}),
+    ...(knownCount > 0 ? { known_max: aggregateKnownNumbers(contexts, "max") } : {}),
+    known_count: knownCount,
+    targets,
+  };
+}
 
-    if (isPositiveFiniteNumber(targetCtx)) {
-      contextValues.push(targetCtx);
-    }
-  }
-
-  // 4. Minimum of all known context values (matching minKnownNumber semantics).
-  return minKnownNumber(contextValues);
+export function computeComboContextLength(combo: ComboLike, allCombos: ComboLike[]) {
+  return buildComboContextDiagnostics(combo, allCombos).effective_context_length;
 }
