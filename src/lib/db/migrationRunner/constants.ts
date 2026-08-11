@@ -165,6 +165,18 @@ export const RENAMED_MIGRATION_COMPATIBILITY = [
     toName: "ccr_blocks",
   },
   {
+    fromVersion: "142",
+    fromName: "api_keys_model_access_mode",
+    toVersion: "147",
+    toName: "api_keys_model_access_mode",
+  },
+  {
+    fromVersion: "143",
+    fromName: "api_keys_model_access_mode",
+    toVersion: "147",
+    toName: "api_keys_model_access_mode",
+  },
+  {
     fromVersion: "139",
     fromName: "job_registry",
     toVersion: "146",

@@ -109,6 +109,26 @@ test("permissions modal persists the per-key prompt-compression switch", () => {
   assert.match(component, /aria-checked=\{enabled\}/);
 });
 
+test("permissions modal serializes All and empty Restrict Combo access distinctly", () => {
+  const source = readApiManagerPage();
+
+  assert.match(
+    source,
+    /import \{ ALL_COMBOS_ACCESS_RULE \} from "@\/shared\/constants\/comboAccess";/
+  );
+  assert.match(
+    source,
+    /const \[allowAllCombos, setAllowAllCombos\] = useState\(\s*apiKey\?\.allowedCombos\?\.includes\(ALL_COMBOS_ACCESS_RULE\) === true\s*\)/
+  );
+  assert.match(source, /allowAllCombos \? \[ALL_COMBOS_ACCESS_RULE\] : selectedCombos/);
+  assert.match(
+    source,
+    /Array\.isArray\(key\.allowedCombos\) &&\s*!key\.allowedCombos\.includes\(ALL_COMBOS_ACCESS_RULE\)/
+  );
+  assert.match(source, /setAllowAllCombos\(false\)/);
+  assert.doesNotMatch(source, /!allowAllCombos && selectedCombos\.length === 0[^\n]*return/);
+});
+
 test("permissions modal exposes Claude Code default wildcard model", () => {
   const source = readApiManagerPage();
   const modelListSource = fs.readFileSync(providerModelPermissionListPath, "utf8");

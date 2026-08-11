@@ -109,7 +109,8 @@ test("frozen allowlists match the documented legacy and stacked-series gaps", ()
   // 147 left the gap list when 147_api_keys_model_access_mode.sql landed (same pattern as 143).
   assert.equal((KNOWN_GAPS as Set<string>).has("147"), false);
   assert.ok((KNOWN_GAPS as Set<string>).has("148"));
-  assert.ok((KNOWN_GAPS as Set<string>).has("149"));
+  // 149 lands with empty Combo allowlist semantics; only 148 remains reserved.
+  assert.equal((KNOWN_GAPS as Set<string>).has("149"), false);
   // "041" was removed from KNOWN_DUPLICATE_VERSIONS in 6A.3 (stale: no physical
   // duplicate for that prefix on disk anymore — only 041_compression_receipts.sql exists).
   assert.equal((KNOWN_DUPLICATE_VERSIONS as Set<string>).has("041"), false);
