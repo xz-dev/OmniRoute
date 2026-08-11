@@ -31,10 +31,10 @@ import {
   deleteCallArtifact,
   listCallLogArtifactFiles,
   readCallArtifact,
-  writeCallArtifact,
   type CallLogArtifact,
   type CallLogDetailState,
 } from "./callLogArtifacts";
+import { closeCallLogArtifactWriter, writeCallArtifactAsync } from "./callLogArtifactWriter";
 import {
   toNumber,
   toStringOrNull,
@@ -49,6 +49,8 @@ import {
 type JsonRecord = Record<string, unknown>;
 
 const CALL_LOG_ROTATE_THROTTLE_MS = 60_000;
+const pendingCallLogSaves = new Set<Promise<void>>();
+let callLogSavesClosing = false;
 let lastCallLogRotationScheduledAt = 0;
 let callLogRotateInFlight = false;
 let callLogRotateScheduled = false;
@@ -569,9 +571,7 @@ function getLegacyInlineDetail(id: string) {
   };
 }
 
-export async function saveCallLog(entry: any) {
-  if (!shouldPersistToDisk) return;
-
+async function saveCallLogOperation(entry: any): Promise<void> {
   try {
     const apiKeyContext = getCallLogApiKeyContext();
     // `||` (not `??`): an empty-string apiKeyId/apiKeyName is "unattributed",
@@ -658,7 +658,7 @@ export async function saveCallLog(entry: any) {
         protectedError,
         protectedPipelinePayloads
       );
-      const artifactResult = writeCallArtifact(artifact);
+      const artifactResult = await writeCallArtifactAsync(artifact);
       if (artifactResult) {
         detailState = "ready";
         artifactRelPath = artifactResult.relPath;
@@ -712,6 +712,52 @@ export async function saveCallLog(entry: any) {
   } catch (error) {
     console.error("[callLogs] Failed to save call log:", (error as Error).message);
   }
+}
+
+export function saveCallLog(entry: any): Promise<void> {
+  if (!shouldPersistToDisk || callLogSavesClosing) return Promise.resolve();
+
+  const operation = saveCallLogOperation(entry);
+  pendingCallLogSaves.add(operation);
+  void operation.then(
+    () => pendingCallLogSaves.delete(operation),
+    () => pendingCallLogSaves.delete(operation)
+  );
+  return operation;
+}
+
+export async function waitForCallLogSaves(timeoutMs: number): Promise<boolean> {
+  const deadline = Date.now() + Math.max(0, timeoutMs);
+  while (pendingCallLogSaves.size > 0) {
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) return false;
+
+    let timeout: NodeJS.Timeout | undefined;
+    const settled = await Promise.race([
+      Promise.allSettled([...pendingCallLogSaves]).then(() => true),
+      new Promise<false>((resolve) => {
+        timeout = setTimeout(() => resolve(false), remainingMs);
+        timeout.unref?.();
+      }),
+    ]);
+    if (timeout) clearTimeout(timeout);
+    if (!settled) return false;
+  }
+  return true;
+}
+
+export async function closeCallLogSaves(timeoutMs = 2_000): Promise<void> {
+  callLogSavesClosing = true;
+  const drained = await waitForCallLogSaves(timeoutMs);
+  if (!drained) {
+    await closeCallLogArtifactWriter(0);
+  }
+
+  // The admission gate above makes this a stable snapshot. After a forced worker
+  // close, queued artifact promises have resolved fail-open and their SQLite
+  // continuations can finish before the database is closed.
+  await Promise.allSettled([...pendingCallLogSaves]);
+  await closeCallLogArtifactWriter(0);
 }
 
 export function rotateCallLogs() {
