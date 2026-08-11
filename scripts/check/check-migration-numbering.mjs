@@ -51,7 +51,7 @@ export const KNOWN_DUPLICATE_VERSIONS = new Set([
 // O stale-enforcement exige que cada reserva seja removida quando os arquivos
 // correspondentes aterrissarem na release.
 // ---------------------------------------------------------------------------
-export const KNOWN_GAPS = new Set(["026", "055", "121", "144", "145", "147", "148", "149"]); // 121: número queimado no ciclo v3.8.47 — 122 (#6909) mergeou antes e 121 nunca aterrissou (validação e2e 2026-07-12)
+export const KNOWN_GAPS = new Set(["026", "055", "121", "144", "145", "147", "148"]); // 121: número queimado no ciclo v3.8.47 — 122 (#6909) mergeou antes e 121 nunca aterrissou (validação e2e 2026-07-12)
 
 function pad3(n) {
   return String(n).padStart(3, "0");
