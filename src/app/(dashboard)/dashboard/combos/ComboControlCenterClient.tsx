@@ -19,6 +19,7 @@ import {
   type ComboControlCenterTargetHealth,
 } from "@/lib/combos/controlCenter";
 import { getProviderDisplayName } from "@/lib/display/names";
+import { ComboContextDiagnosticsCard } from "./ComboContextDiagnosticsCard";
 
 type TimeRange = "1h" | "24h" | "7d" | "30d";
 
@@ -429,6 +430,10 @@ export default function ComboControlCenterClient({ comboId }: { comboId: string 
           </div>
         </div>
       </Card>
+
+      {combo.context_diagnostics && (
+        <ComboContextDiagnosticsCard diagnostics={combo.context_diagnostics} />
+      )}
 
       <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
         <Card className="p-5">

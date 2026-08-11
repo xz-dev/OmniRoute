@@ -108,6 +108,8 @@ import { isUnifiedChatSourceModelSelectable } from "./catalogModelPolicy";
 import { isFreeModel, providerHasFreeModels } from "@/shared/utils/freeModels";
 import { isCodexDiscoveryModelExcluded } from "@/shared/services/codexDiscoveryPolicy";
 import { buildErrorBody } from "@omniroute/open-sse/utils/error";
+import { aggregateKnownNumbers } from "@/lib/combos/comboContext";
+import { isPersistedResolvedLimitSource } from "@/lib/modelCapabilities";
 
 // Public API of this module is preserved after the catalog helper extraction:
 // `isVisionModelId` (vision-detection-consistency.test.ts) and
@@ -466,7 +468,16 @@ async function buildUnifiedModelsResponseCore(
       if (!canonical) return null;
 
       const source = canonical.metadata.source;
-      if (!source.providerRegistry && !source.staticSpec && !source.syncedCapability) return null;
+      const hasRecognizedMetadata =
+        source.providerRegistry || source.staticSpec || source.syncedCapability;
+      const hasPersistedLimit =
+        (isPositiveFiniteNumber(canonical.limits.contextWindow) &&
+          isPersistedResolvedLimitSource(canonical.limits.contextWindowSource)) ||
+        (isPositiveFiniteNumber(canonical.limits.maxInputTokens) &&
+          isPersistedResolvedLimitSource(canonical.limits.maxInputTokensSource)) ||
+        (isPositiveFiniteNumber(canonical.limits.maxOutputTokens) &&
+          isPersistedResolvedLimitSource(canonical.limits.maxOutputTokensSource));
+      if (!hasRecognizedMetadata && !hasPersistedLimit) return null;
 
       const providerId = canonical.provider || targetModel.providerId;
       const modelId = canonical.model || targetModel.modelId;
@@ -482,11 +493,13 @@ async function buildUnifiedModelsResponseCore(
       const maxInputTokens = isPositiveFiniteNumber(canonical.limits.maxInputTokens)
         ? canonical.limits.maxInputTokens
         : contextLength;
-      const maxOutputTokens = isPositiveFiniteNumber(synced?.limit_output)
-        ? synced.limit_output
-        : isPositiveFiniteNumber(spec?.maxOutputTokens)
-          ? spec.maxOutputTokens
-          : undefined;
+      const maxOutputTokens = isPositiveFiniteNumber(canonical.limits.maxOutputTokens)
+        ? canonical.limits.maxOutputTokens
+        : isPositiveFiniteNumber(synced?.limit_output)
+          ? synced.limit_output
+          : isPositiveFiniteNumber(spec?.maxOutputTokens)
+            ? spec.maxOutputTokens
+            : undefined;
 
       const syncedVision =
         typeof synced?.attachment === "boolean"
@@ -572,7 +585,10 @@ async function buildUnifiedModelsResponseCore(
       if (knownMetadata.length === 0) return baseMetadata;
       const contextLength =
         explicitContextLength ??
-        minKnownNumber(knownMetadata.map((metadata) => metadata.contextLength));
+        aggregateKnownNumbers(
+          knownMetadata.map((metadata) => metadata.contextLength),
+          combo.context_length_aggregation === "max" ? "max" : "min"
+        );
       const maxInputTokens = minKnownNumber(
         knownMetadata.map((metadata) => metadata.maxInputTokens)
       );

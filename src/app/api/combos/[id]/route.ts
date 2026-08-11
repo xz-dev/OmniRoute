@@ -14,6 +14,8 @@ import { QUOTA_MODEL_PREFIX } from "@/lib/quota/quotaModelNaming";
 import { comboErrorResponse } from "@/lib/api/comboErrorResponse";
 import { ComboInvariantError } from "@/lib/combos/invariants";
 import { buildComboNameCollisionWarning } from "@/lib/combos/modelNameCollision";
+import { buildComboContextDiagnostics } from "@/lib/combos/comboContext";
+import { getCachedProviderNodes } from "@/lib/db/readCache";
 
 // Minimal shape for the fields we read off a combo row in this route.
 // `getComboById` returns a structurally `JsonRecord`-typed object, so we
@@ -30,6 +32,7 @@ type ComboRowShape = {
   tool_filter_regex?: string;
   context_cache_protection?: boolean;
   context_length?: number | null;
+  context_length_aggregation?: "min" | "max";
 };
 
 /**
@@ -86,7 +89,13 @@ export async function GET(request, { params }) {
       return comboErrorResponse("COMBO_007", 404, { id }, request);
     }
 
-    return NextResponse.json(combo);
+    const [allCombos, providerNodes] = await Promise.all([getCombos(), getCachedProviderNodes()]);
+    const context_diagnostics = buildComboContextDiagnostics(combo, allCombos, providerNodes);
+    return NextResponse.json({
+      ...combo,
+      computed_context_length: context_diagnostics.effective_context_length,
+      context_diagnostics,
+    });
   } catch (error) {
     console.log("Error fetching combo:", error);
     return comboErrorResponse("INTERNAL_001", 500, undefined, request);

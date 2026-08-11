@@ -3698,9 +3698,13 @@
     "agentFeaturesToolFilterHint": "エージェント用のツールフィルター正規表現",
     "agentFeaturesContextCacheHint": "エージェント ツールのインコンテキスト キャッシュを有効にする",
     "agentFeaturesContextCacheProtection": "エージェントツールの突然変異からキャッシュを保護する",
-    "agentFeaturesContextLength": "コンテキストの長さ",
+    "agentFeaturesContextLength": "__MISSING__:Manual context length",
     "agentFeaturesContextLengthPlaceholder": "例: 128000",
-    "agentFeaturesContextLengthHint": "/v1/models でこのコンボのコンテキスト ウィンドウを定義します。",
+    "contextAggregationLabel": "__MISSING__:Context aggregation",
+    "contextAggregationMin": "__MISSING__:Minimum (safe default)",
+    "contextAggregationMax": "__MISSING__:Maximum",
+    "contextAggregationWarning": "__MISSING__:Maximum may exceed smaller targets; input/output limits remain conservative.",
+    "agentFeaturesContextLengthHint": "__MISSING__:Manual value overrides target aggregation.",
     "agentFeaturesContextLengthErrorInteger": "コンテキストの長さは有効な整数である必要があります",
     "agentFeaturesContextLengthErrorRange": "コンテキストの長さは 1000 ～ 2000000 でなければなりません",
     "compressionOverride": "圧縮オーバーライド",
@@ -12847,6 +12851,28 @@
     "unknown": "不明",
     "unknownProvider": "不明なプロバイダー",
     "unknownModel": "不明なモデル",
+    "contextDiagnostics": {
+      "title": "__MISSING__:Context diagnostics",
+      "summary": "__MISSING__:{mode} · {source} · effective {effective} · {count} known · min {min} · max {max}",
+      "mode": { "min": "__MISSING__:Minimum", "max": "__MISSING__:Maximum" },
+      "sources": {
+        "manual": "__MISSING__:Manual",
+        "aggregated": "__MISSING__:Aggregated",
+        "unknown": "__MISSING__:Unknown"
+      },
+      "providerModel": "__MISSING__:Provider/model",
+      "context": "__MISSING__:Context",
+      "input": "__MISSING__:Input",
+      "output": "__MISSING__:Output",
+      "sourceHeader": "__MISSING__:Source",
+      "noTargets": "__MISSING__:No resolved targets.",
+      "unknownReason": {
+        "target-unresolved": "__MISSING__:Target unresolved",
+        "metadata-unresolved": "__MISSING__:Metadata unresolved",
+        "metadata-source-unknown": "__MISSING__:Metadata source unknown",
+        "context-limit-unknown": "__MISSING__:Context limit unknown"
+      }
+    },
     "resolvedTargetMetrics": "{requests} req · {success} 成功 · {latency} · クォータ {quota}"
   },
   "usageLimits": {

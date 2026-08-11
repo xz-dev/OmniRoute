@@ -6,6 +6,7 @@ import {
   getResolvedModelCapabilities,
   getResolvedModelContextOverride,
   isNonChatCatalogSurface,
+  type ResolvedLimitSource,
 } from "@/lib/modelCapabilities";
 import { getModelCapabilityOverride } from "@/lib/db/modelCapabilityOverrides";
 import {
@@ -72,8 +73,11 @@ export interface CanonicalModelMetadata {
   };
   limits: {
     contextWindow: number | null;
+    contextWindowSource: ResolvedLimitSource | null;
     maxInputTokens: number | null;
+    maxInputTokensSource: ResolvedLimitSource | null;
     maxOutputTokens: number;
+    maxOutputTokensSource: ResolvedLimitSource | null;
     defaultThinkingBudget: number;
     thinkingBudgetCap: number | null;
     thinkingOverhead: number | null;
@@ -257,8 +261,11 @@ export function getCanonicalModelMetadata(input: {
     },
     limits: {
       contextWindow: resolved.contextWindow,
+      contextWindowSource: resolved.contextWindowSource,
       maxInputTokens: resolved.maxInputTokens,
+      maxInputTokensSource: resolved.maxInputTokensSource,
       maxOutputTokens: resolved.maxOutputTokens,
+      maxOutputTokensSource: resolved.maxOutputTokensSource,
       defaultThinkingBudget: resolved.defaultThinkingBudget,
       thinkingBudgetCap: resolved.thinkingBudgetCap,
       thinkingOverhead: resolved.thinkingOverhead,

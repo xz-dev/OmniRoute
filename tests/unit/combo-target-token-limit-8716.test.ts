@@ -8,6 +8,11 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+process.env.DATA_DIR = mkdtempSync(join(tmpdir(), "omniroute-combo-target-limit-"));
 
 const { parseModel } = await import("../../open-sse/services/model.ts");
 const { getTokenLimit, getComboTargetTokenLimit } =
@@ -36,7 +41,8 @@ test("#8716 getComboTargetTokenLimit falls back to target.provider (no throw)", 
     modelStr: "gpt-4o",
     provider: "openai",
   });
-  assert.ok(Number.isFinite(limit) && limit > 0);
+  assert.ok(Number.isFinite(limit.limit) && limit.limit > 0);
+  assert.equal(limit.specific, true);
 
   // Same inputs via pre-parsed fields (matches chatCore call shape).
   const limit2 = getComboTargetTokenLimit({
@@ -44,7 +50,7 @@ test("#8716 getComboTargetTokenLimit falls back to target.provider (no throw)", 
     parsedModel: parsed.model,
     targetProvider: "openai",
   });
-  assert.equal(limit2, limit);
+  assert.deepEqual(limit2, limit);
 });
 
 test("#8716 getComboTargetTokenLimit prefers parseModel provider when present", () => {
@@ -57,7 +63,7 @@ test("#8716 getComboTargetTokenLimit prefers parseModel provider when present", 
     parsedModel: "claude-sonnet-4-6",
     targetProvider: "openai",
   });
-  assert.equal(withPrefix, fromParsedOnly);
+  assert.deepEqual(withPrefix, fromParsedOnly);
 });
 
 test("#8716 getComboTargetTokenLimit uses unknown when both providers missing", () => {
@@ -66,7 +72,8 @@ test("#8716 getComboTargetTokenLimit uses unknown when both providers missing", 
     parsedModel: "some-model",
     targetProvider: null,
   });
-  assert.ok(Number.isFinite(limit) && limit > 0);
+  assert.ok(Number.isFinite(limit.limit) && limit.limit > 0);
+  assert.equal(limit.specific, false);
 });
 
 test("#8716 chatCore combo-limit map uses getComboTargetTokenLimit (source guard)", async () => {
