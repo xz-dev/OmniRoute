@@ -3698,9 +3698,13 @@
     "agentFeaturesToolFilterHint": "Regulárny výraz filtra nástroja pre agentov",
     "agentFeaturesContextCacheHint": "Povoliť kontextovú vyrovnávaciu pamäť pre nástroje agentov",
     "agentFeaturesContextCacheProtection": "Chráňte vyrovnávaciu pamäť pred mutáciami nástroja agenta",
-    "agentFeaturesContextLength": "Dĺžka kontextu",
+    "agentFeaturesContextLength": "__MISSING__:Manual context length",
     "agentFeaturesContextLengthPlaceholder": "napr. 128 000",
-    "agentFeaturesContextLengthHint": "Definuje kontextové okno pre túto kombináciu v /v1/models.",
+    "contextAggregationLabel": "__MISSING__:Context aggregation",
+    "contextAggregationMin": "__MISSING__:Minimum (safe default)",
+    "contextAggregationMax": "__MISSING__:Maximum",
+    "contextAggregationWarning": "__MISSING__:Maximum may exceed smaller targets; input/output limits remain conservative.",
+    "agentFeaturesContextLengthHint": "__MISSING__:Manual value overrides target aggregation.",
     "agentFeaturesContextLengthErrorInteger": "Dĺžka kontextu musí byť platné celé číslo",
     "agentFeaturesContextLengthErrorRange": "Dĺžka kontextu musí byť medzi 1 000 a 2 000 000",
     "compressionOverride": "Prepísanie kompresie",
@@ -12847,6 +12851,28 @@
     "unknown": "neznámy",
     "unknownProvider": "neznámy poskytovateľ",
     "unknownModel": "neznámy model",
+    "contextDiagnostics": {
+      "title": "__MISSING__:Context diagnostics",
+      "summary": "__MISSING__:{mode} · {source} · effective {effective} · {count} known · min {min} · max {max}",
+      "mode": { "min": "__MISSING__:Minimum", "max": "__MISSING__:Maximum" },
+      "sources": {
+        "manual": "__MISSING__:Manual",
+        "aggregated": "__MISSING__:Aggregated",
+        "unknown": "__MISSING__:Unknown"
+      },
+      "providerModel": "__MISSING__:Provider/model",
+      "context": "__MISSING__:Context",
+      "input": "__MISSING__:Input",
+      "output": "__MISSING__:Output",
+      "sourceHeader": "__MISSING__:Source",
+      "noTargets": "__MISSING__:No resolved targets.",
+      "unknownReason": {
+        "target-unresolved": "__MISSING__:Target unresolved",
+        "metadata-unresolved": "__MISSING__:Metadata unresolved",
+        "metadata-source-unknown": "__MISSING__:Metadata source unknown",
+        "context-limit-unknown": "__MISSING__:Context limit unknown"
+      }
+    },
     "resolvedTargetMetrics": "{requests} req · {success} úspešných · {latency} · kvóta {quota}"
   },
   "usageLimits": {

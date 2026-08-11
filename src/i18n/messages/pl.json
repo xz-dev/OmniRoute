@@ -3698,9 +3698,13 @@
     "agentFeaturesToolFilterHint": "Regex filtrowania narzędzi dla agentów",
     "agentFeaturesContextCacheHint": "Włącz in-context cache dla narzędzi agenta",
     "agentFeaturesContextCacheProtection": "Chroń cache przed modyfikacjami przez narzędzia agenta",
-    "agentFeaturesContextLength": "Długość kontekstu",
+    "agentFeaturesContextLength": "__MISSING__:Manual context length",
     "agentFeaturesContextLengthPlaceholder": "np. 128000",
-    "agentFeaturesContextLengthHint": "Definiuje okno kontekstu dla tego combo w /v1/models.",
+    "contextAggregationLabel": "__MISSING__:Context aggregation",
+    "contextAggregationMin": "__MISSING__:Minimum (safe default)",
+    "contextAggregationMax": "__MISSING__:Maximum",
+    "contextAggregationWarning": "__MISSING__:Maximum may exceed smaller targets; input/output limits remain conservative.",
+    "agentFeaturesContextLengthHint": "__MISSING__:Manual value overrides target aggregation.",
     "agentFeaturesContextLengthErrorInteger": "Długość kontekstu musi być liczbą całkowitą",
     "agentFeaturesContextLengthErrorRange": "Długość kontekstu musi wynosić od 1000 do 2000000",
     "compressionOverride": "Nadpisanie kompresji",
@@ -12847,6 +12851,28 @@
     "unknown": "nieznany",
     "unknownProvider": "nieznany dostawca",
     "unknownModel": "nieznany model",
+    "contextDiagnostics": {
+      "title": "__MISSING__:Context diagnostics",
+      "summary": "__MISSING__:{mode} · {source} · effective {effective} · {count} known · min {min} · max {max}",
+      "mode": { "min": "__MISSING__:Minimum", "max": "__MISSING__:Maximum" },
+      "sources": {
+        "manual": "__MISSING__:Manual",
+        "aggregated": "__MISSING__:Aggregated",
+        "unknown": "__MISSING__:Unknown"
+      },
+      "providerModel": "__MISSING__:Provider/model",
+      "context": "__MISSING__:Context",
+      "input": "__MISSING__:Input",
+      "output": "__MISSING__:Output",
+      "sourceHeader": "__MISSING__:Source",
+      "noTargets": "__MISSING__:No resolved targets.",
+      "unknownReason": {
+        "target-unresolved": "__MISSING__:Target unresolved",
+        "metadata-unresolved": "__MISSING__:Metadata unresolved",
+        "metadata-source-unknown": "__MISSING__:Metadata source unknown",
+        "context-limit-unknown": "__MISSING__:Context limit unknown"
+      }
+    },
     "resolvedTargetMetrics": "{requests} żąd. · {success} udanych · {latency} · limit {quota}"
   },
   "usageLimits": {

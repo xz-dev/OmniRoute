@@ -9,7 +9,10 @@
  * collide via delimiter composition.
  */
 import { listModelCapabilityOverrides } from "@/lib/db/modelCapabilityOverrides";
-import { listModelContextOverrides } from "@/lib/db/modelContextOverrides";
+import {
+  listModelContextOverrides,
+  type ModelContextOverride,
+} from "@/lib/db/modelContextOverrides";
 import {
   listCustomModelVisionOverrides,
   type CustomModelVisionOverrideMap,
@@ -20,14 +23,17 @@ import {
   type CapabilitiesByProvider,
 } from "@/lib/modelsDevSync";
 
-/** Nested provider → model → numeric override map (collision-free). */
-export type NestedOverrideMap = ReadonlyMap<string, ReadonlyMap<string, number>>;
+/** Nested provider → model → override map (collision-free). */
+export type NestedOverrideMap<T = number> = ReadonlyMap<string, ReadonlyMap<string, T>>;
 
 export interface ModelCapabilityResolutionSnapshot {
   readonly synced: CapabilitiesByProvider;
+  /** Retained name for #9199 compatibility; contains modern max_output_tokens rows. */
   readonly maxTokenOverrides: NestedOverrideMap;
   readonly maxInputTokenOverrides: NestedOverrideMap;
+  readonly inputTokenOverrides: NestedOverrideMap;
   readonly contextOverrides: NestedOverrideMap;
+  readonly contextOverrideRecords: NestedOverrideMap<ModelContextOverride>;
   readonly customVisionOverrides: CustomModelVisionOverrideMap;
 }
 
@@ -35,11 +41,11 @@ export interface ModelCapabilityResolutionSnapshotOptions {
   customModelVision?: CustomModelVisionOverrideReadOptions;
 }
 
-function setNestedOverride(
-  map: Map<string, Map<string, number>>,
+function setNestedOverride<T>(
+  map: Map<string, Map<string, T>>,
   provider: string,
   modelId: string,
-  value: number
+  value: T
 ): void {
   let byModel = map.get(provider);
   if (!byModel) {
@@ -61,24 +67,29 @@ export function createModelCapabilityResolutionSnapshot(
 
   const maxTokenOverrides = new Map<string, Map<string, number>>();
   const maxInputTokenOverrides = new Map<string, Map<string, number>>();
+  const inputTokenOverrides = maxInputTokenOverrides;
   for (const entry of listModelCapabilityOverrides()) {
-    if (entry.key === "max_output_tokens") {
-      setNestedOverride(maxTokenOverrides, entry.provider, entry.modelId, entry.value);
-    } else if (entry.key === "max_input_tokens") {
+    if (entry.key === "max_input_tokens") {
       setNestedOverride(maxInputTokenOverrides, entry.provider, entry.modelId, entry.value);
+    } else {
+      setNestedOverride(maxTokenOverrides, entry.provider, entry.modelId, entry.value);
     }
   }
 
   const contextOverrides = new Map<string, Map<string, number>>();
+  const contextOverrideRecords = new Map<string, Map<string, ModelContextOverride>>();
   for (const entry of listModelContextOverrides()) {
     setNestedOverride(contextOverrides, entry.provider, entry.modelId, entry.realContext);
+    setNestedOverride(contextOverrideRecords, entry.provider, entry.modelId, entry);
   }
 
   return {
     synced,
     maxTokenOverrides,
     maxInputTokenOverrides,
+    inputTokenOverrides,
     contextOverrides,
+    contextOverrideRecords,
     customVisionOverrides: listCustomModelVisionOverrides(options.customModelVision),
   };
 }

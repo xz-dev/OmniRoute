@@ -294,7 +294,7 @@ export function getComboTargetTokenLimit(options: {
   parsedProvider?: string | null;
   parsedModel?: string | null;
   targetProvider?: string | null;
-}): number {
+}): { limit: number; specific: boolean } {
   let parsedProvider = options.parsedProvider;
   let parsedModel = options.parsedModel;
   if (
@@ -306,7 +306,7 @@ export function getComboTargetTokenLimit(options: {
     if (parsedModel === undefined) parsedModel = parsed.model;
   }
   const provider = parsedProvider ?? options.targetProvider ?? options.provider ?? "unknown";
-  return getTokenLimit(provider, parsedModel ?? null);
+  return resolveTokenLimit(provider, parsedModel ?? null);
 }
 
 /**
@@ -374,17 +374,29 @@ function resolveTokenLimit(
 export function resolveComboContextLimit(options: {
   provider: string;
   model: string | null;
+  comboContextLength?: number | null;
+  comboContextAggregation?: "min" | "max";
   comboTargetLimits: number[];
-}): { limit: number; source: "target" | "combo-min" | "fallback" } {
+}): {
+  limit: number;
+  source: "target" | "combo-manual" | "combo-min" | "combo-max" | "fallback";
+} {
   const own = resolveTokenLimit(options.provider, options.model ?? null);
   if (own.specific) {
     return { limit: own.limit, source: "target" };
+  }
+  if (Number.isFinite(options.comboContextLength) && (options.comboContextLength ?? 0) > 0) {
+    return { limit: options.comboContextLength as number, source: "combo-manual" };
   }
   const knownTargets = (options.comboTargetLimits || []).filter(
     (value) => Number.isFinite(value) && value > 0
   );
   if (knownTargets.length > 0) {
-    return { limit: Math.min(...knownTargets), source: "combo-min" };
+    const maximum = options.comboContextAggregation === "max";
+    return {
+      limit: maximum ? Math.max(...knownTargets) : Math.min(...knownTargets),
+      source: maximum ? "combo-max" : "combo-min",
+    };
   }
   return { limit: own.limit, source: "fallback" };
 }

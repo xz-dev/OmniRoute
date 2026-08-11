@@ -1,11 +1,6 @@
 import { NextResponse } from "next/server";
-import {
-  getCombos,
-  getCombosCount,
-  createCombo,
-  getComboByName,
-  isCloudEnabled,
-} from "@/lib/localDb";
+import { createCombo, getComboByName, getCombos, getCombosCount } from "@/lib/db/combos";
+import { isCloudEnabled } from "@/lib/db/settings";
 import { getConsistentMachineId } from "@/shared/utils/machineId";
 import { syncToCloud } from "@/lib/cloudSync";
 import { validateCompositeTiersConfig } from "@/lib/combos/compositeTiers";
@@ -15,7 +10,7 @@ import { createComboSchema, paginationSchema } from "@/shared/validation/schemas
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { comboErrorResponse } from "@/lib/api/comboErrorResponse";
-import { computeComboContextLength } from "@/lib/combos/comboContext";
+import { buildComboContextDiagnostics } from "@/lib/combos/comboContext";
 import { ComboInvariantError } from "@/lib/combos/invariants";
 import { buildComboNameCollisionWarning } from "@/lib/combos/modelNameCollision";
 
@@ -37,10 +32,14 @@ export async function GET(request: Request) {
 
     const range = validation.data;
     const total = getCombosCount();
-    const rawCombos = await getCombos(range.limit, range.offset);
+    const [rawCombos, allCombos] = await Promise.all([
+      getCombos(range.limit, range.offset),
+      getCombos(),
+    ]);
     const combos = rawCombos.map((combo) => ({
       ...combo,
-      computed_context_length: computeComboContextLength(combo, rawCombos),
+      computed_context_length: buildComboContextDiagnostics(combo, allCombos)
+        .effective_context_length,
     }));
     return NextResponse.json({ combos, total });
   } catch (error) {
