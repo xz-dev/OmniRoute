@@ -449,7 +449,13 @@ async function __wbg_init(module_or_path) {
     }
 
     if (module_or_path === undefined) {
-        module_or_path = new URL('wasm_signer_bg.wasm', import.meta.url);
+        // Dead in practice — initTinyCmsWasm() always calls __wbg_init() with a
+        // decoded WASM_BASE64 buffer, never hits this branch. Built as a computed
+        // (non-literal) URL so Turbopack's static `new URL('lit', import.meta.url)`
+        // asset-resolution doesn't try to bundle a wasm_signer_bg.wasm file that
+        // was never checked in — breaks the whole app's build otherwise.
+        const wasmAssetName = ["wasm_signer_bg", "wasm"].join(".");
+        module_or_path = new URL(wasmAssetName, import.meta.url);
     }
     const imports = __wbg_get_imports();
 
