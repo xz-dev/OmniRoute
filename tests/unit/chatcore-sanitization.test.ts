@@ -9,6 +9,8 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 
 const { handleChatCore } = await import("../../open-sse/handlers/chatCore.ts");
 const settingsDb = await import("../../src/lib/db/settings.ts");
+const featureFlagsDb = await import("../../src/lib/db/featureFlags.ts");
+const capabilityOverrides = await import("../../src/lib/db/modelCapabilityOverrides.ts");
 const { createMemory, listMemories } = await import("../../src/lib/memory/store.ts");
 const { invalidateMemorySettingsCache } = await import("../../src/lib/memory/settings.ts");
 const core = await import("../../src/lib/db/core.ts");
@@ -99,6 +101,7 @@ async function invokeChatCore({
   apiKeyInfo = null,
   userAgent = "unit-test",
   responseFactory,
+  log = noopLog(),
 } = {}) {
   const originalFetch = globalThis.fetch;
   const calls = [];
@@ -130,7 +133,7 @@ async function invokeChatCore({
       body: requestBody,
       modelInfo: { provider, model, extendedContext: false },
       credentials: structuredClone(credentials),
-      log: noopLog(),
+      log,
       clientRawRequest: {
         endpoint,
         body: structuredClone(body),
@@ -183,6 +186,76 @@ test("chatCore sanitization normalizes max_output_tokens into max_tokens", async
   assert.equal(preserved.call.body.max_tokens, 7);
   assert.equal("max_output_tokens" in preserved.call.body, false);
   assert.equal("max_tokens" in untouched.call.body, false);
+});
+
+test("native Codex Responses bypasses approximate input and output catalog gates", async () => {
+  const model = "gpt-5.4";
+  const modelId = `codex/${model}`;
+  const input = "x".repeat(200);
+  const maxOutputTokens = 12_345;
+
+  assert.equal(
+    capabilityOverrides.setModelCapabilityOverride(modelId, "max_input_tokens", 10),
+    true
+  );
+  assert.equal(
+    capabilityOverrides.setModelCapabilityOverride(modelId, "max_output_tokens", 1_000),
+    true
+  );
+  featureFlagsDb.setFeatureFlagOverride("CAPABILITY_FILTER_ENABLED", "true");
+
+  const contextLogs = [];
+  try {
+    const { result, call, calls } = await invokeChatCore({
+      endpoint: "/v1/responses",
+      provider: "codex",
+      model,
+      body: {
+        model,
+        input: [{ role: "user", content: input }],
+        max_output_tokens: maxOutputTokens,
+      },
+      log: {
+        ...noopLog(),
+        info(category, message) {
+          if (category === "CONTEXT") contextLogs.push(message);
+        },
+      },
+      responseFactory: () =>
+        new Response(
+          JSON.stringify({
+            id: "resp_native_budget",
+            object: "response",
+            status: "completed",
+            model,
+            output: [
+              {
+                type: "message",
+                role: "assistant",
+                content: [{ type: "output_text", text: "ok" }],
+              },
+            ],
+            usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        ),
+    });
+
+    assert.notEqual(result.status, 400);
+    assert.equal(calls.length, 1, "native Codex request must reach upstream");
+    assert.deepEqual(call.body.input[0].content, [{ type: "input_text", text: input }]);
+    // Codex executor intentionally strips max_output_tokens because upstream rejects it;
+    // this gate must not reject or clamp it before executor-specific sanitization runs.
+    assert.equal("max_output_tokens" in call.body, false);
+    assert.equal(
+      contextLogs.some((message) => message.includes("Adjusted")),
+      false
+    );
+  } finally {
+    featureFlagsDb.removeFeatureFlagOverride("CAPABILITY_FILTER_ENABLED");
+    capabilityOverrides.removeModelCapabilityOverride(modelId, "max_input_tokens");
+    capabilityOverrides.removeModelCapabilityOverride(modelId, "max_output_tokens");
+  }
 });
 
 test("chatCore sanitization preserves max_output_tokens for openai-responses targets", async () => {
