@@ -2003,18 +2003,22 @@ export async function handleChatCore({
     }
   }
 
-  const modelOutputCap = toPositiveInteger(
-    getExplicitModelOutputCap({ provider, model: effectiveModel })
-  );
-  const outputBudget = enforceOutputTokenBudget(
-    body as Record<string, unknown>,
-    finalEstimatedInputTokens,
-    finalContextLimit,
-    targetFormat === FORMATS.CLAUDE && sourceFormat !== FORMATS.CLAUDE ? DEFAULT_MAX_TOKENS : 0,
-    modelOutputCap,
-    toPositiveInteger(resolveInputTokenCapForGate({ provider, model: effectiveModel }, { isCombo }))
-  );
-  if (outputBudget.ok === false) {
+  const modelOutputCap = nativeCodexPassthrough
+    ? null
+    : toPositiveInteger(getExplicitModelOutputCap({ provider, model: effectiveModel }));
+  const outputBudget = nativeCodexPassthrough
+    ? null
+    : enforceOutputTokenBudget(
+        body as Record<string, unknown>,
+        finalEstimatedInputTokens,
+        finalContextLimit,
+        targetFormat === FORMATS.CLAUDE && sourceFormat !== FORMATS.CLAUDE ? DEFAULT_MAX_TOKENS : 0,
+        modelOutputCap,
+        toPositiveInteger(
+          resolveInputTokenCapForGate({ provider, model: effectiveModel }, { isCombo })
+        )
+      );
+  if (outputBudget?.ok === false) {
     const exceededInputCap = outputBudget.maxInputTokens !== undefined;
     const message =
       `Input exceeds ${exceededInputCap ? "maximum input tokens" : "context window"} for ${provider}/${effectiveModel}: ` +
@@ -2030,7 +2034,7 @@ export async function handleChatCore({
       "invalid_request_error"
     );
   }
-  if (outputBudget.adjustedFields.length > 0) {
+  if (outputBudget?.adjustedFields.length) {
     // A field can also be adjusted by *removal* (invalid/non-positive value), which
     // the cap did not cause — so state the ceiling in effect rather than claiming
     // the cap drove this particular adjustment.
@@ -2045,7 +2049,7 @@ export async function handleChatCore({
           : "")
     );
   }
-  body = outputBudget.body;
+  if (outputBudget?.ok) body = outputBudget.body;
 
   let translatedBody = body;
   const isClaudePassthrough = sourceFormat === FORMATS.CLAUDE && targetFormat === FORMATS.CLAUDE;
@@ -2841,7 +2845,11 @@ export async function handleChatCore({
       deriveRequestCapabilityRequirements(body as Record<string, unknown>),
       provider
     );
-    if (!fit.compatible) {
+    const nativeCodexContextOnlyMismatch =
+      nativeCodexPassthrough &&
+      fit.failures.length > 0 &&
+      fit.failures.every((failure) => failure === "context_window");
+    if (!fit.compatible && !nativeCodexContextOnlyMismatch) {
       const msg = buildCapabilityMismatchMessage(fit.terminalReason!, provider, effectiveModel);
       log?.warn?.("CAPABILITY", msg);
       trackPendingRequest(model, provider, connectionId, false);
