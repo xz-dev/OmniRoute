@@ -234,7 +234,6 @@ import {
   resolveComboRuntimeUnits,
   resolveComboTargets,
 } from "./combo/comboStructure.ts";
-import { getKnownContextOverflow } from "./combo/knownContextOverflow.ts";
 import {
   QUOTA_SOFT_DEPRIORITIZE_FACTOR,
   setCandidateQuotaSoftPenalty,
@@ -276,12 +275,7 @@ export {
 };
 export { resolveShadowTargets, scheduleShadowRouting };
 export { preScreenTargets };
-export {
-  resolveComboRuntimeUnits,
-  resolveComboTargets,
-  filterTargetsByRequestCompatibility,
-  getKnownContextOverflow,
-};
+export { resolveComboRuntimeUnits, resolveComboTargets, filterTargetsByRequestCompatibility };
 export {
   getComboFromData,
   getComboModelsFromData,
@@ -804,12 +798,6 @@ export async function handleComboChat({
     handleSingleModelWithTimeout,
     buildAutoCandidates,
     hiddenModelsByProvider,
-    clientManagedResponsesContext,
-    deferContextOverflowWhenCompressible,
-    compressionExclusions,
-    sourceFormat,
-    endpointPath,
-    requestHeaders,
   });
   if ("earlyResponse" in targetResolution) return targetResolution.earlyResponse;
   const { stickyWeightedLimit, getWeightedStepKeyForTarget, preScreenMap } = targetResolution;
@@ -2604,32 +2592,6 @@ async function handleRoundRobinCombo({
   );
   const tagFilteredTargets = await applyRequestTagRouting(orderedTargets, body, log);
   const evalRankedTargets = orderTargetsByEvalScores(tagFilteredTargets, config.evalRouting, log);
-  const knownContextOverflow = getKnownContextOverflow(evalRankedTargets, body, {
-    clientManagedResponsesContext,
-    deferContextOverflowWhenCompressible,
-    compressionExclusions,
-    sourceFormat,
-    endpointPath,
-    requestHeaders,
-  });
-  if (knownContextOverflow) {
-    return errorResponseWithComboDiagnostics(
-      400,
-      `Request requires approximately ${knownContextOverflow.requiredContextTokens} tokens, but the largest known context limit in this combo is ${knownContextOverflow.maxKnownContextTokens} tokens. Reduce or compact the request context.`,
-      {
-        poolSize: evalRankedTargets.length,
-        attempted: 0,
-        excluded: evalRankedTargets.map((target) => ({
-          provider: target.provider,
-          model: target.modelStr,
-          reason: "context_window",
-        })),
-        attemptOrder: [],
-        terminalReason: "context_length_exceeded",
-      },
-      { code: "context_length_exceeded", type: "invalid_request_error" }
-    );
-  }
   // Align with the main/auto paths: combo config OR top-level settings (#8488 / #8494).
   const rrCompatFailOpen =
     (config as { compatFilterFailOpen?: unknown }).compatFilterFailOpen === true ||
