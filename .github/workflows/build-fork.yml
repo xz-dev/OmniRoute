@@ -58,10 +58,12 @@ jobs:
           target: runner-base
           platforms: linux/amd64
           push: true
-          # Hosted runners cannot fit this repository's native Turbopack peak.
-          # Use the Dockerfile's documented memory-constrained build fallback.
+          # Hosted runners cannot fit this repository's native Turbopack peak,
+          # while the webpack fallback exceeds Docker's default 4 GB V8 heap.
+          # Use the Dockerfile's documented memory-constrained overrides.
           build-args: |
             OMNIROUTE_USE_TURBOPACK=0
+            OMNIROUTE_BUILD_MEMORY_MB=6144
           tags: |
             ${{ env.IMAGE_NAME }}:${{ inputs.image_tag }}
             ${{ env.IMAGE_NAME }}:release-v${{ inputs.image_tag }}
