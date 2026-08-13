@@ -37,6 +37,7 @@ type FormData = QuotaScrapingFieldValues &
     tunnelId: string;
     connectorName: string;
     runtimeKey?: string;
+    codexFingerprintMode?: string;
   };
 type ProviderSpecificData = Record<string, unknown>;
 
@@ -184,5 +185,8 @@ export function assignEditApiKeyProviderSpecificData(options: {
   if (o.provider === "chatgpt-web-codex") {
     o.target.tunnelId = o.formData.tunnelId.trim() || undefined;
     o.target.connectorName = o.formData.connectorName.trim() || undefined;
+  }
+  if (o.provider === "codex" && o.formData.codexFingerprintMode) {
+    o.target.codexFingerprintMode = o.formData.codexFingerprintMode;
   }
 }

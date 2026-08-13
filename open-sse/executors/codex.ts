@@ -27,7 +27,7 @@ import {
 import {
   applyCodexClientIdentityHeaders,
   applyCodexClientMetadata,
-  createCodexClientIdentity,
+  resolveCodexFingerprintIdentity,
   type CodexClientIdentity,
 } from "../config/codexIdentity.ts";
 import { getAccessToken } from "../services/tokenRefresh.ts";
@@ -765,14 +765,11 @@ export class CodexExecutor extends BaseExecutor {
       input.model
     );
     const requestInput = requestBody === input.body ? input : { ...input, body: requestBody };
-    const sessionId = this.getPromptCacheSessionId(
-      requestInput.credentials,
-      requestInput.body as Record<string, unknown> | null
-    );
-    const identity = createCodexClientIdentity(
-      sessionId,
-      requestInput.credentials?.providerSpecificData ?? null
-    );
+    const identity = resolveCodexFingerprintIdentity({
+      credentials: requestInput.credentials,
+      clientHeaders: requestInput.clientHeaders,
+      body: requestInput.body,
+    });
     const credentials = identity
       ? {
           ...requestInput.credentials,

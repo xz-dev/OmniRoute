@@ -163,6 +163,27 @@ test("provider schemas accept max but reject ultra as a server-side Codex defaul
   assert.equal(ultra.success, false);
 });
 
+test("provider schemas accept Codex fingerprint modes and reject unknown values", () => {
+  for (const mode of ["off", "device", "session", "full"]) {
+    const created = createProviderSchema.safeParse({
+      provider: "codex",
+      apiKey: "token",
+      name: "Codex",
+      providerSpecificData: { codexFingerprintMode: mode },
+    });
+    const updated = updateProviderConnectionSchema.safeParse({
+      providerSpecificData: { codexFingerprintMode: mode },
+    });
+    assert.equal(created.success, true, mode);
+    assert.equal(updated.success, true, mode);
+  }
+
+  const rejected = updateProviderConnectionSchema.safeParse({
+    providerSpecificData: { codexFingerprintMode: "aggressive" },
+  });
+  assert.equal(rejected.success, false);
+});
+
 test("provider schemas reject unknown Codex service tiers", () => {
   const created = createProviderSchema.safeParse({
     provider: "codex",

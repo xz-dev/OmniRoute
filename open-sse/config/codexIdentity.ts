@@ -3,54 +3,278 @@ import { createHash, randomUUID } from "node:crypto";
 import { normalizeCodexSessionId } from "./codexClient.ts";
 
 const CODEX_INSTALLATION_SALT = "omniroute-codex-installation";
+const CODEX_SESSION_SEED_PREFIX = "omniroute:codex-session-id:v1:";
+const CODEX_THREAD_SEED_PREFIX = "omniroute:codex-thread-id:v1:";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+export const CODEX_FINGERPRINT_MODES = ["off", "device", "session", "full"] as const;
+export type CodexFingerprintMode = (typeof CODEX_FINGERPRINT_MODES)[number];
+export const CODEX_FINGERPRINT_MODE_KEY = "codexFingerprintMode";
+
 export type CodexClientIdentity = {
+  mode: CodexFingerprintMode;
+  installationId: string;
   sessionId: string;
+  threadId: string;
   turnId: string;
   windowId: string;
-  installationId: string;
+  turnStartedAtUnixMs: number;
+};
+
+type CodexIdentityOptions = {
+  mode?: CodexFingerprintMode;
+  accountKey?: string | null;
+  isOAuth?: boolean;
 };
 
 function normalizeUuid(value: unknown): string | null {
   return typeof value === "string" && UUID_PATTERN.test(value.trim()) ? value.trim() : null;
 }
 
-function uuidFromStableValue(value: string): string {
+function nonEmptyString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return normalized || null;
+}
+
+/** Keep the historical installation-id layout so existing accounts stay stable. */
+function uuidFromLegacyInstallationValue(value: string): string {
   const hash = createHash("sha256").update(value).digest("hex");
   return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
 }
 
+/** RFC4122 v4 from SHA-256. Same seed → same UUID. */
+export function deriveStableUUIDv4(seed: string): string {
+  const digest = createHash("sha256").update(seed).digest();
+  const bytes = Buffer.from(digest.subarray(0, 16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  return [
+    bytes.subarray(0, 4).toString("hex"),
+    bytes.subarray(4, 6).toString("hex"),
+    bytes.subarray(6, 8).toString("hex"),
+    bytes.subarray(8, 10).toString("hex"),
+    bytes.subarray(10, 16).toString("hex"),
+  ].join("-");
+}
+
+function accountSeed(
+  providerSpecificData?: Record<string, unknown> | null,
+  accountKey?: string | null
+): string {
+  return (
+    nonEmptyString(accountKey) ||
+    nonEmptyString(providerSpecificData?.connectionId) ||
+    nonEmptyString(providerSpecificData?.workspaceId) ||
+    nonEmptyString(providerSpecificData?.accountId) ||
+    nonEmptyString(providerSpecificData?.email) ||
+    "default"
+  );
+}
+
+function readNamedHeader(
+  headers: Headers | Record<string, unknown> | null | undefined,
+  name: string
+): string {
+  if (!headers) return "";
+  if (headers instanceof Headers) return headers.get(name)?.trim() || "";
+  const wanted = name.toLowerCase();
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() === wanted && typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return "";
+}
+
+export function isCodexOAuthCredentials(
+  credentials?: {
+    accessToken?: unknown;
+    refreshToken?: unknown;
+  } | null
+): boolean {
+  return Boolean(
+    nonEmptyString(credentials?.accessToken) || nonEmptyString(credentials?.refreshToken)
+  );
+}
+
+export function getCodexFingerprintMode(
+  providerSpecificData?: Record<string, unknown> | null,
+  isOAuth = true
+): CodexFingerprintMode {
+  if (!isOAuth) return "off";
+  const raw = (
+    nonEmptyString(providerSpecificData?.[CODEX_FINGERPRINT_MODE_KEY]) ||
+    nonEmptyString(providerSpecificData?.codex_fingerprint_mode) ||
+    ""
+  ).toLowerCase();
+  return (CODEX_FINGERPRINT_MODES as readonly string[]).includes(raw)
+    ? (raw as CodexFingerprintMode)
+    : "session";
+}
+
 export function getCodexInstallationId(
-  providerSpecificData?: Record<string, unknown> | null
+  providerSpecificData?: Record<string, unknown> | null,
+  accountKey?: string | null
 ): string {
   const explicit = normalizeUuid(providerSpecificData?.codexInstallationId);
   if (explicit) return explicit;
 
-  const stableSource =
-    typeof providerSpecificData?.workspaceId === "string" && providerSpecificData.workspaceId.trim()
-      ? providerSpecificData.workspaceId.trim()
-      : typeof providerSpecificData?.accountId === "string" && providerSpecificData.accountId.trim()
-        ? providerSpecificData.accountId.trim()
-        : typeof providerSpecificData?.email === "string" && providerSpecificData.email.trim()
-          ? providerSpecificData.email.trim()
-          : "default";
+  const legacyStableSource =
+    nonEmptyString(providerSpecificData?.workspaceId) ||
+    nonEmptyString(providerSpecificData?.accountId) ||
+    nonEmptyString(providerSpecificData?.email);
+  if (legacyStableSource) {
+    return uuidFromLegacyInstallationValue(`${CODEX_INSTALLATION_SALT}:${legacyStableSource}`);
+  }
 
-  return uuidFromStableValue(`${CODEX_INSTALLATION_SALT}:${stableSource}`);
+  return deriveStableUUIDv4(
+    `${CODEX_INSTALLATION_SALT}:${accountSeed(providerSpecificData, accountKey)}`
+  );
 }
 
+export function getCodexConvergedSessionId(
+  providerSpecificData?: Record<string, unknown> | null,
+  accountKey?: string | null
+): string {
+  return deriveStableUUIDv4(
+    `${CODEX_SESSION_SEED_PREFIX}${accountSeed(providerSpecificData, accountKey)}`
+  );
+}
+
+export function getCodexConvergedThreadId(
+  clientSessionId: string | null,
+  providerSpecificData?: Record<string, unknown> | null,
+  accountKey?: string | null
+): string {
+  if (!nonEmptyString(clientSessionId)) return "";
+  return deriveStableUUIDv4(
+    `${CODEX_THREAD_SEED_PREFIX}${accountSeed(providerSpecificData, accountKey)}:${clientSessionId}`
+  );
+}
+
+export function getCodexClientSessionId(
+  headers: Headers | Record<string, unknown> | null | undefined
+): string | null {
+  return (
+    normalizeCodexSessionId(readNamedHeader(headers, "session-id")) ||
+    normalizeCodexSessionId(readNamedHeader(headers, "session_id")) ||
+    null
+  );
+}
+
+/**
+ * One identity object for every carrier in one upstream turn.
+ * accountKey may be the OmniRoute connection id; it is never sent upstream.
+ */
 export function createCodexClientIdentity(
-  sessionId: string | null,
-  providerSpecificData?: Record<string, unknown> | null
+  clientSessionId: string | null,
+  providerSpecificData?: Record<string, unknown> | null,
+  options: CodexIdentityOptions = {}
 ): CodexClientIdentity | null {
-  const normalizedSessionId = normalizeCodexSessionId(sessionId);
-  if (!normalizedSessionId) return null;
+  const mode =
+    options.mode ?? getCodexFingerprintMode(providerSpecificData, options.isOAuth ?? true);
+  if (mode === "off") return null;
+
+  const installationId = getCodexInstallationId(providerSpecificData, options.accountKey);
+  if (mode === "device") {
+    return {
+      mode,
+      installationId,
+      sessionId: "",
+      threadId: "",
+      turnId: "",
+      windowId: "",
+      turnStartedAtUnixMs: Date.now(),
+    };
+  }
+
+  const sessionId = getCodexConvergedSessionId(providerSpecificData, options.accountKey);
+  const threadId =
+    mode === "full"
+      ? sessionId
+      : getCodexConvergedThreadId(clientSessionId, providerSpecificData, options.accountKey) ||
+        sessionId;
+
   return {
-    sessionId: normalizedSessionId,
+    mode,
+    installationId,
+    sessionId,
+    threadId,
     turnId: randomUUID(),
-    windowId: `${normalizedSessionId}:0`,
-    installationId: getCodexInstallationId(providerSpecificData),
+    windowId: `${threadId}:0`,
+    turnStartedAtUnixMs: Date.now(),
   };
+}
+
+function isCompactRequestEndpoint(path: unknown): boolean {
+  if (typeof path !== "string") return false;
+  const normalized = path.trim().toLowerCase().replace(/\\/g, "/");
+  return normalized === "/compact" || /(?:^|\/)responses\/compact(?:\/|$)/.test(normalized);
+}
+
+/** One identity for headers, body, nested metadata, and WS payload. Compact skips. */
+export function resolveCodexFingerprintIdentity(input: {
+  credentials?: {
+    connectionId?: string;
+    requestEndpointPath?: string;
+    accessToken?: unknown;
+    refreshToken?: unknown;
+    providerSpecificData?: Record<string, unknown> | null;
+  } | null;
+  clientHeaders?: Headers | Record<string, unknown> | null;
+  body?: unknown;
+}): CodexClientIdentity | null {
+  const credentials = input.credentials;
+  if (!credentials || isCompactRequestEndpoint(credentials.requestEndpointPath)) return null;
+
+  const providerSpecificData = credentials.providerSpecificData ?? null;
+  const isOAuth = isCodexOAuthCredentials(credentials);
+  if (getCodexFingerprintMode(providerSpecificData, isOAuth) === "off") return null;
+
+  return createCodexClientIdentity(
+    getCodexClientSessionId(input.clientHeaders),
+    providerSpecificData,
+    {
+      accountKey: credentials.connectionId ?? null,
+      isOAuth,
+    }
+  );
+}
+
+function mergeTurnMetadata(
+  raw: unknown,
+  identity: CodexClientIdentity,
+  includeSessionFields: boolean
+): string {
+  let metadata: Record<string, unknown> = {};
+  let hadExisting = false;
+  if (typeof raw === "string" && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        metadata = parsed as Record<string, unknown>;
+        hadExisting = true;
+      }
+    } catch {
+      // Keep non-JSON metadata only when we do not need a complete carrier.
+    }
+  }
+
+  if (!hadExisting && includeSessionFields) {
+    metadata.thread_source = "user";
+    metadata.sandbox = "none";
+  }
+
+  metadata.installation_id = identity.installationId;
+  if (includeSessionFields) {
+    metadata.session_id = identity.sessionId;
+    metadata.thread_id = identity.threadId || identity.sessionId;
+    metadata.turn_id = identity.turnId;
+    metadata.window_id = identity.windowId;
+    metadata.turn_started_at_unix_ms = identity.turnStartedAtUnixMs;
+  }
+  return JSON.stringify(metadata);
 }
 
 export function applyCodexClientIdentityHeaders(
@@ -58,26 +282,67 @@ export function applyCodexClientIdentityHeaders(
   identity?: CodexClientIdentity | null
 ): void {
   if (!identity) return;
+
+  headers["x-codex-installation-id"] = identity.installationId;
+  if (identity.mode === "device") {
+    if (headers["x-codex-turn-metadata"] !== undefined) {
+      headers["x-codex-turn-metadata"] = mergeTurnMetadata(
+        headers["x-codex-turn-metadata"],
+        identity,
+        false
+      );
+    }
+    return;
+  }
+
+  headers["session-id"] = identity.sessionId;
   headers["session_id"] = identity.sessionId;
-  headers["x-client-request-id"] = identity.sessionId;
+  headers["thread-id"] = identity.threadId || identity.sessionId;
+  headers["x-client-request-id"] = identity.threadId || identity.sessionId;
   headers["x-codex-window-id"] = identity.windowId;
-  headers["x-codex-turn-metadata"] = JSON.stringify({
-    session_id: identity.sessionId,
-    thread_source: "user",
-    turn_id: identity.turnId,
-    sandbox: "none",
-  });
+  headers["x-codex-turn-metadata"] = mergeTurnMetadata(
+    headers["x-codex-turn-metadata"],
+    identity,
+    true
+  );
+}
+
+export function applyCodexClientMetadata(
+  body: Record<string, unknown>,
+  identity?: CodexClientIdentity | null
+): void {
+  if (!identity) return;
+
+  const existing =
+    body.client_metadata &&
+    typeof body.client_metadata === "object" &&
+    !Array.isArray(body.client_metadata)
+      ? { ...(body.client_metadata as Record<string, unknown>) }
+      : {};
+  existing["x-codex-installation-id"] = identity.installationId;
+
+  if (identity.mode !== "device") {
+    existing.session_id = identity.sessionId;
+    existing.thread_id = identity.threadId || identity.sessionId;
+    existing.turn_id = identity.turnId;
+    existing["x-codex-window-id"] = identity.windowId;
+  }
+
+  if (existing["x-codex-turn-metadata"] !== undefined) {
+    existing["x-codex-turn-metadata"] = mergeTurnMetadata(
+      existing["x-codex-turn-metadata"],
+      identity,
+      identity.mode !== "device"
+    );
+  }
+
+  body.client_metadata = existing;
 }
 
 /**
  * #3697: detect the Codex CLI as the request *client* (not the routed provider) from
  * request headers, so the model-echo shim can fire regardless of which upstream provider
  * ultimately serves the request (e.g. `codex/gpt-5.5-xhigh` routed through a combo).
- * Mirrors the `originator`/User-Agent detection proven in `isCodexModelCatalogClient`
- * (PR #3481, `src/app/api/v1/models/catalogRequest.ts`) — Codex CLI sends an `originator`
- * header of `codex_exec`/`codex_cli_rs` and a matching `codex_*` User-Agent — but works off
- * a plain headers bag (`Headers` or a header-name→value record) instead of a `Request`,
- * since chatCore's `clientRawRequest.headers` is not always a `Request`.
  */
 export function isCodexOriginatedHeaders(
   headers: Headers | Record<string, unknown> | null | undefined
@@ -131,21 +396,4 @@ export function isVerifiedNativeCodexRequest(
   headers: Headers | Record<string, unknown> | null | undefined
 ): boolean {
   return isCodexOriginatedHeaders(headers) && hasNativeCodexTurnBinding(body);
-}
-
-export function applyCodexClientMetadata(
-  body: Record<string, unknown>,
-  identity?: CodexClientIdentity | null
-): void {
-  if (!identity) return;
-  const existing =
-    body.client_metadata &&
-    typeof body.client_metadata === "object" &&
-    !Array.isArray(body.client_metadata)
-      ? (body.client_metadata as Record<string, unknown>)
-      : {};
-  body.client_metadata = {
-    ...existing,
-    "x-codex-installation-id": identity.installationId,
-  };
 }

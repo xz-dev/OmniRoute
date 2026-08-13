@@ -21,6 +21,7 @@ import {
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error.ts";
 import { logger } from "@omniroute/open-sse/utils/logger.ts";
 import { resolveProxy } from "@omniroute/open-sse/utils/networkProxy.ts";
+import { resolveCodexFingerprintIdentity } from "@omniroute/open-sse/config/codexIdentity.ts";
 import { proxyConfigToUrl } from "@omniroute/open-sse/utils/proxyDispatcher.ts";
 import {
   attachReasoningRuleDirective,
@@ -434,6 +435,7 @@ async function resolveCodexRequestContext(body: JsonRecord) {
     apiKey,
     responseBody,
     requestedModel,
+    clientHeaders: Object.fromEntries(authRequest.headers.entries()),
     metadata,
     allowedConnections,
     ...reasoningRoute,
@@ -542,17 +544,31 @@ async function prepare(body: JsonRecord) {
     model,
     requestId: randomUUID(),
   });
+  const fingerprintIdentity = resolveCodexFingerprintIdentity({
+    credentials: refreshedCredentials,
+    clientHeaders: context.clientHeaders,
+    body: responseBodyWithMemory,
+  });
+  const credentialsWithFingerprint = fingerprintIdentity
+    ? {
+        ...refreshedCredentials,
+        providerSpecificData: {
+          ...(refreshedCredentials.providerSpecificData || {}),
+          codexClientIdentity: fingerprintIdentity,
+        },
+      }
+    : refreshedCredentials;
   const transformed = (await executor.transformRequest(
     model,
     responseBodyWithMemory,
     true,
-    refreshedCredentials
+    credentialsWithFingerprint
   )) as JsonRecord;
   transformed.model = model;
   delete transformed.stream;
   delete transformed.stream_options;
 
-  const headers = normalizeUpstreamHeaders(executor.buildHeaders(refreshedCredentials, true));
+  const headers = normalizeUpstreamHeaders(executor.buildHeaders(credentialsWithFingerprint, true));
 
   // #5611: apply the configured Global/provider proxy to the upstream Codex
   // Responses WebSocket too. The downstream client→OmniRoute hop works, but the

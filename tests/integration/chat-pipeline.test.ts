@@ -696,7 +696,8 @@ test("chat pipeline applies Codex CLI fingerprint to OAuth responses requests", 
     call.headers["User-Agent"],
     `codex-cli/${getCodexClientVersion()} (Windows 10.0.26200; x64)`
   );
-  assert.equal(call.headers["x-codex-window-id"], "conv_codex_fingerprint:0");
+  assert.notEqual(call.headers["session_id"], "conv_codex_fingerprint");
+  assert.equal(call.headers["x-codex-window-id"], `${call.headers["x-client-request-id"]}:0`);
   assert.ok(call.headers["x-client-request-id"], "expected Codex request id header");
   assert.ok(call.headers["x-codex-turn-metadata"], "expected Codex turn metadata header");
 
