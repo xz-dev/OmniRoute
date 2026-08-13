@@ -2,7 +2,7 @@
 
 /**
  * Docker healthcheck script for OmniRoute.
- * Probes the /api/monitoring/health endpoint on the dashboard port.
+ * Probes the lightweight /api/health/ping endpoint on the dashboard port.
  * Used by Dockerfile and docker-compose files.
  *
  * #3151 — in some Docker network setups the server binds to a container IP and
@@ -21,7 +21,7 @@ import { networkInterfaces } from "node:os";
 
 const DEFAULT_HOSTS = ["127.0.0.1", "localhost", "::1"];
 const DEFAULT_TIMEOUT_MS = 4000;
-const DEFAULT_HEALTH_PATH = "/api/monitoring/health";
+const DEFAULT_HEALTH_PATH = "/api/health/ping";
 
 function normalizeBasePath(value) {
   const trimmed = typeof value === "string" ? value.trim() : "";

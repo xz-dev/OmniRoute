@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import http from "node:http";
 
 // #3151 — Docker healthcheck always reports unhealthy because the probe only
@@ -16,12 +17,12 @@ const { probeHealth } = (await import("../../scripts/dev/healthcheck.mjs")) as {
 };
 
 /** Start an ephemeral HTTP server bound only to the given host. */
-function startServer(host: string): Promise<{ server: http.Server; port: number }> {
+function startServer(host: string, status = 200): Promise<{ server: http.Server; port: number }> {
   return new Promise((resolve, reject) => {
     const server = http.createServer((req, res) => {
-      if (req.url === "/api/monitoring/health") {
-        res.writeHead(200, { "content-type": "application/json" });
-        res.end(JSON.stringify({ status: "ok" }));
+      if (req.url === "/api/health/ping") {
+        res.writeHead(status, { "content-type": "application/json" });
+        res.end(JSON.stringify({ status: status === 200 ? "ok" : "error" }));
       } else {
         res.writeHead(404);
         res.end();
@@ -74,6 +75,31 @@ test("probeHealth falls through to a later host when 127.0.0.1 is unreachable", 
     timeoutMs: 300,
   });
   assert.equal(ok, "127.0.0.1");
+});
+
+test("probeHealth rejects when the packaged endpoint returns HTTP 503", async () => {
+  const { server, port } = await startServer("127.0.0.1", 503);
+  servers.push(server);
+
+  await assert.rejects(() => probeHealth({ port, hosts: ["127.0.0.1"] }), /127\.0\.0\.1: HTTP 503/);
+});
+
+test("image and Compose healthchecks require four failed 30-second probes", () => {
+  const dockerfile = fs.readFileSync(new URL("../../Dockerfile", import.meta.url), "utf8");
+  const compose = fs.readFileSync(new URL("../../docker-compose.yml", import.meta.url), "utf8");
+  const prodCompose = fs.readFileSync(
+    new URL("../../docker-compose.prod.yml", import.meta.url),
+    "utf8"
+  );
+
+  assert.ok(
+    dockerfile.includes("HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=4"),
+    "Dockerfile image healthcheck must wait for four 30-second failures"
+  );
+  const composeContract =
+    /test: \["CMD", "node", "healthcheck\.mjs"\]\s+interval: 30s\s+timeout: 5s\s+retries: 4/;
+  assert.match(compose, composeContract, "Compose app healthcheck contract drifted");
+  assert.match(prodCompose, composeContract, "Production Compose healthcheck contract drifted");
 });
 
 test("probeHealth throws a non-empty error string when every host fails", async () => {

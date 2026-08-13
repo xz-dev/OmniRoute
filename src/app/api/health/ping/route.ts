@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { pingDb } from "@/lib/db/core";
+import { checkResourcePressureGuard } from "@omniroute/open-sse/utils/resourcePressure";
 
 /**
  * GET /api/health/ping — Lightweight liveness probe
  *
- * Delegates to `pingDb()` (Hard Rule #5: no raw SQL in routes) to confirm
- * the server process is alive and the database is responsive. Intended
- * for high-frequency polling (e.g. MaintenanceBanner) where the heavy
+ * Uses the shared resource-pressure guard and delegates to `pingDb()`
+ * (Hard Rule #5: no raw SQL in routes) to confirm the process can serve
+ * traffic and the database is responsive. Intended for high-frequency polling
+ * (e.g. MaintenanceBanner) where the heavy
  * `/api/monitoring/health` observability snapshot is too expensive.
  *
  * Returns `{ status: "ok", timestamp, latencyMs }` on success, or HTTP 503 on failure.
@@ -18,12 +20,12 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const startedAt = Date.now();
   try {
+    if (checkResourcePressureGuard()) {
+      return NextResponse.json({ status: "error", error: "resource_pressure" }, { status: 503 });
+    }
     const alive = pingDb();
     if (!alive) {
-      return NextResponse.json(
-        { status: "error", error: "db_query_failed" },
-        { status: 503 }
-      );
+      return NextResponse.json({ status: "error", error: "db_query_failed" }, { status: 503 });
     }
     return NextResponse.json(
       {
@@ -40,9 +42,6 @@ export async function GET() {
     );
   } catch (error) {
     console.error("[ping] Unexpected error in GET /api/health/ping:", error);
-    return NextResponse.json(
-      { status: "error", error: "ping_failed" },
-      { status: 503 }
-    );
+    return NextResponse.json({ status: "error", error: "ping_failed" }, { status: 503 });
   }
 }
