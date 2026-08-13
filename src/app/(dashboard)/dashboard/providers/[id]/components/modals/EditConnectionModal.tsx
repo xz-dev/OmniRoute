@@ -751,6 +751,7 @@ export default function EditConnectionModal({
             serviceTier={formData.codexServiceTier}
             fingerprintMode={formData.codexFingerprintMode}
             openaiStoreEnabled={formData.codexOpenaiStoreEnabled}
+            showFingerprintMode={isOAuth}
             onChange={(patch) => setFormData({ ...formData, ...patch })}
           />
         )}

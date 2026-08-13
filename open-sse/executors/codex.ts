@@ -27,8 +27,9 @@ import {
 import {
   applyCodexClientIdentityHeaders,
   applyCodexClientMetadata,
-  resolveCodexFingerprintIdentity,
+  applyCodexOriginalIdentityHeaders,
   type CodexClientIdentity,
+  withCodexFingerprintCredentials,
 } from "../config/codexIdentity.ts";
 import { getAccessToken } from "../services/tokenRefresh.ts";
 import { sanitizeResponsesInputItems } from "../services/responsesInputSanitizer.ts";
@@ -765,20 +766,11 @@ export class CodexExecutor extends BaseExecutor {
       input.model
     );
     const requestInput = requestBody === input.body ? input : { ...input, body: requestBody };
-    const identity = resolveCodexFingerprintIdentity({
-      credentials: requestInput.credentials,
-      clientHeaders: requestInput.clientHeaders,
-      body: requestInput.body,
-    });
-    const credentials = identity
-      ? {
-          ...requestInput.credentials,
-          providerSpecificData: {
-            ...(requestInput.credentials?.providerSpecificData || {}),
-            codexClientIdentity: identity,
-          },
-        }
-      : requestInput.credentials;
+    const credentials = withCodexFingerprintCredentials(
+      requestInput.credentials,
+      requestInput.clientHeaders,
+      requestInput.body
+    );
     const nextInput = { ...requestInput, credentials };
 
     if (!isCodexResponsesWebSocketRequired(nextInput.model, nextInput.credentials)) {
@@ -1051,6 +1043,8 @@ export class CodexExecutor extends BaseExecutor {
     }
     const clientIdentity = credentials?.providerSpecificData?.codexClientIdentity as
       CodexClientIdentity | null | undefined;
+    const originalIdentityHeaders = credentials?.providerSpecificData
+      ?.codexOriginalIdentityHeaders as Record<string, string> | null | undefined;
 
     // Originator header — identifies the client type to the Codex backend.
     // Ref: openai/codex login/src/auth/default_client.rs DEFAULT_ORIGINATOR = "codex_cli_rs"
@@ -1063,6 +1057,7 @@ export class CodexExecutor extends BaseExecutor {
     if (cacheSessionId) {
       headers["session_id"] = cacheSessionId;
     }
+    applyCodexOriginalIdentityHeaders(headers, originalIdentityHeaders);
     applyCodexClientIdentityHeaders(headers, clientIdentity);
 
     return headers;

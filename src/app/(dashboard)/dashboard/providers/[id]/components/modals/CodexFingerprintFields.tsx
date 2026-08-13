@@ -18,6 +18,7 @@ export function CodexConnectionFields({
   serviceTier,
   fingerprintMode,
   openaiStoreEnabled,
+  showFingerprintMode,
   onChange,
 }: {
   t: Translator;
@@ -25,6 +26,7 @@ export function CodexConnectionFields({
   serviceTier: CodexServiceTier;
   fingerprintMode: CodexFingerprintModeValue;
   openaiStoreEnabled: boolean;
+  showFingerprintMode: boolean;
   onChange: (patch: {
     codexReasoningEffort?: string;
     codexServiceTier?: CodexServiceTier;
@@ -55,22 +57,24 @@ export function CodexConnectionFields({
           "Default uses the normal Codex tier. Priority shows as Fast; Flex uses the flex service tier when available."
         )}
       />
-      <Select
-        label={providerText(t, "codexFingerprintModeLabel", "Codex fingerprint mode")}
-        value={fingerprintMode}
-        options={CODEX_FINGERPRINT_MODE_VALUES.map((mode) => ({
-          value: mode,
-          label: getCodexFingerprintModeLabel(t, mode),
-        }))}
-        onChange={(event) =>
-          onChange({ codexFingerprintMode: event.target.value as CodexFingerprintModeValue })
-        }
-        hint={providerText(
-          t,
-          "codexFingerprintModeDescription",
-          "Default Session converges one device and session per account. Off passes client IDs through."
-        )}
-      />
+      {showFingerprintMode && (
+        <Select
+          label={providerText(t, "codexFingerprintModeLabel", "Codex fingerprint mode")}
+          value={fingerprintMode}
+          options={CODEX_FINGERPRINT_MODE_VALUES.map((mode) => ({
+            value: mode,
+            label: getCodexFingerprintModeLabel(t, mode),
+          }))}
+          onChange={(event) =>
+            onChange({ codexFingerprintMode: event.target.value as CodexFingerprintModeValue })
+          }
+          hint={providerText(
+            t,
+            "codexFingerprintModeDescription",
+            "Default Session converges one device and session per account. Off passes client IDs through."
+          )}
+        />
+      )}
       <Toggle
         checked={openaiStoreEnabled}
         onChange={(checked) => onChange({ codexOpenaiStoreEnabled: checked })}

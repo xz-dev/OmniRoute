@@ -213,15 +213,50 @@ function isCompactRequestEndpoint(path: unknown): boolean {
   return normalized === "/compact" || /(?:^|\/)responses\/compact(?:\/|$)/.test(normalized);
 }
 
+const CODEX_IDENTITY_HEADER_NAMES = [
+  "session-id",
+  "session_id",
+  "thread-id",
+  "thread_id",
+  "x-client-request-id",
+  "x-codex-installation-id",
+  "x-codex-window-id",
+  "x-codex-turn-metadata",
+] as const;
+
+type CodexCredentialIdentityInput = {
+  connectionId?: string;
+  requestEndpointPath?: string;
+  accessToken?: unknown;
+  refreshToken?: unknown;
+  providerSpecificData?: Record<string, unknown> | null;
+};
+
+export function resolveCodexOriginalIdentityHeaders(input: {
+  credentials?: CodexCredentialIdentityInput | null;
+  clientHeaders?: Headers | Record<string, unknown> | null;
+}): Record<string, string> | null {
+  const credentials = input.credentials;
+  if (!credentials || isCompactRequestEndpoint(credentials.requestEndpointPath)) return null;
+  const providerSpecificData = credentials.providerSpecificData ?? null;
+  if (
+    !isCodexOAuthCredentials(credentials) ||
+    getCodexFingerprintMode(providerSpecificData, true) !== "off"
+  ) {
+    return null;
+  }
+
+  const result: Record<string, string> = {};
+  for (const name of CODEX_IDENTITY_HEADER_NAMES) {
+    const value = readNamedHeader(input.clientHeaders, name);
+    if (value) result[name] = value;
+  }
+  return Object.keys(result).length > 0 ? result : null;
+}
+
 /** One identity for headers, body, nested metadata, and WS payload. Compact skips. */
 export function resolveCodexFingerprintIdentity(input: {
-  credentials?: {
-    connectionId?: string;
-    requestEndpointPath?: string;
-    accessToken?: unknown;
-    refreshToken?: unknown;
-    providerSpecificData?: Record<string, unknown> | null;
-  } | null;
+  credentials?: CodexCredentialIdentityInput | null;
   clientHeaders?: Headers | Record<string, unknown> | null;
   body?: unknown;
 }): CodexClientIdentity | null {
@@ -240,6 +275,24 @@ export function resolveCodexFingerprintIdentity(input: {
       isOAuth,
     }
   );
+}
+
+export function withCodexFingerprintCredentials<T extends CodexCredentialIdentityInput>(
+  credentials: T,
+  clientHeaders?: Headers | Record<string, unknown> | null,
+  body?: unknown
+): T {
+  const identity = resolveCodexFingerprintIdentity({ credentials, clientHeaders, body });
+  const original = resolveCodexOriginalIdentityHeaders({ credentials, clientHeaders });
+  if (!identity && !original) return credentials;
+  return {
+    ...credentials,
+    providerSpecificData: {
+      ...(credentials.providerSpecificData || {}),
+      ...(identity ? { codexClientIdentity: identity } : {}),
+      ...(original ? { codexOriginalIdentityHeaders: original } : {}),
+    },
+  };
 }
 
 function mergeTurnMetadata(
@@ -275,6 +328,17 @@ function mergeTurnMetadata(
     metadata.turn_started_at_unix_ms = identity.turnStartedAtUnixMs;
   }
   return JSON.stringify(metadata);
+}
+
+export function applyCodexOriginalIdentityHeaders(
+  headers: Record<string, string>,
+  original?: Record<string, string> | null
+): void {
+  if (!original) return;
+  for (const name of CODEX_IDENTITY_HEADER_NAMES) {
+    const value = original[name];
+    if (typeof value === "string" && value) headers[name] = value;
+  }
 }
 
 export function applyCodexClientIdentityHeaders(

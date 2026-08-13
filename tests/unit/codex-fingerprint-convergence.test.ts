@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   applyCodexClientIdentityHeaders,
   applyCodexClientMetadata,
+  applyCodexOriginalIdentityHeaders,
   createCodexClientIdentity,
   getCodexClientSessionId,
   getCodexConvergedSessionId,
@@ -11,6 +12,7 @@ import {
   getCodexFingerprintMode,
   getCodexInstallationId,
   resolveCodexFingerprintIdentity,
+  resolveCodexOriginalIdentityHeaders,
 } from "../../open-sse/config/codexIdentity.ts";
 
 const oauthCredentials = {
@@ -28,6 +30,42 @@ test("Codex fingerprint mode defaults to session and only explicit off disables 
       credentials: { ...oauthCredentials, providerSpecificData: { codexFingerprintMode: "off" } },
       clientHeaders: { "session-id": "client-session" },
       body: {},
+    }),
+    null
+  );
+});
+
+test("Codex off mode preserves original OAuth identity headers", () => {
+  const original = resolveCodexOriginalIdentityHeaders({
+    credentials: {
+      ...oauthCredentials,
+      providerSpecificData: { codexFingerprintMode: "off" },
+    },
+    clientHeaders: {
+      "session-id": "client-session",
+      "thread-id": "client-thread",
+      "x-client-request-id": "client-request",
+      "x-codex-window-id": "client-thread:0",
+      "x-codex-turn-metadata": '{"turn_id":"client-turn"}',
+    },
+  });
+  assert.ok(original);
+
+  const headers: Record<string, string> = { session_id: "generated-session" };
+  applyCodexOriginalIdentityHeaders(headers, original);
+  assert.equal(headers["session-id"], "client-session");
+  assert.equal(headers["thread-id"], "client-thread");
+  assert.equal(headers["x-client-request-id"], "client-request");
+  assert.equal(headers["x-codex-window-id"], "client-thread:0");
+  assert.equal(headers["x-codex-turn-metadata"], '{"turn_id":"client-turn"}');
+  assert.equal(
+    resolveCodexOriginalIdentityHeaders({
+      credentials: {
+        ...oauthCredentials,
+        requestEndpointPath: "/responses/compact",
+        providerSpecificData: { codexFingerprintMode: "off" },
+      },
+      clientHeaders: { "session-id": "compact-session" },
     }),
     null
   );
@@ -129,6 +167,142 @@ test("Codex compact requests do not resolve a fingerprint identity", () => {
     }),
     null
   );
+});
+
+test("Codex HTTP off mode preserves original identity headers and body metadata", async () => {
+  const { CodexExecutor } = await import("../../open-sse/executors/codex.ts");
+  const executor = new CodexExecutor();
+  const originalFetch = globalThis.fetch;
+  let upstreamHeaders = new Headers();
+  let upstreamBody: Record<string, unknown> = {};
+  globalThis.fetch = async (_url, init) => {
+    upstreamHeaders = new Headers(init?.headers);
+    upstreamBody = JSON.parse(String(init?.body || "{}"));
+    return new Response(JSON.stringify({ id: "resp-off", object: "response" }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    await executor.execute({
+      model: "gpt-5.5",
+      body: {
+        model: "gpt-5.5",
+        input: [{ role: "user", content: "hello" }],
+        client_metadata: {
+          session_id: "client-session",
+          thread_id: "client-thread",
+          turn_id: "client-turn",
+          "x-codex-window-id": "client-thread:0",
+          "x-codex-turn-metadata": '{"turn_id":"client-turn"}',
+        },
+        _nativeCodexPassthrough: true,
+      },
+      stream: true,
+      clientHeaders: {
+        "session-id": "client-session",
+        "thread-id": "client-thread",
+        "x-client-request-id": "client-request",
+        "x-codex-window-id": "client-thread:0",
+        "x-codex-turn-metadata": '{"turn_id":"client-turn"}',
+      },
+      credentials: {
+        accessToken: "codex-token",
+        connectionId: "conn-http-off",
+        providerSpecificData: { workspaceId: "http-off", codexFingerprintMode: "off" },
+      },
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  const metadata = upstreamBody.client_metadata as Record<string, unknown>;
+  assert.equal(upstreamHeaders.get("session-id"), "client-session");
+  assert.equal(upstreamHeaders.get("thread-id"), "client-thread");
+  assert.equal(upstreamHeaders.get("x-client-request-id"), "client-request");
+  assert.equal(upstreamHeaders.get("x-codex-window-id"), "client-thread:0");
+  assert.equal(upstreamHeaders.get("x-codex-turn-metadata"), '{"turn_id":"client-turn"}');
+  assert.equal(metadata.session_id, "client-session");
+  assert.equal(metadata.thread_id, "client-thread");
+  assert.equal(metadata.turn_id, "client-turn");
+  assert.equal(metadata["x-codex-window-id"], "client-thread:0");
+  assert.equal(metadata["x-codex-turn-metadata"], '{"turn_id":"client-turn"}');
+});
+
+test("Codex websocket off mode preserves original identity headers and body metadata", async () => {
+  const { CodexExecutor, __setCodexWebSocketTransportForTesting } =
+    await import("../../open-sse/executors/codex.ts");
+  const executor = new CodexExecutor();
+  let sent: string | null = null;
+  let wsHeaders: Record<string, string> = {};
+  __setCodexWebSocketTransportForTesting(async (_url, opts) => {
+    wsHeaders = (opts?.headers as Record<string, string>) || {};
+    return {
+      send(data: string) {
+        sent = data;
+        queueMicrotask(() => {
+          this.onmessage?.({
+            data: JSON.stringify({
+              type: "response.completed",
+              response: { status: "completed" },
+            }),
+          });
+        });
+      },
+      close() {},
+      onmessage: null,
+      onerror: null,
+      onclose: null,
+    };
+  });
+
+  try {
+    const result = await executor.execute({
+      model: "gpt-5.5",
+      body: {
+        model: "gpt-5.5",
+        input: [{ role: "user", content: "hello" }],
+        client_metadata: {
+          session_id: "client-session",
+          thread_id: "client-thread",
+          turn_id: "client-turn",
+        },
+      },
+      stream: true,
+      clientHeaders: {
+        "session-id": "client-session",
+        "thread-id": "client-thread",
+        "x-client-request-id": "client-request",
+        "x-codex-window-id": "client-thread:0",
+        "x-codex-turn-metadata": '{"turn_id":"client-turn"}',
+      },
+      credentials: {
+        accessToken: "codex-token",
+        connectionId: "conn-ws-off",
+        providerSpecificData: {
+          workspaceId: "ws-off",
+          codexTransport: "websocket",
+          codexFingerprintMode: "off",
+        },
+      },
+    });
+    await result.response.text();
+  } finally {
+    __setCodexWebSocketTransportForTesting(undefined);
+  }
+
+  assert.ok(sent);
+  const payload = JSON.parse(sent as string) as Record<string, unknown>;
+  const metadata = payload.client_metadata as Record<string, unknown>;
+  assert.equal(wsHeaders["session-id"], "client-session");
+  assert.equal(wsHeaders["thread-id"], "client-thread");
+  assert.equal(wsHeaders["x-client-request-id"], "client-request");
+  assert.equal(wsHeaders["x-codex-window-id"], "client-thread:0");
+  assert.equal(wsHeaders["x-codex-turn-metadata"], '{"turn_id":"client-turn"}');
+  assert.equal(metadata.session_id, "client-session");
+  assert.equal(metadata.thread_id, "client-thread");
+  assert.equal(metadata.turn_id, "client-turn");
 });
 
 test("Codex websocket headers and payload share one fingerprint identity", async () => {
