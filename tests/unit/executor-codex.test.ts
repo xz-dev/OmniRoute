@@ -1016,16 +1016,22 @@ test("CodexExecutor.execute adds CLI-like session identity headers without chang
     });
 
     const meta = (capturedBody?.client_metadata as Record<string, unknown>) || {};
+    const turnMetadata = JSON.parse(capturedHeaders?.get("x-codex-turn-metadata") || "{}");
     assert.equal(result.response.status, 200);
     assert.notEqual(capturedHeaders?.get("session_id"), "conversation-1");
+    assert.equal(capturedHeaders?.get("session-id"), capturedHeaders?.get("session_id"));
+    assert.equal(capturedHeaders?.get("thread-id"), capturedHeaders?.get("x-client-request-id"));
     assert.equal(
       capturedHeaders?.get("x-codex-window-id"),
       `${capturedHeaders?.get("x-client-request-id")}:0`
     );
-    assert.equal(
-      JSON.parse(capturedHeaders?.get("x-codex-turn-metadata") || "{}").session_id,
-      capturedHeaders?.get("session_id")
-    );
+    assert.equal(turnMetadata.session_id, capturedHeaders?.get("session_id"));
+    assert.equal(turnMetadata.thread_id, capturedHeaders?.get("thread-id"));
+    assert.equal(turnMetadata.turn_id, meta.turn_id);
+    assert.equal(turnMetadata.window_id, capturedHeaders?.get("x-codex-window-id"));
+    assert.equal(turnMetadata.thread_source, "user");
+    assert.equal(turnMetadata.sandbox, "none");
+    assert.equal(typeof turnMetadata.turn_id, "string");
     assert.equal(capturedBody?.prompt_cache_key, "conversation-1");
     assert.equal(meta["x-codex-installation-id"], "7f06a8ee-2981-4c81-a4ca-e443b5400a63");
   } finally {
@@ -1059,7 +1065,10 @@ test("CodexExecutor.execute skips identity headers for unsafe session ids", asyn
     });
 
     assert.notEqual(capturedHeaders?.get("session_id"), "bad\r\nheader");
+    assert.ok(capturedHeaders?.get("session_id"));
+    assert.ok(capturedHeaders?.get("x-client-request-id"));
     assert.ok(capturedHeaders?.get("x-codex-window-id"));
+    assert.ok(capturedHeaders?.get("x-codex-turn-metadata"));
   } finally {
     globalThis.fetch = originalFetch;
   }
