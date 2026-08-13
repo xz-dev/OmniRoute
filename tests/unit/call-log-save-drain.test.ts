@@ -32,7 +32,11 @@ test("call-log drain waits for artifact metadata and summary commit", async () =
     responseBody: { committed: true },
   });
 
-  assert.equal(await callLogs.waitForCallLogSaves(2_000), true);
+  // The first cold spawn of the worker_threads artifact worker (loaded via tsx)
+  // can take ~2.4s on its own before queued artifact writes even start draining,
+  // so a 2s wait is flaky on cold runs. 10s is generous headroom while still
+  // failing fast on a genuinely stuck drain.
+  assert.equal(await callLogs.waitForCallLogSaves(10_000), true);
 
   const row = core
     .getDbInstance()
