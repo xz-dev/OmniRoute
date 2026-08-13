@@ -58,6 +58,10 @@ jobs:
           target: runner-base
           platforms: linux/amd64
           push: true
+          # Hosted runners cannot fit this repository's native Turbopack peak.
+          # Use the Dockerfile's documented memory-constrained build fallback.
+          build-args: |
+            OMNIROUTE_USE_TURBOPACK=0
           tags: |
             ${{ env.IMAGE_NAME }}:${{ inputs.image_tag }}
             ${{ env.IMAGE_NAME }}:release-v${{ inputs.image_tag }}
