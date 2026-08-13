@@ -5478,7 +5478,6 @@ export function createOmniRouteConfigHook(
           rawConnections: localRawConnections,
           expiresAt: now() + resolved.modelCacheTtl,
         });
-        });
 
         // Startup diagnostics (file-based) — fires at startup via config hook
         if (resolved.features?.startupDebug === true) {
