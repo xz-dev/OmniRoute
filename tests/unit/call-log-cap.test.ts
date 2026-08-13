@@ -206,6 +206,7 @@ test("getCallLogs resolves raw account labels from provider connections", async 
 });
 
 test("rotateCallLogs removes expired rows and orphaned artifacts but keeps fresh referenced artifacts", async () => {
+  await new Promise<void>((resolve) => setImmediate(resolve));
   process.env.CALL_LOG_RETENTION_DAYS = "1";
   const oldRelPath = "2026-03-10/2026-03-10T00-00-00.000Z_old.json";
   const oldAbsPath = path.join(TEST_DATA_DIR, "call_logs", oldRelPath);
