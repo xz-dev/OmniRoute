@@ -58,6 +58,18 @@ test("delegates byte-identically for a normal model (no apiFormat / no custom ov
   assert.deepEqual(r, expected("openai", "gpt-4o", undefined, undefined, undefined));
 });
 
+test("provider-local target format does not leak from another provider", () => {
+  const r = resolveChatCoreTargetFormat({
+    provider: "openai-compatible-chat-example",
+    resolvedModel: "gpt-5.6-sol",
+    apiFormat: undefined,
+    sourceFormat: FORMATS.OPENAI_RESPONSES,
+    customModelTargetFormat: undefined,
+    providerSpecificData: undefined,
+  });
+  assert.equal(r.targetFormat, FORMATS.OPENAI);
+});
+
 test("customModelTargetFormat is used when the model has no registry target format", () => {
   const customModel = "totally-unknown-custom-model-xyz";
   // precondition: the registry has no target format for this unknown model
