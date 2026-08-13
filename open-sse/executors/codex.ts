@@ -225,7 +225,6 @@ function convertSystemToDeveloperRole(body: Record<string, unknown>): void {
   }
 }
 
-
 function stripOrphanedCodexFunctionCallOutputs(body: Record<string, unknown>): void {
   if (!Array.isArray(body.input)) return;
   const input = body.input;

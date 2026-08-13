@@ -708,9 +708,7 @@ export default function EditConnectionModal({
   const openaiResponsesStoreToggle = isResponsesConnection ? (
     <Toggle
       checked={formData.openaiResponsesStoreEnabled}
-      onChange={(checked) =>
-        setFormData({ ...formData, openaiResponsesStoreEnabled: checked })
-      }
+      onChange={(checked) => setFormData({ ...formData, openaiResponsesStoreEnabled: checked })}
       label={t("openaiResponsesStoreLabel")}
       description={t("openaiResponsesStoreDescription")}
     />

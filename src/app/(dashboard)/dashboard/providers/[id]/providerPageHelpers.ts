@@ -167,7 +167,9 @@ export function evaluateTestAllEntry(
   autoHideFailed: boolean
 ): TestAllModelOutcome {
   const ok = entry?.status === "ok";
-  const transient = [entry?.rateLimited, entry?.isTimeout, entry?.isTransient, entry?.isQuota].some(Boolean);
+  const transient = [entry?.rateLimited, entry?.isTimeout, entry?.isTransient, entry?.isQuota].some(
+    Boolean
+  );
   return {
     status: ok ? "ok" : "error",
     // #9511: quota errors (isQuota) are surfaced on the icon but kept visible
