@@ -64,6 +64,7 @@ jobs:
           build-args: |
             OMNIROUTE_USE_TURBOPACK=0
             OMNIROUTE_BUILD_MEMORY_MB=6144
+            OMNIROUTE_BUILD_SHA=${{ github.sha }}
           tags: |
             ${{ env.IMAGE_NAME }}:${{ inputs.image_tag }}
             ${{ env.IMAGE_NAME }}:release-v${{ inputs.image_tag }}
