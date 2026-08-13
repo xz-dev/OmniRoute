@@ -34,8 +34,13 @@ import { fileURLToPath } from "node:url";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const workflowDir = path.join(repoRoot, ".github/workflows");
 
-/** The only owner whose namespaces this repository may publish to or gate on. */
+/** The canonical owner plus the exact downstream-owned publisher carried by xz-dev builds. */
 const OWNER = "diegosouzapw";
+const DOWNSTREAM_OWNER_BY_WORKFLOW = new Map([["build-fork.yml", "xz-dev"]]);
+
+function allowedOwner(file: string): string {
+  return DOWNSTREAM_OWNER_BY_WORKFLOW.get(path.basename(file)) ?? OWNER;
+}
 
 function workflowFiles(): string[] {
   return fs
@@ -53,7 +58,7 @@ test("no workflow publishes to another owner's container registry", () => {
     // right after the registry host.
     for (const m of text.matchAll(/\b(?:ghcr\.io|(?:index\.)?docker\.io)\/([A-Za-z0-9_.-]+)/g)) {
       const owner = m[1];
-      if (owner.toLowerCase() !== OWNER) {
+      if (owner.toLowerCase() !== allowedOwner(file)) {
         offenders.push(`${path.basename(file)} → ${m[0]}`);
       }
     }
@@ -77,7 +82,7 @@ test("no workflow job is gated on a different repository", () => {
     // the workflow was written for a fork.
     for (const m of text.matchAll(/github\.repository\s*[=!]=\s*['"]([^'"]+)['"]/g)) {
       const [owner] = m[1].split("/");
-      if (owner.toLowerCase() !== OWNER) {
+      if (owner.toLowerCase() !== allowedOwner(file)) {
         offenders.push(`${path.basename(file)} → ${m[0]}`);
       }
     }

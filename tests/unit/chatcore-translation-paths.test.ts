@@ -36,7 +36,8 @@ const {
   setBackgroundDegradationConfig,
   resetStats: resetBackgroundStats,
 } = await import("../../open-sse/services/backgroundTaskDetector.ts");
-const { getCallLogs, getCallLogById } = await import("../../src/lib/usage/callLogs.ts");
+const { getCallLogs, getCallLogById, waitForCallLogSaves } =
+  await import("../../src/lib/usage/callLogs.ts");
 const {
   handleChatCore,
   shouldUseNativeCodexPassthrough,
@@ -286,6 +287,7 @@ async function flushAsyncSideEffects() {
 }
 
 async function getLatestCallLog() {
+  await waitForCallLogSaves(10_000);
   const rows = await getCallLogs({ limit: 5 });
   if (!Array.isArray(rows) || rows.length === 0) return null;
   return getCallLogById(rows[0].id);

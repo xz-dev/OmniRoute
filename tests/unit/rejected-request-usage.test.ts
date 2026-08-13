@@ -60,7 +60,9 @@ test("gate-rejected request is attributed to the api key in usage_history", asyn
   assert.equal(keyRows.length, 1, "expected one usage_history row for the rejected request");
   assert.equal(keyRows[0].success, false, "rejected request must be recorded as success:false");
 
-  // call_logs visibility is preserved (dashboard/logs).
+  // call_logs visibility is preserved (dashboard/logs). Artifact writes are
+  // intentionally asynchronous, so wait for the public drain boundary first.
+  assert.equal(await callLogs.waitForCallLogSaves(10_000), true);
   const logs = await callLogs.getCallLogs({});
   const rejected = (logs.logs ?? logs).filter?.(
     (l: { apiKeyName?: string | null }) => l.apiKeyName === "opencode-mac"
@@ -111,6 +113,7 @@ test("combo-exhausted rejection persists the client request body for dashboard i
     requestBody: { model: "default", messages: [{ role: "user", content: "hello" }] },
   });
 
+  assert.equal(await callLogs.waitForCallLogSaves(10_000), true);
   const logs = await callLogs.getCallLogs({});
   const rejected = (logs.logs ?? logs).find?.(
     (l: { apiKeyName?: string | null }) => l.apiKeyName === "request-body-test"
@@ -140,6 +143,7 @@ test("combo-exhausted rejection without a request body still logs cleanly (no re
     startTime: Date.now() - 100,
   });
 
+  assert.equal(await callLogs.waitForCallLogSaves(10_000), true);
   const logs = await callLogs.getCallLogs({});
   const rejected = (logs.logs ?? logs).find?.(
     (l: { apiKeyName?: string | null }) => l.apiKeyName === "no-body-test"
