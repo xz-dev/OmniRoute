@@ -14,6 +14,9 @@ const core = await import("../../src/lib/db/core.ts");
 core.resetDbInstance();
 
 const routeModule = await import("../../src/app/api/health/ping/route.ts");
+const { reloadResourcePressureRuntime } = await import("../../open-sse/utils/resourcePressure.ts");
+
+test.afterEach(() => reloadResourcePressureRuntime());
 
 test.after(() => {
   core.resetDbInstance();
@@ -30,6 +33,17 @@ test("GET /api/health/ping returns 200 with status ok and ISO timestamp", async 
   assert.ok(!Number.isNaN(Date.parse(body.timestamp)), "timestamp must be ISO parseable");
   assert.ok(typeof body.latencyMs === "number", "latencyMs must be a number");
   assert.ok(body.latencyMs >= 0, "latencyMs must be non-negative");
+});
+
+test("GET /api/health/ping returns 503 during local resource pressure", async () => {
+  reloadResourcePressureRuntime({
+    heapThresholdMb: 1,
+    immediateHeapUsedMb: () => 2,
+  });
+
+  const res = await routeModule.GET();
+  assert.equal(res.status, 503);
+  assert.deepEqual(await res.json(), { status: "error", error: "resource_pressure" });
 });
 
 test("GET /api/health/ping sets no-store cache headers", async () => {
