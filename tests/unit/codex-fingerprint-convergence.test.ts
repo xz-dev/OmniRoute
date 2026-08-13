@@ -13,6 +13,7 @@ import {
   getCodexInstallationId,
   resolveCodexFingerprintIdentity,
   resolveCodexOriginalIdentityHeaders,
+  withCodexFingerprintCredentials,
 } from "../../open-sse/config/codexIdentity.ts";
 
 const oauthCredentials = {
@@ -36,23 +37,33 @@ test("Codex fingerprint mode defaults to session and only explicit off disables 
 });
 
 test("Codex off mode preserves original OAuth identity headers", () => {
+  const clientHeaders = {
+    "session-id": "client-session",
+    "thread-id": "client-thread",
+    "x-client-request-id": "client-request",
+    "x-codex-window-id": "client-thread:0",
+    "x-codex-turn-metadata": '{"turn_id":"client-turn"}',
+  };
+  const credentials = {
+    ...oauthCredentials,
+    providerSpecificData: { codexFingerprintMode: "off" },
+  };
   const original = resolveCodexOriginalIdentityHeaders({
-    credentials: {
-      ...oauthCredentials,
-      providerSpecificData: { codexFingerprintMode: "off" },
-    },
-    clientHeaders: {
-      "session-id": "client-session",
-      "thread-id": "client-thread",
-      "x-client-request-id": "client-request",
-      "x-codex-window-id": "client-thread:0",
-      "x-codex-turn-metadata": '{"turn_id":"client-turn"}',
-    },
+    credentials,
+    clientHeaders,
   });
-  assert.ok(original);
+  const wrapped = withCodexFingerprintCredentials(credentials, clientHeaders, {});
+  assert.deepEqual(wrapped.providerSpecificData.codexOriginalIdentityHeaders, original);
+  assert.equal(wrapped.providerSpecificData.codexClientIdentity, undefined);
+
+  const resolvedAgain = resolveCodexOriginalIdentityHeaders({
+    credentials,
+    clientHeaders,
+  });
+  assert.ok(resolvedAgain);
 
   const headers: Record<string, string> = { session_id: "generated-session" };
-  applyCodexOriginalIdentityHeaders(headers, original);
+  applyCodexOriginalIdentityHeaders(headers, resolvedAgain);
   assert.equal(headers["session-id"], "client-session");
   assert.equal(headers["thread-id"], "client-thread");
   assert.equal(headers["x-client-request-id"], "client-request");

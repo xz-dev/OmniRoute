@@ -595,6 +595,7 @@ export default function EditConnectionModal({
         updates.providerSpecificData = {
           ...(connection.providerSpecificData || {}),
           ...(validationPsd || {}),
+          ...(isCodex ? { codexFingerprintMode: null, codex_fingerprint_mode: null } : {}),
         };
         assignEditApiKeyProviderSpecificData({
           provider,

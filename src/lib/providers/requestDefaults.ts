@@ -200,6 +200,11 @@ export function normalizeProviderSpecificData(
     delete normalized.preserveEncryptedReasoning;
   }
 
+  if (provider === "codex") {
+    if (normalized.codexFingerprintMode === null) delete normalized.codexFingerprintMode;
+    if (normalized.codex_fingerprint_mode === null) delete normalized.codex_fingerprint_mode;
+  }
+
   if ("blockExtraUsage" in normalized && typeof normalized.blockExtraUsage !== "boolean") {
     delete normalized.blockExtraUsage;
   }

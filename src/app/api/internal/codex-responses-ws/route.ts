@@ -21,7 +21,7 @@ import {
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error.ts";
 import { logger } from "@omniroute/open-sse/utils/logger.ts";
 import { resolveProxy } from "@omniroute/open-sse/utils/networkProxy.ts";
-import { resolveCodexFingerprintIdentity } from "@omniroute/open-sse/config/codexIdentity.ts";
+import { withCodexFingerprintCredentials } from "@omniroute/open-sse/config/codexIdentity.ts";
 import { proxyConfigToUrl } from "@omniroute/open-sse/utils/proxyDispatcher.ts";
 import {
   attachReasoningRuleDirective,
@@ -544,20 +544,11 @@ async function prepare(body: JsonRecord) {
     model,
     requestId: randomUUID(),
   });
-  const fingerprintIdentity = resolveCodexFingerprintIdentity({
-    credentials: refreshedCredentials,
-    clientHeaders: context.clientHeaders,
-    body: responseBodyWithMemory,
-  });
-  const credentialsWithFingerprint = fingerprintIdentity
-    ? {
-        ...refreshedCredentials,
-        providerSpecificData: {
-          ...(refreshedCredentials.providerSpecificData || {}),
-          codexClientIdentity: fingerprintIdentity,
-        },
-      }
-    : refreshedCredentials;
+  const credentialsWithFingerprint = withCodexFingerprintCredentials(
+    refreshedCredentials,
+    context.clientHeaders,
+    responseBodyWithMemory
+  );
   const transformed = (await executor.transformRequest(
     model,
     responseBodyWithMemory,
