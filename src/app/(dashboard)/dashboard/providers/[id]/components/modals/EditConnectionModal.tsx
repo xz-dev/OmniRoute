@@ -37,14 +37,16 @@ import {
   getWebSessionCredentialCheckLabel,
   getLocalProviderMetadata,
   normalizeAndValidateHttpBaseUrl,
-  getCodexFingerprintMode,
   getCodexRequestDefaults,
-  type CodexFingerprintModeValue,
   getClaudeCodeCompatibleRequestDefaults,
   providerText,
   ERROR_TYPE_LABELS,
   formatTimeAgo,
 } from "../../providerPageHelpers";
+import {
+  getCodexFingerprintMode,
+  type CodexFingerprintModeValue,
+} from "../../providerCodexFingerprint";
 import { getWebSessionCredentialRequirement } from "../../webSessionCredentials";
 import { useOpenRouterPresetControl } from "../OpenRouterPresetInput";
 import WebSessionCredentialGuide from "../WebSessionCredentialGuide";

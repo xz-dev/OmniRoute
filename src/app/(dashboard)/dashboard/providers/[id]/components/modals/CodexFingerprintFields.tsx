@@ -1,13 +1,15 @@
 import { Select, Toggle } from "@/shared/components";
 import { type CodexServiceTier } from "@/lib/providers/requestDefaults";
 import {
-  CODEX_ACCOUNT_SERVICE_TIER_VALUES,
   CODEX_FINGERPRINT_MODE_VALUES,
-  CODEX_REASONING_STRENGTH_OPTIONS,
   getCodexFingerprintModeLabel,
+  type CodexFingerprintModeValue,
+} from "../../providerCodexFingerprint";
+import {
+  CODEX_ACCOUNT_SERVICE_TIER_VALUES,
+  CODEX_REASONING_STRENGTH_OPTIONS,
   getCodexServiceTierLabel,
   providerText,
-  type CodexFingerprintModeValue,
 } from "../../providerPageHelpers";
 
 type Translator = Parameters<typeof getCodexFingerprintModeLabel>[0];

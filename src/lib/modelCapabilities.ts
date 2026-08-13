@@ -752,10 +752,9 @@ export function getResolvedModelCapabilities(
     resolved.model,
     resolved.rawModel
   );
-  // A persisted context-window override (operator-set or auto-discovered)
-  // reflects the real *total* window and wins over every static/synced source.
-  // `maxInputTokens` still follows its own precedence chain; only when that
-  // chain has no narrower source does it naturally fall back to this window.
+  // A persisted context-window override reflects the real total window and wins over
+  // static/synced sources. `maxInputTokens` still follows its own precedence chain;
+  // only without a narrower source does it naturally fall back to this window.
   const persistedContextOverride = usePersistedOverrides
     ? getContextOverrideRecord(resolved, resolutionSnapshot)
     : null;
