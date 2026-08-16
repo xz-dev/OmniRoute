@@ -28,13 +28,15 @@ export type NestedOverrideMap<T = number> = ReadonlyMap<string, ReadonlyMap<stri
 
 export interface ModelCapabilityResolutionSnapshot {
   readonly synced: CapabilitiesByProvider;
-  /** Retained name for #9199 compatibility; contains modern max_output_tokens rows. */
-  readonly maxTokenOverrides: NestedOverrideMap;
-  readonly maxInputTokenOverrides: NestedOverrideMap;
-  readonly inputTokenOverrides: NestedOverrideMap;
+  readonly maxTokenOverrides?: NestedOverrideMap;
+  /** Historical output-override field retained for snapshot compatibility. */
+  readonly maxOutputTokenOverrides?: NestedOverrideMap;
+  readonly maxInputTokenOverrides?: NestedOverrideMap;
   readonly contextOverrides: NestedOverrideMap;
-  readonly contextOverrideRecords: NestedOverrideMap<ModelContextOverride>;
-  readonly customVisionOverrides: CustomModelVisionOverrideMap;
+  /** Added after the initial snapshot shape; legacy snapshots may omit it. */
+  readonly contextOverrideRecords?: NestedOverrideMap<ModelContextOverride>;
+  /** Added after the initial snapshot shape; legacy snapshots may omit it. */
+  readonly customVisionOverrides?: CustomModelVisionOverrideMap;
 }
 
 export interface ModelCapabilityResolutionSnapshotOptions {
