@@ -2,7 +2,10 @@ import type { ModelContextOverrideSource } from "@/lib/db/modelContextOverrides"
 import type { ModelCapabilityResolutionSnapshot } from "@/lib/modelCapabilityResolutionSnapshot";
 
 export function isResolutionSnapshot(
-  value: { persistedOverrides?: boolean } | ModelCapabilityResolutionSnapshot | undefined
+  value:
+    | { persistedOverrides?: boolean; snapshot?: ModelCapabilityResolutionSnapshot | null }
+    | ModelCapabilityResolutionSnapshot
+    | undefined
 ): value is ModelCapabilityResolutionSnapshot {
   return !!value && "synced" in value && "contextOverrides" in value;
 }

@@ -134,7 +134,11 @@ function seedFixture() {
   assert.equal(aliasCanonical.model, "claude-opus-4-5-20251101");
   assert.notEqual(aliasCanonical.model, "claude-4.5-opus");
   assert.equal(
-    capabilityOverrides.setModelCapabilityOverride("github/claude-4.5-opus", "max_output_tokens", 77777),
+    capabilityOverrides.setModelCapabilityOverride(
+      "github/claude-4.5-opus",
+      "max_output_tokens",
+      77777
+    ),
     true
   );
   assert.equal(
@@ -527,4 +531,129 @@ test("#9199 snapshot-backed resolution matches ordinary resolvers across resolut
     false,
     "malformed max_token rows must be filtered from the bulk map"
   );
+});
+
+test("#9199 legacy snapshots without contextOverrideRecords remain resolvable", () => {
+  seedFixture();
+  const snapshot = modelCapabilities.createModelCapabilityResolutionSnapshot();
+  const { contextOverrideRecords: _contextOverrideRecords, ...legacySnapshot } = snapshot;
+
+  const resolved = modelCapabilities.getResolvedModelCapabilities(
+    { provider: "parity-provider", model: "parity-model" },
+    legacySnapshot as modelCapabilities.ModelCapabilityResolutionSnapshot
+  );
+
+  assert.equal(resolved.contextWindow, 555555);
+  assert.equal(resolved.contextWindowSource, "manual");
+});
+
+test("#9199 wrapped snapshot options resolve from the supplied snapshot", () => {
+  seedFixture();
+  const snapshot = modelCapabilities.createModelCapabilityResolutionSnapshot();
+  const { contextOverrideRecords: _contextOverrideRecords, ...snapshotWithoutRecords } = snapshot;
+  const wrappedSnapshot = {
+    ...snapshotWithoutRecords,
+    synced: {
+      "parity-provider": {
+        "parity-model": {
+          ...snapshot.synced["parity-provider"]?.["parity-model"],
+          limit_context: 777777,
+          limit_output: 3333,
+        },
+      },
+    },
+    maxTokenOverrides: new Map([["parity-provider", new Map([["parity-model", 7777]])]]),
+    contextOverrides: new Map([["parity-provider", new Map([["parity-model", 777777]])]]),
+  } as modelCapabilities.ModelCapabilityResolutionSnapshot;
+
+  const resolved = modelCapabilities.getResolvedModelCapabilities(
+    { provider: "parity-provider", model: "parity-model" },
+    { snapshot: wrappedSnapshot }
+  );
+
+  assert.equal(resolved.contextWindow, 777777);
+  assert.equal(resolved.maxOutputTokens, 7777);
+});
+
+test("#9199 legacy maxOutputTokenOverrides feed resolved and explicit output caps", () => {
+  seedFixture();
+  const snapshot = modelCapabilities.createModelCapabilityResolutionSnapshot();
+  const legacySnapshot = {
+    synced: snapshot.synced,
+    maxInputTokenOverrides: snapshot.maxInputTokenOverrides,
+    maxOutputTokenOverrides: new Map([["parity-provider", new Map([["parity-model", 777]])]]),
+    contextOverrides: snapshot.contextOverrides,
+  } as unknown as modelCapabilities.ModelCapabilityResolutionSnapshot;
+  const input = { provider: "parity-provider", model: "parity-model" };
+
+  const resolved = modelCapabilities.getResolvedModelCapabilities(input, legacySnapshot);
+  const wrappedResolved = modelCapabilities.getResolvedModelCapabilities(input, {
+    snapshot: legacySnapshot,
+  });
+
+  assert.equal(resolved.maxOutputTokens, 777);
+  assert.equal(wrappedResolved.maxOutputTokens, 777);
+  assert.equal(modelCapabilities.getExplicitModelOutputCap(input, legacySnapshot), 777);
+
+  const bothMapsSnapshot = {
+    ...legacySnapshot,
+    maxTokenOverrides: new Map([["parity-provider", new Map([["parity-model", 888]])]]),
+  } as modelCapabilities.ModelCapabilityResolutionSnapshot;
+  assert.equal(
+    modelCapabilities.getResolvedModelCapabilities(input, bothMapsSnapshot).maxOutputTokens,
+    888,
+    "current maxTokenOverrides must take precedence when both output maps exist"
+  );
+
+  const aliasInput = { provider: "github", model: "claude-4.5-opus" };
+  const aliasMapsSnapshot = {
+    synced: snapshot.synced,
+    maxInputTokenOverrides: snapshot.maxInputTokenOverrides,
+    maxTokenOverrides: new Map([["github", new Map([["claude-4.5-opus", 111]])]]),
+    maxOutputTokenOverrides: new Map([["github", new Map([["claude-opus-4-5-20251101", 222]])]]),
+    contextOverrides: snapshot.contextOverrides,
+  } as modelCapabilities.ModelCapabilityResolutionSnapshot;
+
+  assert.equal(
+    modelCapabilities.getResolvedModelCapabilities(aliasInput, aliasMapsSnapshot).maxOutputTokens,
+    222,
+    "canonical output override must precede raw alias across historical maps"
+  );
+  assert.equal(
+    modelCapabilities.getExplicitModelOutputCap(aliasInput, aliasMapsSnapshot),
+    222,
+    "explicit output cap must use the same canonical-first precedence"
+  );
+});
+
+test("#9199 snapshot misses never fall through to post-snapshot database overrides", () => {
+  seedFixture();
+  const snapshot = modelCapabilities.createModelCapabilityResolutionSnapshot();
+  const legacySnapshot = {
+    synced: snapshot.synced,
+    contextOverrides: snapshot.contextOverrides,
+  } as unknown as modelCapabilities.ModelCapabilityResolutionSnapshot;
+
+  assert.equal(
+    capabilityOverrides.setModelCapabilityOverride(
+      "parity-provider/post-snapshot-model",
+      "max_output_tokens",
+      9191
+    ),
+    true
+  );
+  assert.equal(
+    capabilityOverrides.setModelCapabilityOverride(
+      "parity-provider/post-snapshot-model",
+      "max_input_tokens",
+      8181
+    ),
+    true
+  );
+
+  const input = { provider: "parity-provider", model: "post-snapshot-model" };
+  const resolved = modelCapabilities.getResolvedModelCapabilities(input, legacySnapshot);
+  assert.equal(resolved.maxOutputTokens, null);
+  assert.equal(resolved.maxInputTokens, null);
+  assert.equal(modelCapabilities.getExplicitModelOutputCap(input, legacySnapshot), null);
 });
