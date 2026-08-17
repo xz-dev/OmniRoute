@@ -64,7 +64,10 @@ import {
 import { getComboStepTarget } from "@/lib/combos/steps";
 import { resolveServerErrorMessage } from "@/lib/api/serverErrorMessage";
 import { useTranslations } from "next-intl";
-import { ComboContextAggregationField } from "./ComboContextAggregationField";
+import {
+  ComboContextAggregationField,
+  type ComboContextAggregation,
+} from "./ComboContextAggregationField";
 
 const ModelSelectModal = dynamic(() => import("@/shared/components/ModelSelectModal"), {
   ssr: false,
@@ -1999,7 +2002,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
   const [contextLength, setContextLength] = useState<number | undefined>(
     combo?.context_length || undefined
   );
-  const [contextLengthAggregation, setContextLengthAggregation] = useState(
+  const [contextLengthAggregation, setContextLengthAggregation] = useState<ComboContextAggregation>(
     combo?.context_length_aggregation === "max" ? "max" : "min"
   );
   const [contextLengthError, setContextLengthError] = useState<string>("");
