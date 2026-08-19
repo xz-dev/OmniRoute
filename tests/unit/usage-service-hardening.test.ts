@@ -706,6 +706,7 @@ test("usage service covers Codex, Kiro and Kimi usage parsing and error branches
           },
           limits: [
             {
+              window: { duration: 300, timeUnit: "TIME_UNIT_MINUTE" },
               detail: {
                 limit: "20",
                 remaining: "3",
@@ -771,8 +772,8 @@ test("usage service covers Codex, Kiro and Kimi usage parsing and error branches
     accessToken: "kimi-token",
   });
   assert.equal(kimi.plan, "Allegro");
-  assert.equal(kimi.quotas.Weekly.remaining, 8);
-  assert.equal(kimi.quotas.Ratelimit.remaining, 3);
+  assert.equal(kimi.quotas.code_7d.remaining, 8);
+  assert.equal(kimi.quotas.code_5h.remaining, 3);
   assert.equal(kimi.quotas["session (5h)"].remaining, 25);
 
   globalThis.fetch = async (url) => {
