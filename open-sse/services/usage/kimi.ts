@@ -10,6 +10,10 @@
 
 import { safePercentage } from "@/shared/utils/formatting";
 import {
+  KIMI_CODE_ADDITIONAL_CREDITS_URL,
+  type KimiBillingStatus,
+} from "@/shared/utils/kimiBilling";
+import {
   buildKimiCodeIdentityHeaders,
   getKimiCodeCliUserAgent,
 } from "../../config/providers/registry/kimi/coding/runtime.ts";
@@ -24,6 +28,69 @@ const KIMI_CONFIG = {
   usageUrl: "https://api.kimi.com/coding/v1/usages",
   apiVersion: "2023-06-01",
 };
+
+const KIMI_BOOSTER_FIXED_POINT_PER_CENT = 1_000_000;
+
+function toInteger(value: unknown): number | null {
+  const parsed = toNumber(value, Number.NaN);
+  return Number.isFinite(parsed) ? Math.trunc(parsed) : null;
+}
+
+function fixedPointToCents(value: number): number {
+  const cents = value / KIMI_BOOSTER_FIXED_POINT_PER_CENT;
+  if (cents > 0 && cents < 1) return 1;
+  return Math.round(cents);
+}
+
+function parseKimiMoney(value: unknown): { cents: number; currency: string } | null {
+  const money = toRecord(value);
+  const cents = toInteger(money.priceInCents);
+  const currency = money.currency;
+  if (
+    cents === null ||
+    cents < 0 ||
+    typeof currency !== "string" ||
+    !/^[A-Za-z]{3}$/.test(currency)
+  ) {
+    return null;
+  }
+  return { cents, currency: currency.toUpperCase() };
+}
+
+function parseKimiBoosterWallet(value: unknown): KimiBillingStatus | null {
+  const wallet = toRecord(value);
+  const balance = toRecord(wallet.balance);
+  if (balance.type !== "BOOSTER") return null;
+
+  const amount = toInteger(balance.amount);
+  if (amount === null || amount <= 0) return null;
+
+  const amountLeft = toInteger(balance.amountLeft);
+  const monthlyLimit = parseKimiMoney(wallet.monthlyChargeLimit);
+  const monthlyUsed = parseKimiMoney(wallet.monthlyUsed);
+  const currency = monthlyLimit?.currency ?? monthlyUsed?.currency ?? "USD";
+
+  return {
+    currency,
+    extraCreditsMinorUnits:
+      amountLeft === null || amountLeft < 0 ? 0 : fixedPointToCents(amountLeft),
+    ...(monthlyUsed ? { monthlyUsedMinorUnits: monthlyUsed.cents } : {}),
+    monthlyLimitEnabled: wallet.monthlyChargeLimitEnabled === true,
+    monthlyLimitMinorUnits: monthlyLimit?.cents ?? 0,
+    autoTopUp: { available: false },
+    additionalCreditsUrl: KIMI_CODE_ADDITIONAL_CREDITS_URL,
+  };
+}
+
+function buildKimiBillingStatus(value: unknown): KimiBillingStatus {
+  return (
+    parseKimiBoosterWallet(value) ?? {
+      currency: "USD",
+      autoTopUp: { available: false },
+      additionalCreditsUrl: KIMI_CODE_ADDITIONAL_CREDITS_URL,
+    }
+  );
+}
 
 /**
  * Map Kimi membership level to display name
@@ -100,6 +167,7 @@ export async function getKimiUsage(
 
     const quotas: Record<string, UsageQuota> = {};
     const dataObj = toRecord(data);
+    const billing = buildKimiBillingStatus(dataObj.boosterWallet);
 
     // Parse Kimi usage response format
     // Format: { user: {...}, usage: { limit: "100", used: "92", remaining: "8", resetTime: "..." }, limits: [...] }
@@ -189,6 +257,7 @@ export async function getKimiUsage(
       return {
         plan: planName || "Kimi Coding",
         quotas,
+        billing,
       };
     }
 
@@ -199,6 +268,7 @@ export async function getKimiUsage(
     return {
       plan: planName || "Kimi Coding",
       message: "Kimi Coding connected. Usage tracked per request.",
+      billing,
     };
   } catch (error) {
     return {
