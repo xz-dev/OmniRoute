@@ -9,6 +9,7 @@
  * collide via delimiter composition.
  */
 import { listModelCapabilityOverrides } from "@/lib/db/modelCapabilityOverrides";
+import type { ReasoningEffortOverrideValue } from "@/shared/reasoning/reasoningEffortsOverride";
 import {
   listModelContextOverrides,
   type ModelContextOverride,
@@ -26,12 +27,18 @@ import {
 /** Nested provider → model → override map (collision-free). */
 export type NestedOverrideMap<T = number> = ReadonlyMap<string, ReadonlyMap<string, T>>;
 
+export type NestedReasoningEffortsOverrideMap = ReadonlyMap<
+  string,
+  ReadonlyMap<string, readonly ReasoningEffortOverrideValue[]>
+>;
+
 export interface ModelCapabilityResolutionSnapshot {
   readonly synced: CapabilitiesByProvider;
   readonly maxTokenOverrides?: NestedOverrideMap;
   /** Historical output-override field retained for snapshot compatibility. */
   readonly maxOutputTokenOverrides?: NestedOverrideMap;
   readonly maxInputTokenOverrides?: NestedOverrideMap;
+  readonly reasoningEffortsOverrides?: NestedReasoningEffortsOverrideMap;
   readonly contextOverrides: NestedOverrideMap;
   /** Added after the initial snapshot shape; legacy snapshots may omit it. */
   readonly contextOverrideRecords?: NestedOverrideMap<ModelContextOverride>;
@@ -69,10 +76,21 @@ export function createModelCapabilityResolutionSnapshot(
 
   const maxTokenOverrides = new Map<string, Map<string, number>>();
   const maxInputTokenOverrides = new Map<string, Map<string, number>>();
+  const reasoningEffortsOverrides = new Map<
+    string,
+    Map<string, readonly ReasoningEffortOverrideValue[]>
+  >();
   const inputTokenOverrides = maxInputTokenOverrides;
   for (const entry of listModelCapabilityOverrides()) {
     if (entry.key === "max_input_tokens") {
       setNestedOverride(maxInputTokenOverrides, entry.provider, entry.modelId, entry.value);
+    } else if (entry.key === "reasoning_efforts") {
+      let byModel = reasoningEffortsOverrides.get(entry.provider);
+      if (!byModel) {
+        byModel = new Map();
+        reasoningEffortsOverrides.set(entry.provider, byModel);
+      }
+      byModel.set(entry.modelId, entry.value);
     } else {
       setNestedOverride(maxTokenOverrides, entry.provider, entry.modelId, entry.value);
     }
@@ -90,6 +108,7 @@ export function createModelCapabilityResolutionSnapshot(
     maxTokenOverrides,
     maxInputTokenOverrides,
     inputTokenOverrides,
+    reasoningEffortsOverrides,
     contextOverrides,
     contextOverrideRecords,
     customVisionOverrides: listCustomModelVisionOverrides(options.customModelVision),

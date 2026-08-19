@@ -7202,6 +7202,7 @@
     "configured": "configured",
     "none": "None",
     "modelOverrideValuePlaceholder": "Numeric value",
+    "modelOverrideReasoningEffortsPlaceholder": "English comma-separated, e.g. low, medium, high",
     "addKeyValue": "Add key value",
     "noModelOverrides": "No overrides configured for this model.",
     "modelOverrideLoadFailed": "Failed to load model overrides",

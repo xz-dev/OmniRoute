@@ -62,6 +62,7 @@ import {
   getCatalogDiagnosticsHeaders,
   type CatalogEnrichmentSnapshot,
 } from "@/lib/modelMetadataRegistry";
+import { createModelCapabilityResolutionSnapshot } from "@/lib/modelCapabilityResolutionSnapshot";
 import { getModelsDevPricing, getSyncedCapability } from "@/lib/modelsDevSync";
 import { getModelSpec } from "@/shared/constants/modelSpecs";
 import { getModelsCatalogPrefixMode } from "@/shared/utils/featureFlags";
@@ -280,6 +281,7 @@ async function buildUnifiedModelsResponseCore(
     // #9147: yield after auth check before DB initialization prologue
     await yieldCatalogBuildTurn();
 
+    const capabilityResolutionSnapshot = createModelCapabilityResolutionSnapshot();
     const { aliasToProviderId, providerIdToAlias } = buildAliasMaps();
     const _qp = new URL(request.url).searchParams.get("prefix");
     const prefixMode =
@@ -508,10 +510,13 @@ async function buildUnifiedModelsResponseCore(
       const targetModel = getComboTargetModelId(target);
       if (!targetModel) return null;
 
-      const canonical = getCanonicalModelMetadata({
-        provider: targetModel.providerId,
-        model: targetModel.modelId,
-      });
+      const canonical = getCanonicalModelMetadata(
+        {
+          provider: targetModel.providerId,
+          model: targetModel.modelId,
+        },
+        capabilityResolutionSnapshot
+      );
       if (!canonical) return null;
 
       const providerId = canonical.provider || targetModel.providerId;
@@ -551,7 +556,12 @@ async function buildUnifiedModelsResponseCore(
           isPersistedResolvedLimitSource(canonical.limits.maxInputTokensSource)) ||
         (isPositiveFiniteNumber(canonical.limits.maxOutputTokens) &&
           isPersistedResolvedLimitSource(canonical.limits.maxOutputTokensSource));
-      if (connectionEfforts === undefined && !hasRecognizedMetadata && !hasPersistedLimit) {
+      if (
+        connectionEfforts === undefined &&
+        !hasRecognizedMetadata &&
+        !hasPersistedLimit &&
+        !source.reasoningEffortsOverride
+      ) {
         return null;
       }
 
@@ -627,7 +637,8 @@ async function buildUnifiedModelsResponseCore(
               providerId,
               modelId,
               canonical.capabilities.supportsThinking,
-              registryModel?.supportedThinkingEfforts,
+              canonical.capabilities.supportedThinkingEfforts ??
+                registryModel?.supportedThinkingEfforts,
               true
             )
           : getThinkingCapabilityFields(
@@ -1842,9 +1853,8 @@ async function buildUnifiedModelsResponseCore(
       }
       enrichmentSnapshot = {
         modelsDevPricing,
-        providerNodeIdsByPrefix: Object.fromEntries(
-          Object.entries(providerIdToPrefix).map(([providerId, prefix]) => [prefix, providerId])
-        ),
+        capabilityResolution: capabilityResolutionSnapshot,
+        providerNodeIdsByPrefix: providerNodeIdByPrefix,
       };
       // The production profile identified pricing snapshot construction as the last
       // dominant synchronous stage. Let already-queued health checks run before the

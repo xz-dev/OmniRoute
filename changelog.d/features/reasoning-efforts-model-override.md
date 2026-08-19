@@ -1,0 +1,1 @@
+- **feat(settings):** add a strict comma-separated `reasoning_efforts` Model Override that preserves native `max` and `ultra` tiers across direct and combo catalog metadata (fixes #10563).
