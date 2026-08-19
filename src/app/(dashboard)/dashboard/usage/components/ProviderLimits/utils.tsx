@@ -392,8 +392,8 @@ const STATUS_ORDER: Record<"critical" | "alert" | "ok", number> = {
 export function topQuotas(quotas: any[], n = 3, providerId?: string): any[] {
   const filtered = quotas.filter(Boolean);
 
-  // Providers with a deterministic fixed-window order (codex, glm family — see
-  // quotaParsing.ts's sortCodexOrder()/sortGlmOrder()) must keep the order
+  // Providers with a deterministic fixed-window order (Codex, GLM family,
+  // Kimi Coding — see quotaParsing.ts) must keep the order
   // parseQuotaData() already established rather than being re-sorted by
   // status/remaining-%, which would undo it (#6687's collapsed-card sibling, #7764).
   if (hasFixedQuotaOrder(providerId)) {

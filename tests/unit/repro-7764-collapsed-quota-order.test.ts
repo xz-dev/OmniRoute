@@ -35,6 +35,24 @@ test("#7764: topQuotas() (collapsed card order) respects hasFixedQuotaOrder inst
   assert.deepEqual(renderedB, ["session", "weekly"]);
 });
 
+test("Kimi Coding collapsed quota order stays Code 5h then Code 7d across refreshes", () => {
+  const parsedA = parseQuotaData("kimi-coding", {
+    quotas: {
+      code_7d: { used: 10, total: 100, remainingPercentage: 90 },
+      code_5h: { used: 95, total: 100, remainingPercentage: 5 },
+    },
+  });
+  const parsedB = parseQuotaData("kimi-coding", {
+    quotas: {
+      code_7d: { used: 99, total: 100, remainingPercentage: 1 },
+      code_5h: { used: 20, total: 100, remainingPercentage: 80 },
+    },
+  });
+
+  assert.deepEqual(topQuotas(parsedA, 3, "kimi-coding").map(quotaName), ["code_5h", "code_7d"]);
+  assert.deepEqual(topQuotas(parsedB, 3, "kimi-coding").map(quotaName), ["code_5h", "code_7d"]);
+});
+
 test("#7764: providers WITHOUT a fixed order still sort worst-status-first (no regression)", () => {
   const quotas = [
     { name: "alpha", used: 10, total: 100, remainingPercentage: 90 },
