@@ -1,4 +1,5 @@
 import {
+  CODEX_CLI_RS_ORIGINATOR,
   getCodexClientVersion,
   getCodexDefaultHeaders,
 } from "@omniroute/open-sse/config/codexClient.ts";
@@ -464,7 +465,7 @@ export async function fetchCodexDiscoveryModels({
       Accept: "application/json",
       "Content-Type": "application/json",
       Authorization: `Bearer ${accessToken}`,
-      originator: "codex_cli_rs",
+      originator: CODEX_CLI_RS_ORIGINATOR,
     };
     if (workspaceId) headers["chatgpt-account-id"] = workspaceId;
 

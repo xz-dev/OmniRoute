@@ -20,6 +20,7 @@ import {
 import { FETCH_BODY_TIMEOUT_MS, HTTP_STATUS, PROVIDERS } from "../config/constants.ts";
 import { readCodexPeekChunk, buildCodexTimeoutSafePassthroughBody } from "./codex/bodyTimeout.ts";
 import {
+  CODEX_CLI_RS_ORIGINATOR,
   getCodexClientVersion,
   getCodexUserAgent,
   normalizeCodexSessionId,
@@ -224,7 +225,6 @@ function convertSystemToDeveloperRole(body: Record<string, unknown>): void {
     }
   }
 }
-
 
 function stripOrphanedCodexFunctionCallOutputs(body: Record<string, unknown>): void {
   if (!Array.isArray(body.input)) return;
@@ -1045,10 +1045,11 @@ export class CodexExecutor extends BaseExecutor {
       CodexClientIdentity | null | undefined;
     const originalIdentityHeaders = credentials?.providerSpecificData
       ?.codexOriginalIdentityHeaders as Record<string, string> | null | undefined;
+    const turnStateEcho = credentials?.providerSpecificData?.codexTurnStateEcho;
 
     // Originator header — identifies the client type to the Codex backend.
     // Ref: openai/codex login/src/auth/default_client.rs DEFAULT_ORIGINATOR = "codex_cli_rs"
-    headers["originator"] = "codex_cli_rs";
+    headers["originator"] = CODEX_CLI_RS_ORIGINATOR;
 
     // session_id header — enables prompt cache affinity on the Codex backend.
     // The official Codex client sets this to conversation_id (a stable UUID per session).
@@ -1059,6 +1060,13 @@ export class CodexExecutor extends BaseExecutor {
     }
     applyCodexOriginalIdentityHeaders(headers, originalIdentityHeaders);
     applyCodexClientIdentityHeaders(headers, clientIdentity);
+
+    // x-codex-turn-state: forward the client's echo when the provenance guard
+    // (in withCodexFingerprintCredentials) cleared it as same-account. The
+    // blob is account-bound; a stripped (absent) value must stay absent.
+    if (typeof turnStateEcho === "string" && turnStateEcho) {
+      headers["x-codex-turn-state"] = turnStateEcho;
+    }
 
     return headers;
   }
