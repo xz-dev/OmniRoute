@@ -41,7 +41,11 @@ import {
   isStripReasoningRequested,
 } from "./chatCore/headers.ts";
 import { markCodexScopeRateLimited } from "./chatCore/codexFailover.ts";
-import { isCodexOriginatedHeaders } from "../config/codexIdentity.ts";
+import { getCodexClientSessionId, isCodexOriginatedHeaders } from "../config/codexIdentity.ts";
+import {
+  noteCodexTurnStateProvenance,
+  readCodexTurnStateHeader,
+} from "../config/codexTurnState.ts";
 import { trackDevice, extractIpFromHeaders } from "../services/deviceTracker.ts";
 import { getCombosCached } from "./chatCore/comboContextCache.ts";
 export { clearCombosCache, clearUpstreamProxyConfigCache } from "./chatCore/comboContextCache.ts";
@@ -688,12 +692,13 @@ export async function handleChatCore({
     copilotCompatibleReasoning,
     clientResponseFormat,
   } = resolveChatCoreRequestFormat({ clientRawRequest, body, provider, userAgent });
-  const nativeOpenAICompatibleResponsesPassthrough = shouldUseNativeOpenAICompatibleResponsesPassthrough({
-    provider,
-    sourceFormat,
-    endpointPath,
-    providerSpecificData: credentials?.providerSpecificData,
-  });
+  const nativeOpenAICompatibleResponsesPassthrough =
+    shouldUseNativeOpenAICompatibleResponsesPassthrough({
+      provider,
+      sourceFormat,
+      endpointPath,
+      providerSpecificData: credentials?.providerSpecificData,
+    });
   const responsesInputItems = Array.isArray(body?.input) ? body.input : [];
   const customToolNames = collectCustomToolNamesForSourceFormat(
     sourceFormat,
@@ -3374,6 +3379,15 @@ export async function handleChatCore({
         const responseHeaders = new Headers(headersObj);
         stripStaleForwardingHeaders(responseHeaders);
         stripNextMiddlewareControlHeaders(responseHeaders);
+        // The upstream headers (turn-state included) are about to be committed
+        // to the client — record which connection minted the blob so a later
+        // cross-account echo can be stripped (Codex failover guard).
+        if (provider === "codex" && readCodexTurnStateHeader(responseHeaders)) {
+          noteCodexTurnStateProvenance(
+            getCodexClientSessionId(clientRawRequest?.headers),
+            rawResult._executionCredentials?.connectionId ?? credentials?.connectionId
+          );
+        }
         const contentType = (responseHeaders.get("content-type") || "").toLowerCase();
         const payload = await readNonStreamingResponseBody(
           rawResult.response,
@@ -5090,6 +5104,17 @@ export async function handleChatCore({
     compressionResponseMeta,
     comboStrategy,
   });
+
+  // The streaming headers (turn-state included, when present) are committed to
+  // the client from here on — record which connection minted the blob so a
+  // later cross-account echo can be stripped (Codex failover guard). The
+  // in-place failover update means `credentials` is the winning account.
+  if (provider === "codex" && readCodexTurnStateHeader(providerResponse.headers)) {
+    noteCodexTurnStateProvenance(
+      getCodexClientSessionId(clientRawRequest?.headers),
+      credentials?.connectionId
+    );
+  }
 
   // Create transform stream with logger for streaming response
   let transformStream;

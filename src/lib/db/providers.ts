@@ -19,6 +19,7 @@ import {
 } from "@omniroute/open-sse/services/apiKeyRotator.ts";
 import { invalidateReasoningRoutingRuleCache } from "./reasoningRoutingRules";
 import { normalizeProviderSpecificData } from "@/lib/providers/requestDefaults";
+import { ensureCodexFingerprintSeed } from "@omniroute/open-sse/config/codexIdentity.ts";
 import { bumpProxyConfigGeneration, getSettings } from "./settings";
 import {
   getStoredManagementPassword,
@@ -28,6 +29,32 @@ import {
 import { webSessionCredentialKey, parseProviderSpecificData } from "./webSessionDedup";
 import { pickCodexConnectionForUser } from "@/lib/oauth/utils/codexConnectionSelection";
 import { reconcileCodexUsageHistory } from "./providers/usageIdentityReconciliation";
+
+/**
+ * normalizeProviderSpecificData + the Codex fingerprint-seed invariant: Codex
+ * OAuth connections whose convergence mode derives account-scoped identities
+ * (device/session/full — the default session included) carry a persisted
+ * random seed (`codexFingerprintSeed`) as the derivation source. Created here
+ * at the persistence choke point so every write path (manual create, OAuth
+ * persist, edit, import) is covered; the seed is never regenerated once valid,
+ * so identities stay put across saves. Pre-seed connections rotate from the
+ * legacy connection-id derivation exactly once on their next write — the
+ * OmniRoute analog of sub2api's migration-225 backfill (v0.1.178, #5696).
+ */
+function normalizeConnectionProviderSpecificData(
+  provider: string | null,
+  providerSpecificData: unknown,
+  credentials: { accessToken?: unknown; refreshToken?: unknown },
+  existingProviderSpecificData?: unknown
+) {
+  const normalized = normalizeProviderSpecificData(provider, providerSpecificData);
+  if (provider !== "codex") return normalized;
+  return ensureCodexFingerprintSeed(
+    normalized,
+    credentials,
+    (existingProviderSpecificData as Record<string, unknown> | null) ?? null
+  );
+}
 import {
   withNullableMaxConcurrent,
   withNullableQuotaWindowThresholds,
@@ -353,9 +380,10 @@ export async function createProviderConnection(data: JsonRecord) {
   await assertApiKeyIsNotManagementPassword(data.apiKey);
   const db = getDbInstance() as unknown as DbLike;
   const now = new Date().toISOString();
-  const normalizedProviderSpecificData = normalizeProviderSpecificData(
+  const normalizedProviderSpecificData = normalizeConnectionProviderSpecificData(
     toStringOrNull(data.provider),
-    data.providerSpecificData
+    data.providerSpecificData,
+    data
   );
 
   let existing: JsonRecord | null = null;
@@ -483,9 +511,11 @@ export async function createProviderConnection(data: JsonRecord) {
     const rawExisting = toRecord(rowToCamel(existing));
     const decryptedExisting = decryptConnectionFields({ ...rawExisting });
     const merged: JsonRecord = { ...decryptedExisting, ...data, updatedAt: now };
-    merged.providerSpecificData = normalizeProviderSpecificData(
+    merged.providerSpecificData = normalizeConnectionProviderSpecificData(
       toStringOrNull(merged.provider),
-      merged.providerSpecificData
+      merged.providerSpecificData,
+      merged,
+      decryptedExisting.providerSpecificData
     );
     const persistence: JsonRecord = { ...merged };
     for (const field of CONNECTION_CREDENTIAL_FIELDS) {
@@ -805,14 +835,17 @@ export async function updateProviderConnection(id: string, data: JsonRecord) {
   // on every unrelated field edit.
   await assertApiKeyIsNotManagementPassword(data.apiKey);
 
+  const existingCamel = toRecord(rowToCamel(existing));
   const merged: JsonRecord = {
-    ...toRecord(rowToCamel(existing)),
+    ...existingCamel,
     ...data,
     updatedAt: new Date().toISOString(),
   };
-  merged.providerSpecificData = normalizeProviderSpecificData(
+  merged.providerSpecificData = normalizeConnectionProviderSpecificData(
     toStringOrNull(merged.provider),
-    merged.providerSpecificData
+    merged.providerSpecificData,
+    merged,
+    existingCamel.providerSpecificData
   );
   // Mirror the sanitization the create path applies — keep the returned
   // object in lockstep with what we persist.

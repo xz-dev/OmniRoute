@@ -12,6 +12,7 @@
 // tests) keep a stable surface.
 import { AsyncLocalStorage } from "node:async_hooks";
 import { PROVIDERS } from "../config/constants.ts";
+import { getCodexAuthIdentityHeaders } from "../config/codexClient.ts";
 import { runWithProxyContext } from "../utils/proxyFetch.ts";
 import { serializeRefresh } from "./refreshSerializer.ts";
 import {
@@ -254,6 +255,12 @@ export async function refreshAccessToken(
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
           Accept: "application/json",
+          // Credential face (auth.openai.com): the real Codex client sends only
+          // originator + User-Agent here — no version header (that gate exists
+          // only on the /backend-api/codex inference face). Refreshing with a
+          // bare/anonymous identity is a half-identity no real client emits.
+          // Mirrors sub2api v0.1.178 ApplyCodexCanonicalAuthIdentity.
+          ...(provider === "codex" ? getCodexAuthIdentityHeaders() : null),
         },
         body: params,
       })
