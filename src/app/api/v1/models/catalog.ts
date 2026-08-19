@@ -596,8 +596,16 @@ async function buildUnifiedModelsResponseCore(
           : getThinkingCapabilityFields(
               providerId,
               modelId,
-              connectionEfforts.length > 0 ? true : canonical.capabilities.supportsThinking,
-              connectionEfforts,
+              // An operator-set reasoning-efforts override is exact metadata and
+              // wins over connection-scoped evidence (which may fail closed to []).
+              canonical.capabilities.reasoningEffortsOverride
+                ? true
+                : connectionEfforts.length > 0
+                  ? true
+                  : canonical.capabilities.supportsThinking,
+              canonical.capabilities.reasoningEffortsOverride
+                ? canonical.capabilities.supportedThinkingEfforts
+                : connectionEfforts,
               true
             )
       );

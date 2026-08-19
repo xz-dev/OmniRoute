@@ -21,8 +21,8 @@ function startServer(host: string, status = 200): Promise<{ server: http.Server;
   return new Promise((resolve, reject) => {
     const server = http.createServer((req, res) => {
       if (req.url === "/healthz") {
-        res.writeHead(200, { "content-type": "application/json" });
-        res.end(JSON.stringify({ status: "ok" }));
+        res.writeHead(status, { "content-type": "application/json" });
+        res.end(JSON.stringify({ status: status === 200 ? "ok" : "error" }));
       } else {
         res.writeHead(404);
         res.end();

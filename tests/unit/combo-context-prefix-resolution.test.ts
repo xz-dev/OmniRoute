@@ -173,6 +173,8 @@ test("combo context diagnostics ignore unknown targets and report known bounds",
   assert.equal(diagnostics.known_count, 1);
   assert.equal(diagnostics.targets.length, 2);
   assert.ok(diagnostics.targets[1].unknown_reason);
+});
+
 test("computeComboContextLength honors a larger persisted Codex GPT-5.6 window", () => {
   const modelId = "gpt-5.6-terra";
   assert.equal(setModelContextOverride("codex", modelId, 500000, "manual"), true);
