@@ -28,7 +28,7 @@ interface KimiUsageResult {
     monthlyUsedMinorUnits?: number;
     monthlyLimitEnabled?: boolean;
     monthlyLimitMinorUnits?: number;
-    autoTopUp: { available: false };
+    extraUsageStatus: "enabled" | "disabled" | "frozen" | "unavailable";
     additionalCreditsUrl: string;
   };
 }
@@ -42,7 +42,17 @@ function successPayload(boosterWallet?: unknown) {
       remaining: "600",
       resetTime: "2099-08-03T05:20:51Z",
     },
-    limits: [],
+    limits: [
+      {
+        window: { duration: 300, timeUnit: "TIME_UNIT_MINUTE" },
+        detail: {
+          limit: "100",
+          used: "81",
+          remaining: "19",
+          resetTime: "2099-08-01T13:38:00Z",
+        },
+      },
+    ],
     ...(boosterWallet === undefined ? {} : { boosterWallet }),
   };
 }
@@ -88,6 +98,7 @@ test("kimi-coding exposes the official boosterWallet Extra Usage contract", asyn
             amount: "50000000000",
             amountLeft: "1234000000",
           },
+          status: "STATUS_ACTIVE",
           monthlyChargeLimitEnabled: true,
           monthlyChargeLimit: { priceInCents: "5000", currency: "cny" },
           monthlyUsed: { priceInCents: 234, currency: "CNY" },
@@ -105,14 +116,33 @@ test("kimi-coding exposes the official boosterWallet Extra Usage contract", asyn
   })) as KimiUsageResult;
 
   assert.equal(usage.plan, "Allegro");
-  assert.ok(usage.quotas?.Weekly);
+  assert.deepEqual(usage.quotas, {
+    code_7d: {
+      displayName: "Code · 7d",
+      used: 400,
+      total: 1000,
+      remaining: 600,
+      remainingPercentage: 60,
+      resetAt: "2099-08-03T05:20:51.000Z",
+      unlimited: false,
+    },
+    code_5h: {
+      displayName: "Code · 5h",
+      used: 81,
+      total: 100,
+      remaining: 19,
+      remainingPercentage: 19,
+      resetAt: "2099-08-01T13:38:00.000Z",
+      unlimited: false,
+    },
+  });
   assert.deepEqual(usage.billing, {
     currency: "CNY",
     extraCreditsMinorUnits: 1234,
     monthlyUsedMinorUnits: 234,
     monthlyLimitEnabled: true,
     monthlyLimitMinorUnits: 5000,
-    autoTopUp: { available: false },
+    extraUsageStatus: "enabled",
     additionalCreditsUrl: KIMI_CODE_ADDITIONAL_CREDITS_URL,
   });
   assert.equal(calls.length, 1, "billing must come from the existing /usages read");
@@ -146,26 +176,101 @@ test("booster fixed-point values follow the official Kimi CLI cent conversion", 
   }
 });
 
-test("invalid or disabled booster wallets do not fabricate a balance", async () => {
+test("missing and invalid booster wallets do not fabricate a balance", async () => {
   for (const boosterWallet of [
     undefined,
     {},
     { balance: { type: "OTHER", amount: 50_000_000, amountLeft: 25_000_000 } },
-    { balance: { type: "BOOSTER", amount: 0, amountLeft: 0 } },
-    { balance: { type: "BOOSTER", amount: "invalid", amountLeft: 25_000_000 } },
+    { balance: { type: "BOOSTER" }, status: "STATUS_UNKNOWN" },
+    { balance: { type: "BOOSTER" }, allowTopup: false },
+    { balance: { type: "BOOSTER" }, allowTopup: true },
   ]) {
     const usage = await getUsage(successPayload(boosterWallet));
     assert.deepEqual(usage.billing, {
       currency: "USD",
-      autoTopUp: { available: false },
+      extraUsageStatus: "unavailable",
       additionalCreditsUrl: KIMI_CODE_ADDITIONAL_CREDITS_URL,
     });
   }
 
-  const missingAmountLeft = await getUsage(
-    successPayload({ balance: { type: "BOOSTER", amount: 50_000_000 } })
+  const productionDisabled = await getUsage(
+    successPayload({
+      status: "STATUS_DISABLED",
+      allowTopup: true,
+      balance: { type: "BOOSTER", unit: "UNIT_CURRENCY" },
+      monthlyChargeLimit: { priceInCents: 10000, currency: "CNY" },
+      monthlyUsed: { priceInCents: 0, currency: "CNY" },
+    })
   );
-  assert.equal(missingAmountLeft.billing?.extraCreditsMinorUnits, 0);
+  assert.deepEqual(productionDisabled.billing, {
+    currency: "CNY",
+    extraCreditsMinorUnits: 0,
+    monthlyUsedMinorUnits: 0,
+    monthlyLimitEnabled: false,
+    monthlyLimitMinorUnits: 10000,
+    extraUsageStatus: "disabled",
+    additionalCreditsUrl: KIMI_CODE_ADDITIONAL_CREDITS_URL,
+  });
+});
+
+test("count quotas derive missing used or remaining and preserve every window", async () => {
+  const usage = await getUsage({
+    user: { membership: { level: "LEVEL_ADVANCED" } },
+    usage: { limit: "100", remaining: "84", resetTime: "2099-08-26T00:38:00Z" },
+    limits: [
+      {
+        window: { duration: 300, timeUnit: "TIME_UNIT_MINUTE" },
+        detail: { limit: "100", used: "81", resetTime: "2099-08-19T05:38:00Z" },
+      },
+      {
+        window: { duration: 7, timeUnit: "TIME_UNIT_DAY" },
+        detail: { limit: "200", used: "40", remaining: "160" },
+      },
+      {
+        window: { duration: 300, timeUnit: "TIME_UNIT_MINUTE" },
+        detail: { limit: "50", remaining: "25" },
+      },
+    ],
+  });
+
+  assert.deepEqual(usage.quotas, {
+    code_7d: {
+      displayName: "Code · 7d",
+      used: 16,
+      total: 100,
+      remaining: 84,
+      remainingPercentage: 84,
+      resetAt: "2099-08-26T00:38:00.000Z",
+      unlimited: false,
+    },
+    code_5h: {
+      displayName: "Code · 5h",
+      used: 81,
+      total: 100,
+      remaining: 19,
+      remainingPercentage: 19,
+      resetAt: "2099-08-19T05:38:00.000Z",
+      unlimited: false,
+    },
+    code_7d_2: {
+      displayName: "Code · 7d",
+      used: 40,
+      total: 200,
+      remaining: 160,
+      remainingPercentage: 80,
+      resetAt: null,
+      unlimited: false,
+    },
+    code_5h_2: {
+      displayName: "Code · 5h",
+      used: 25,
+      total: 50,
+      remaining: 25,
+      remainingPercentage: 50,
+      resetAt: null,
+      unlimited: false,
+    },
+  });
 });
 
 test("currency precedence and monthly-cap fields match the official parser", async () => {
@@ -192,7 +297,7 @@ test("currency precedence and monthly-cap fields match the official parser", asy
     monthlyUsedMinorUnits: 0,
     monthlyLimitEnabled: false,
     monthlyLimitMinorUnits: 0,
-    autoTopUp: { available: false },
+    extraUsageStatus: "unavailable",
     additionalCreditsUrl: KIMI_CODE_ADDITIONAL_CREDITS_URL,
   });
 
@@ -255,12 +360,13 @@ test("Provider Limits sanitizes and persists only the public Kimi billing contra
     monthlyUsedMinorUnits: 125,
     monthlyLimitEnabled: true,
     monthlyLimitMinorUnits: 5000,
-    autoTopUp: { available: false, paymentMethodId: "secret" },
+    extraUsageStatus: "disabled",
+    paymentMethodId: "secret",
     additionalCreditsUrl: KIMI_CODE_ADDITIONAL_CREDITS_URL,
     rawBody: "secret",
   };
   const cacheEntry = toProviderLimitsCacheEntry(
-    { quotas: { Weekly: { remainingPercentage: 60 } }, billing: rawBilling },
+    { quotas: { code_7d: { remainingPercentage: 60 } }, billing: rawBilling },
     "manual",
     "2026-08-19T00:00:00.000Z"
   );
@@ -271,7 +377,7 @@ test("Provider Limits sanitizes and persists only the public Kimi billing contra
     monthlyUsedMinorUnits: 125,
     monthlyLimitEnabled: true,
     monthlyLimitMinorUnits: 5000,
-    autoTopUp: { available: false },
+    extraUsageStatus: "disabled",
     additionalCreditsUrl: KIMI_CODE_ADDITIONAL_CREDITS_URL,
   });
   assert.equal(JSON.stringify(cacheEntry).includes("secret"), false);
@@ -297,7 +403,7 @@ test("message-only Kimi failures preserve last-known-good billing", () => {
     billing: {
       currency: "CNY",
       extraCreditsMinorUnits: 2500,
-      autoTopUp: { available: false as const },
+      extraUsageStatus: "unavailable" as const,
       additionalCreditsUrl: KIMI_CODE_ADDITIONAL_CREDITS_URL,
     },
   };

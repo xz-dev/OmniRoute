@@ -10,15 +10,16 @@ const CODEX_QUOTA_ORDER: Record<string, number> = {
   banked_reset_credits: 4,
 };
 const GLM_FAMILY_PROVIDERS = ["glm", "glm-cn", "glmt", "opencode-go"];
+const KIMI_CODING_PROVIDERS = ["kimi-coding", "kimi-coding-apikey"];
 
 /**
- * Providers whose quotas already get a deterministic fixed-window order from
- * sortGlmOrder()/sortCodexOrder() below. Display layers (e.g. QuotaCardExpanded)
+ * Providers whose quotas already get a deterministic fixed-window order below
+ * (Codex, GLM family, and Kimi Coding). Display layers (e.g. QuotaCardExpanded)
  * must not re-sort these by remaining percentage, or they undo this order (#6687).
  */
 export function hasFixedQuotaOrder(providerId: string | undefined): boolean {
   const id = String(providerId || "").toLowerCase();
-  return id === "codex" || GLM_FAMILY_PROVIDERS.includes(id);
+  return id === "codex" || GLM_FAMILY_PROVIDERS.includes(id) || KIMI_CODING_PROVIDERS.includes(id);
 }
 
 function quotaEntries(data: any): Array<[string, any]> {
@@ -269,6 +270,19 @@ function sortCodexOrder(providerId: string, quotas: any[]) {
   quotas.sort((a, b) => (CODEX_QUOTA_ORDER[a.name] ?? 99) - (CODEX_QUOTA_ORDER[b.name] ?? 99));
 }
 
+function sortKimiOrder(providerId: string, quotas: any[]) {
+  if (!KIMI_CODING_PROVIDERS.includes(providerId)) return;
+  const rank = (name: string) => {
+    if (/^code_5h(?:_|$)/.test(name)) return 0;
+    if (/^code_7d(?:_|$)/.test(name)) return 1;
+    return 99;
+  };
+  quotas.sort((a, b) => {
+    const rankDiff = rank(String(a.name)) - rank(String(b.name));
+    return rankDiff || String(a.name).localeCompare(String(b.name));
+  });
+}
+
 export function parseQuotaData(provider: string | undefined, data: any) {
   if (!data || typeof data !== "object") return [];
   const providerId = String(provider || "").toLowerCase();
@@ -278,6 +292,7 @@ export function parseQuotaData(provider: string | undefined, data: any) {
     sortProviderModelOrder(provider, normalizedQuotas);
     sortGlmOrder(providerId, normalizedQuotas);
     sortCodexOrder(providerId, normalizedQuotas);
+    sortKimiOrder(providerId, normalizedQuotas);
     return normalizedQuotas;
   } catch (error) {
     console.error(`Error parsing quota data for ${provider}:`, error);

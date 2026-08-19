@@ -87,8 +87,8 @@ export function sortQuotasByRemaining(quotas: any[]): any[] {
 
 /**
  * Pure helper — resolves the display order for a provider's quotas.
- * Providers with a deterministic fixed-window order (codex, glm family — see
- * quotaParsing.ts's sortCodexOrder()/sortGlmOrder()) keep the order
+ * Providers with a deterministic fixed-window order (Codex, GLM family,
+ * Kimi Coding — see quotaParsing.ts) keep the order
  * parseQuotaData() already established. Every other provider still gets the
  * remaining-percentage sort. Fixes #6687 (bars re-sorted by % undid the fixed
  * session/weekly order).

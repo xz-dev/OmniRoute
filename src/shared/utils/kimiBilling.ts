@@ -1,37 +1,20 @@
 /**
- * kimiBilling.ts — public contract for the Kimi Coding Extra Usage (加油包)
- * billing block shown on Dashboard → Provider Limits quota cards.
+ * Public Dashboard contract for Kimi Coding Extra Usage (额度加油包).
  *
- * Source of truth: the official Kimi Code CLI (`MoonshotAI/kimi-code`,
- * packages/oauth/src/managed-usage.ts). The managed `/coding/v1/usages`
- * payload carries a `boosterWallet` object:
- *
- *   "boosterWallet": {
- *     "balance":  { "type": "BOOSTER", "amount": "<fixed-point>", "amountLeft": "<fixed-point>" },
- *     "monthlyChargeLimit": { "priceInCents": 5000, "currency": "CNY" },
- *     "monthlyUsed":        { "priceInCents": 1234, "currency": "CNY" },
- *     "monthlyChargeLimitEnabled": true
- *   }
- *
- * `balance.amount`/`amountLeft` are fixed-point integers at 1_000_000 units
- * per cent; the `monthly*` money wrappers carry integer cents plus the ISO
- * currency. Kimi exposes no auto top-up API, so `autoTopUp` is always
- * `{ available: false }` — only manual top-up exists (via the official
- * subscription page).
+ * The existing read-only `GET /coding/v1/usages` response carries both the
+ * Code quota windows and `boosterWallet`. Only the strictly whitelisted fields
+ * below may cross the Provider Limits cache/UI boundary.
  */
 
 export const KIMI_CODE_ADDITIONAL_CREDITS_URL =
   "https://www.kimi.com/membership/subscription?tab=quota&aff=omniroute";
 
-export interface KimiAutoTopUpStatus {
-  /** Kimi Code has no auto top-up surface — always false. */
-  available: false;
-}
+export type KimiExtraUsageStatus = "enabled" | "disabled" | "frozen" | "unavailable";
 
 export interface KimiBillingStatus {
-  /** ISO 4217 currency reported by the wallet's monthly money wrappers. */
+  /** ISO 4217 currency reported by the wallet money wrappers. */
   currency: string;
-  /** Remaining Extra Usage balance in cents (from `balance.amountLeft`). */
+  /** Remaining Extra Usage balance in cents. */
   extraCreditsMinorUnits?: number;
   /** Extra Usage spend so far this calendar month, in cents. */
   monthlyUsedMinorUnits?: number;
@@ -39,17 +22,20 @@ export interface KimiBillingStatus {
   monthlyLimitEnabled?: boolean;
   /** Monthly spending cap in cents; 0/absent means unlimited. */
   monthlyLimitMinorUnits?: number;
-  autoTopUp: KimiAutoTopUpStatus;
+  extraUsageStatus: KimiExtraUsageStatus;
   additionalCreditsUrl: typeof KIMI_CODE_ADDITIONAL_CREDITS_URL;
 }
 
 export type KimiBillingTranslationKey =
   | "kimiExtraUsageCredits"
+  | "kimiExtraUsage"
+  | "kimiExtraUsageEnabled"
+  | "kimiExtraUsageDisabled"
+  | "kimiExtraUsageFrozen"
+  | "kimiExtraUsageUnavailable"
   | "kimiMonthlyUsed"
   | "kimiMonthlyLimit"
   | "kimiMonthlyLimitUnlimited"
-  | "kimiAutoTopUp"
-  | "kimiAutoTopUpUnavailable"
   | "kimiAdditionalCredits";
 
 export type KimiBillingTranslator = (key: KimiBillingTranslationKey, fallback: string) => string;
@@ -75,22 +61,28 @@ function minorUnits(value: unknown): number | undefined {
 }
 
 const ISO_4217 = /^[A-Za-z]{3}$/;
+const EXTRA_USAGE_STATUSES = new Set<KimiExtraUsageStatus>([
+  "enabled",
+  "disabled",
+  "frozen",
+  "unavailable",
+]);
 
 export function sanitizeKimiBillingStatus(value: unknown): KimiBillingStatus | undefined {
   const billing = toRecord(value);
   if (!billing || billing.additionalCreditsUrl !== KIMI_CODE_ADDITIONAL_CREDITS_URL)
     return undefined;
 
-  const rawAutoTopUp = toRecord(billing.autoTopUp);
-  // Kimi billing never carries an auto top-up rule — anything claiming
-  // availability is not the public contract and must be dropped.
-  if (!rawAutoTopUp || rawAutoTopUp.available !== false) return undefined;
-
   const currency =
     typeof billing.currency === "string" && ISO_4217.test(billing.currency)
       ? billing.currency.toUpperCase()
       : undefined;
-  if (!currency) return undefined;
+  const extraUsageStatus =
+    typeof billing.extraUsageStatus === "string" &&
+    EXTRA_USAGE_STATUSES.has(billing.extraUsageStatus as KimiExtraUsageStatus)
+      ? (billing.extraUsageStatus as KimiExtraUsageStatus)
+      : undefined;
+  if (!currency || !extraUsageStatus) return undefined;
 
   const extraCreditsMinorUnits = minorUnits(billing.extraCreditsMinorUnits);
   const monthlyUsedMinorUnits = minorUnits(billing.monthlyUsedMinorUnits);
@@ -104,7 +96,7 @@ export function sanitizeKimiBillingStatus(value: unknown): KimiBillingStatus | u
     ...(monthlyUsedMinorUnits !== undefined ? { monthlyUsedMinorUnits } : {}),
     ...(monthlyLimitEnabled !== undefined ? { monthlyLimitEnabled } : {}),
     ...(monthlyLimitMinorUnits !== undefined ? { monthlyLimitMinorUnits } : {}),
-    autoTopUp: { available: false },
+    extraUsageStatus,
     additionalCreditsUrl: KIMI_CODE_ADDITIONAL_CREDITS_URL,
   };
 }
@@ -125,13 +117,29 @@ export function formatKimiMinorUnits(
 
 const fallbackTranslation: KimiBillingTranslator = (_key, fallback) => fallback;
 
+function formatExtraUsageStatus(
+  status: KimiExtraUsageStatus,
+  translate: KimiBillingTranslator
+): string {
+  switch (status) {
+    case "enabled":
+      return translate("kimiExtraUsageEnabled", "Enabled");
+    case "disabled":
+      return translate("kimiExtraUsageDisabled", "Disabled");
+    case "frozen":
+      return translate("kimiExtraUsageFrozen", "Frozen");
+    default:
+      return translate("kimiExtraUsageUnavailable", "Unavailable");
+  }
+}
+
 export function buildKimiBillingCardRows(
   billing: KimiBillingStatus,
   locales?: Intl.LocalesArgument,
   translate: KimiBillingTranslator = fallbackTranslation
 ): KimiBillingCardRow[] {
   const rows: KimiBillingCardRow[] = [];
-  const walletEnabled = billing.extraCreditsMinorUnits !== undefined;
+  const walletPresent = billing.extraCreditsMinorUnits !== undefined;
 
   const extraCredits = formatKimiMinorUnits(
     billing.extraCreditsMinorUnits,
@@ -146,9 +154,13 @@ export function buildKimiBillingCardRows(
     });
   }
 
-  // Monthly spend/limit are wallet fields — only render once Extra Usage is
-  // enabled, mirroring the official CLI's Extra Usage section.
-  if (walletEnabled) {
+  rows.push({
+    kind: "status",
+    label: translate("kimiExtraUsage", "Extra Usage"),
+    value: formatExtraUsageStatus(billing.extraUsageStatus, translate),
+  });
+
+  if (walletPresent) {
     const monthlyUsed = formatKimiMinorUnits(
       billing.monthlyUsedMinorUnits,
       billing.currency,
@@ -176,11 +188,6 @@ export function buildKimiBillingCardRows(
     });
   }
 
-  rows.push({
-    kind: "status",
-    label: translate("kimiAutoTopUp", "Auto Top-Up"),
-    value: translate("kimiAutoTopUpUnavailable", "Unavailable"),
-  });
   rows.push({
     kind: "link",
     label: translate("kimiAdditionalCredits", "Additional Credits"),
