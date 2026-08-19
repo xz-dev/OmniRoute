@@ -1,14 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const {
-  buildKimiBillingCardRows,
-  formatKimiMinorUnits,
-  KIMI_CODE_ADDITIONAL_CREDITS_URL,
-  sanitizeKimiBillingStatus,
-} = await import("../../src/shared/utils/kimiBilling.ts");
-type KimiBillingTranslator =
-  typeof import("../../src/shared/utils/kimiBilling.ts").KimiBillingTranslator;
+const { buildKimiBillingCardRows, KIMI_CODE_ADDITIONAL_CREDITS_URL, sanitizeKimiBillingStatus } =
+  await import("../../src/shared/utils/kimiBilling.ts");
 const { isKimiBillingStatus, isProviderBillingProvider, sanitizeProviderBillingStatus } =
   await import("../../src/shared/utils/providerBilling.ts");
 const { PROVIDER_LABEL } =
@@ -81,7 +75,7 @@ test("Kimi monthly cap displays Unlimited when disabled or zero", () => {
 });
 
 test("Kimi billing labels support localized translation fallbacks", () => {
-  const translate: KimiBillingTranslator = (key, fallback) =>
+  const translate = (key: string, fallback: string) =>
     ({
       kimiExtraUsageCredits: "加油包余额",
       kimiExtraUsage: "额度加油包",
@@ -143,7 +137,7 @@ test("Kimi billing sanitizer strips private fields and rejects forged public con
     extraUsageStatus: "disabled",
     additionalCreditsUrl: KIMI_CODE_ADDITIONAL_CREDITS_URL,
   });
-  assert.equal(formatKimiMinorUnits(billing?.extraCreditsMinorUnits, "CNY", "zh-CN"), "¥0.00");
+  assert.equal(buildKimiBillingCardRows(billing!, "zh-CN")[0]?.value, "¥0.00");
   assert.equal(isKimiBillingStatus(billing!), true);
   assert.deepEqual(sanitizeProviderBillingStatus(billing), billing);
 

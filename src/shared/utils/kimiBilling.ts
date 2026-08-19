@@ -9,7 +9,7 @@
 export const KIMI_CODE_ADDITIONAL_CREDITS_URL =
   "https://www.kimi.com/membership/subscription?tab=quota&aff=omniroute";
 
-export type KimiExtraUsageStatus = "enabled" | "disabled" | "frozen" | "unavailable";
+type KimiExtraUsageStatus = "enabled" | "disabled" | "frozen" | "unavailable";
 
 export interface KimiBillingStatus {
   /** ISO 4217 currency reported by the wallet money wrappers. */
@@ -26,7 +26,7 @@ export interface KimiBillingStatus {
   additionalCreditsUrl: typeof KIMI_CODE_ADDITIONAL_CREDITS_URL;
 }
 
-export type KimiBillingTranslationKey =
+type KimiBillingTranslationKey =
   | "kimiExtraUsageCredits"
   | "kimiExtraUsage"
   | "kimiExtraUsageEnabled"
@@ -38,9 +38,9 @@ export type KimiBillingTranslationKey =
   | "kimiMonthlyLimitUnlimited"
   | "kimiAdditionalCredits";
 
-export type KimiBillingTranslator = (key: KimiBillingTranslationKey, fallback: string) => string;
+type KimiBillingTranslator = (key: KimiBillingTranslationKey, fallback: string) => string;
 
-export type KimiBillingCardRow =
+type KimiBillingCardRow =
   | { kind: "balance" | "status"; label: string; value: string }
   | {
       kind: "link";
@@ -101,7 +101,7 @@ export function sanitizeKimiBillingStatus(value: unknown): KimiBillingStatus | u
   };
 }
 
-export function formatKimiMinorUnits(
+function formatKimiMinorUnits(
   value: number | undefined,
   currency: KimiBillingStatus["currency"],
   locales?: Intl.LocalesArgument
