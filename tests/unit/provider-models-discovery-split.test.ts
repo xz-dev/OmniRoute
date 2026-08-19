@@ -149,6 +149,35 @@ test("providerModelsConfig aimlapi.parseResponse keeps only chat-completion mode
   assert.deepEqual(parsed, [{ id: "chat-1", name: "Chat 1" }]);
 });
 
+test("providerModelsConfig grok-cli.parseResponse preserves exact supported reasoning efforts", () => {
+  const parsed = PROVIDER_MODELS_CONFIG["grok-cli"].parseResponse({
+    models: [
+      {
+        id: "grok-4.6",
+        api_backend: "responses",
+        supports_reasoning_effort: true,
+        reasoning_efforts: [" high ", "low", "medium", "xhigh", "low"],
+      },
+      {
+        id: "grok-4.7",
+        api_backend: "responses",
+        supports_reasoning_effort: true,
+      },
+      {
+        id: "grok-4.8",
+        api_backend: "responses",
+        supports_reasoning_effort: true,
+        reasoning_efforts: ["xhigh", "unknown"],
+      },
+    ],
+  });
+
+  assert.deepEqual(parsed[0].supportedThinkingEfforts, ["high", "low", "medium"]);
+  assert.deepEqual(parsed[1].supportedThinkingEfforts, ["low", "medium", "high"]);
+  assert.equal(parsed[2].supportsThinking, true);
+  assert.equal(parsed[2].supportedThinkingEfforts, undefined);
+});
+
 test("providerModelsConfig openrouter.parseResponse keeps the full catalog (LLMs not filtered out)", () => {
   // Generic OpenRouter discovery must stay unfiltered so sync/import/pickers
   // and /v1/models keep every LLM. STT narrowing lives on the STT card, not here.

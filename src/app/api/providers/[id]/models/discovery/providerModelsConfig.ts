@@ -3,6 +3,7 @@ import {
   GROK_BUILD_DEFAULT_CONTEXT_WINDOW,
   getGrokBuildModelsHeaders,
   GROK_BUILD_MODELS_URL,
+  GROK_BUILD_SUPPORTED_REASONING_EFFORTS,
 } from "@omniroute/open-sse/config/grokBuild.ts";
 import { getAntigravityContentHeaders } from "@omniroute/open-sse/services/antigravityHeaders.ts";
 import { parseGeminiModelsList } from "@/lib/providerModels/geminiModelsParser";
@@ -220,7 +221,10 @@ function getGrokBuildModelItems(data: unknown): unknown[] {
   return Array.isArray(envelope.models) ? envelope.models : [];
 }
 
-function hasGrokBuildReasoning(model: GrokBuildModelRecord, metadata: GrokBuildModelRecord) {
+function hasGrokBuildReasoning(
+  model: GrokBuildModelRecord,
+  metadata: GrokBuildModelRecord
+): boolean {
   const flags = [
     model.supportsReasoningEffort,
     model.supports_reasoning_effort,
@@ -243,6 +247,35 @@ function hasGrokBuildReasoning(model: GrokBuildModelRecord, metadata: GrokBuildM
     ) !== undefined ||
     effortLists.some((value) => Array.isArray(value) && value.length > 0)
   );
+}
+
+function getGrokBuildReasoningEfforts(
+  model: GrokBuildModelRecord,
+  metadata: GrokBuildModelRecord
+): string[] {
+  const supported = new Set(GROK_BUILD_SUPPORTED_REASONING_EFFORTS);
+  const effortLists = [
+    model.reasoningEfforts,
+    model.reasoning_efforts,
+    metadata.reasoningEfforts,
+    metadata.reasoning_efforts,
+  ];
+  const hasExplicitEffortList = effortLists.some((value) => Array.isArray(value));
+  const discovered = effortLists
+    .flatMap((value) => (Array.isArray(value) ? value : []))
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => value.trim().toLowerCase())
+    .filter((value) => supported.has(value));
+  if (hasExplicitEffortList) return [...new Set(discovered)];
+
+  const singleEffort = grokBuildString(
+    model.reasoningEffort,
+    model.reasoning_effort,
+    metadata.reasoningEffort,
+    metadata.reasoning_effort
+  )?.toLowerCase();
+  if (singleEffort && supported.has(singleEffort)) return [singleEffort];
+  return hasGrokBuildReasoning(model, metadata) ? [...GROK_BUILD_SUPPORTED_REASONING_EFFORTS] : [];
 }
 
 function normalizeGrokBuildModel(value: unknown): GrokBuildModelRecord | null {
@@ -285,6 +318,8 @@ function normalizeGrokBuildModel(value: unknown): GrokBuildModelRecord | null {
     model.max_completion_tokens
   );
   const description = grokBuildString(model.description);
+  const supportsThinking = hasGrokBuildReasoning(model, metadata);
+  const supportedThinkingEfforts = getGrokBuildReasoningEfforts(model, metadata);
 
   return {
     id,
@@ -293,7 +328,8 @@ function normalizeGrokBuildModel(value: unknown): GrokBuildModelRecord | null {
     ...(description ? { description } : {}),
     inputTokenLimit,
     ...(outputTokenLimit ? { outputTokenLimit } : {}),
-    ...(hasGrokBuildReasoning(model, metadata) ? { supportsThinking: true } : {}),
+    ...(supportsThinking ? { supportsThinking: true } : {}),
+    ...(supportedThinkingEfforts.length > 0 ? { supportedThinkingEfforts } : {}),
     apiFormat: "responses",
     supportedEndpoints: ["responses"],
   };

@@ -36,7 +36,11 @@ import {
   prepareBuiltinAutoComboInputs,
   isPaidTierAutoId,
 } from "@omniroute/open-sse/services/autoCombo/builtinCatalog";
-import type { SyncedAvailableModel } from "@/lib/db/models";
+import {
+  getSyncedAvailableModelsByConnection,
+  SYNCED_AVAILABLE_MODELS_MALFORMED,
+  type SyncedAvailableModel,
+} from "@/lib/db/models";
 import { getAllActiveSyncedModels } from "@/lib/db/models/activeSyncedCatalog";
 import { getModelCatalogCacheVersion } from "@/lib/db/readCache";
 import { getCompatibleFallbackModels } from "@/lib/providers/managedAvailableModels";
@@ -57,6 +61,7 @@ import {
 import { getModelsDevPricing, getSyncedCapability } from "@/lib/modelsDevSync";
 import { getModelSpec } from "@/shared/constants/modelSpecs";
 import { getModelsCatalogPrefixMode } from "@/shared/utils/featureFlags";
+import { buildReservedPrefixes, selectCompatibleNodeForPrefix } from "@/lib/providerNodePrefixes";
 import { applyCatalogPostFilters, finalizeCatalogResponse } from "./catalogResponse";
 import {
   isNoAuthProviderBlocked,
@@ -78,6 +83,8 @@ import {
   maybeOmitCatalogModelName,
   getThinkingCapabilityFields,
   mergeComboCapabilities,
+  getConnectionScopedEffortTiers,
+  type ConnectionScopedReasoningCatalog,
 } from "./catalogHelpers";
 import {
   qualifyOpenRouterModelId,
@@ -288,6 +295,7 @@ async function buildUnifiedModelsResponseCore(
 
     // Build map of provider node ID to prefix and type for compatible providers
     const providerIdToPrefix: Record<string, string> = {};
+    const providerNodeIdByPrefix: Record<string, string> = {};
     const nodeIdToProviderType: Record<string, string> = {};
     for (const node of providerNodes) {
       const resolvedPrefix =
@@ -304,6 +312,12 @@ async function buildUnifiedModelsResponseCore(
       if (node.type) {
         nodeIdToProviderType[node.id] = node.type;
       }
+    }
+    const reservedProviderPrefixes = buildReservedPrefixes();
+    for (const prefix of new Set(Object.values(providerIdToPrefix))) {
+      if (reservedProviderPrefixes.has(prefix)) continue;
+      const winner = selectCompatibleNodeForPrefix(providerNodes, prefix);
+      if (winner?.id) providerNodeIdByPrefix[prefix] = winner.id;
     }
 
     // #8327: `resolveCanonicalProviderId`/`canonicalProviderId` only know the static
@@ -404,8 +418,41 @@ async function buildUnifiedModelsResponseCore(
     const getProviderPrefixes = (providerId: string, rawProvider: string) =>
       getProviderPrefixesFromMaps(aliasMaps, providerId, rawProvider);
 
-    const getComboTargetModelId = (target: ComboCatalogTarget) =>
-      getComboTargetModelIdFromMaps(aliasMaps, target);
+    const getComboTargetModelId = (target: ComboCatalogTarget) => {
+      const resolved = getComboTargetModelIdFromMaps(aliasMaps, target);
+      if (!resolved) return null;
+      const nodeId = providerNodeIdByPrefix[resolved.providerId];
+      return nodeId ? { ...resolved, providerId: nodeId } : resolved;
+    };
+
+    const resolvedComboTargets = combos.flatMap(
+      (combo) =>
+        resolveNestedComboTargets(
+          combo as Parameters<typeof resolveNestedComboTargets>[0],
+          combos as Parameters<typeof resolveNestedComboTargets>[1]
+        ) as ComboCatalogTarget[]
+    );
+    const comboProviderIds = new Set(
+      resolvedComboTargets.flatMap((target) => {
+        const resolved = getComboTargetModelId(target);
+        return resolved ? [resolved.providerId] : [];
+      })
+    );
+    const comboSyncedModelsByProvider = new Map<string, ConnectionScopedReasoningCatalog | null>();
+    await Promise.all(
+      [...comboProviderIds].map(async (providerId) => {
+        try {
+          const byConnection = await getSyncedAvailableModelsByConnection(providerId);
+          comboSyncedModelsByProvider.set(
+            providerId,
+            byConnection[SYNCED_AVAILABLE_MODELS_MALFORMED] ? null : byConnection
+          );
+        } catch {
+          // Unknown connection-scoped capability evidence must never broaden a combo.
+          comboSyncedModelsByProvider.set(providerId, null);
+        }
+      })
+    );
 
     const getComboTargetCatalogMetadata = (
       target: ComboCatalogTarget
@@ -419,6 +466,33 @@ async function buildUnifiedModelsResponseCore(
       });
       if (!canonical) return null;
 
+      const providerId = canonical.provider || targetModel.providerId;
+      const modelId = canonical.model || targetModel.modelId;
+      const providerAlias = providerIdToAlias[providerId] || PROVIDER_ID_TO_ALIAS[providerId];
+      const allProviderConnections = getConnectionsForProvider(
+        providerId,
+        providerAlias,
+        targetModel.providerId
+      );
+      const providerConnections = allProviderConnections.filter((connection) =>
+        hasEligibleConnectionForModel([connection], modelId)
+      );
+      const hasExplicitConnectionScope =
+        Boolean(target.connectionId) || Boolean(target.allowedConnectionIds?.length);
+      const eligibleConnectionIds =
+        allProviderConnections.length > 0 || hasExplicitConnectionScope
+          ? providerConnections.map((connection) => connection.id)
+          : undefined;
+      const connectionCatalog = comboSyncedModelsByProvider.get(providerId);
+      const connectionEfforts =
+        connectionCatalog === null
+          ? []
+          : getConnectionScopedEffortTiers(
+              modelId,
+              target,
+              eligibleConnectionIds,
+              connectionCatalog || {}
+            );
       const source = canonical.metadata.source;
       const hasRecognizedMetadata =
         source.providerRegistry || source.staticSpec || source.syncedCapability;
@@ -429,10 +503,10 @@ async function buildUnifiedModelsResponseCore(
           isPersistedResolvedLimitSource(canonical.limits.maxInputTokensSource)) ||
         (isPositiveFiniteNumber(canonical.limits.maxOutputTokens) &&
           isPersistedResolvedLimitSource(canonical.limits.maxOutputTokensSource));
-      if (!hasRecognizedMetadata && !hasPersistedLimit) return null;
+      if (connectionEfforts === undefined && !hasRecognizedMetadata && !hasPersistedLimit) {
+        return null;
+      }
 
-      const providerId = canonical.provider || targetModel.providerId;
-      const modelId = canonical.model || targetModel.modelId;
       const synced = getSyncedCapability(providerId, modelId);
       const spec = getModelSpec(modelId);
       const registryModel = getRegistryModel(providerId, modelId);
@@ -500,12 +574,21 @@ async function buildUnifiedModelsResponseCore(
       }
       Object.assign(
         capabilities,
-        getThinkingCapabilityFields(
-          providerId,
-          modelId,
-          canonical.capabilities.supportsThinking,
-          registryModel?.supportedThinkingEfforts
-        )
+        connectionEfforts === undefined
+          ? getThinkingCapabilityFields(
+              providerId,
+              modelId,
+              canonical.capabilities.supportsThinking,
+              registryModel?.supportedThinkingEfforts,
+              true
+            )
+          : getThinkingCapabilityFields(
+              providerId,
+              modelId,
+              connectionEfforts.length > 0 ? true : canonical.capabilities.supportsThinking,
+              connectionEfforts,
+              true
+            )
       );
 
       return {
@@ -561,6 +644,9 @@ async function buildUnifiedModelsResponseCore(
         : [];
 
       const capabilities = mergeComboCapabilities(knownMetadata);
+      if (targetMetadata.some((metadata) => metadata === null)) {
+        delete capabilities.effort_tiers;
+      }
 
       return {
         ...baseMetadata,
