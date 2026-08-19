@@ -654,17 +654,6 @@ export function getResolvedModelCapabilities(
     (typeof registryModel?.contextLength === "number" ? registryModel.contextLength : null) ??
     spec?.contextWindow ??
     null;
-  const contextWindowSource: ResolvedLimitSource | null = persistedContextOverride
-    ? persistedContextOverride.source
-    : authoritativeContextWindow !== null
-      ? "authoritative-fallback"
-      : typeof synced?.limit_context === "number"
-        ? "synced"
-        : typeof registryModel?.contextLength === "number"
-          ? "registry"
-          : typeof spec?.contextWindow === "number"
-            ? "spec"
-            : null;
 
   const maxInputOverride = usePersistedOverrides
     ? getInputTokenCapabilityOverride(resolved, resolutionSnapshot)
