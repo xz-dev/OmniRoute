@@ -1,0 +1,1 @@
+- **feat(usage):** show Kimi Coding Extra Usage balance, monthly spend/limit, Auto Top-Up availability, and the official Additional Credits link on Dashboard → Quota cards.

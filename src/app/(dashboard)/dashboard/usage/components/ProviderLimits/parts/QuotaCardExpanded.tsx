@@ -2,7 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { buildGrokBillingCardRows, type GrokBillingStatus } from "@/shared/utils/grokBilling";
+import { buildGrokBillingCardRows } from "@/shared/utils/grokBilling";
+import { buildKimiBillingCardRows } from "@/shared/utils/kimiBilling";
+import {
+  isKimiBillingStatus,
+  isProviderBillingProvider,
+  type ProviderBillingStatus,
+} from "@/shared/utils/providerBilling";
 import {
   formatCountdown,
   formatQuotaLabel,
@@ -27,19 +33,23 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
 
 const DEFAULT_VISIBLE_ROWS = 3;
 
-function GrokBillingDetails({ billing }: { billing: GrokBillingStatus }) {
+function ProviderBillingDetails({ billing }: { billing: ProviderBillingStatus }) {
   const t = useTranslations("usage");
   const locale = useLocale();
-  const rows = buildGrokBillingCardRows(billing, locale, (key, fallback) =>
-    translateUsageOrFallback(t, key, fallback)
-  );
+  const rows = isKimiBillingStatus(billing)
+    ? buildKimiBillingCardRows(billing, locale, (key, fallback) =>
+        translateUsageOrFallback(t, key, fallback)
+      )
+    : buildGrokBillingCardRows(billing, locale, (key, fallback) =>
+        translateUsageOrFallback(t, key, fallback)
+      );
 
   return (
     <div className="flex flex-col gap-1.5 border-t border-border/40 pt-2 text-[11px] text-text-main">
       {rows.map((row) =>
         row.kind === "link" ? (
           <a
-            key={row.kind}
+            key={`${row.kind}-${row.label}`}
             href={row.href}
             target={row.target}
             rel={row.rel}
@@ -50,7 +60,7 @@ function GrokBillingDetails({ billing }: { billing: GrokBillingStatus }) {
           </a>
         ) : (
           <div
-            key={row.kind}
+            key={`${row.kind}-${row.label}`}
             className={`flex justify-between gap-2 ${
               row.kind === "status" ? "items-start" : "items-center"
             }`}
@@ -115,7 +125,7 @@ interface Props {
   loading: boolean;
   error: string | null;
   message?: string | null;
-  billing?: GrokBillingStatus | null;
+  billing?: ProviderBillingStatus | null;
   refreshedAt?: string;
   hasStaleData: boolean;
   onRefresh: () => void;
@@ -357,7 +367,9 @@ export default function QuotaCardExpanded({
         </div>
       )}
 
-      {providerId === "grok-cli" && billing && <GrokBillingDetails billing={billing} />}
+      {isProviderBillingProvider(providerId) && billing && (
+        <ProviderBillingDetails billing={billing} />
+      )}
 
       {hiddenQuotaRows.length > 0 && (
         <div className="flex flex-wrap items-center gap-1 border-t border-border/40 pt-1.5 text-[10px] text-text-muted">
