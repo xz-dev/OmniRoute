@@ -67,6 +67,11 @@ export interface CanonicalModelMetadata {
     reasoning: boolean;
     supportsThinking: boolean | null;
     supportedThinkingEfforts: readonly string[] | null;
+    /** True when supportedThinkingEfforts comes from an operator-set
+     * reasoning-efforts override (exact metadata) rather than registry/synced
+     * inference. Lets combo assembly prefer the override over connection-scoped
+     * evidence that may fail closed. */
+    reasoningEffortsOverride: boolean;
     supportsTools: boolean | null;
     vision: boolean | null;
     attachment: boolean | null;
@@ -254,6 +259,7 @@ export function getCanonicalModelMetadata(input: {
       reasoning: resolved.reasoning,
       supportsThinking: resolved.supportsThinking,
       supportedThinkingEfforts: resolved.supportedThinkingEfforts,
+      reasoningEffortsOverride: resolved.reasoningEffortsOverride === true,
       supportsTools: resolved.supportsTools,
       vision: resolved.supportsVision,
       attachment: resolved.attachment,
