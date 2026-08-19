@@ -80,7 +80,6 @@ export function createModelCapabilityResolutionSnapshot(
     string,
     Map<string, readonly ReasoningEffortOverrideValue[]>
   >();
-  const inputTokenOverrides = maxInputTokenOverrides;
   for (const entry of listModelCapabilityOverrides()) {
     if (entry.key === "max_input_tokens") {
       setNestedOverride(maxInputTokenOverrides, entry.provider, entry.modelId, entry.value);
@@ -107,7 +106,6 @@ export function createModelCapabilityResolutionSnapshot(
     synced,
     maxTokenOverrides,
     maxInputTokenOverrides,
-    inputTokenOverrides,
     reasoningEffortsOverrides,
     contextOverrides,
     contextOverrideRecords,
