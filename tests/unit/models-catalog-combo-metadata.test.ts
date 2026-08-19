@@ -14,6 +14,7 @@ const combosDb = await import("../../src/lib/db/combos.ts");
 const modelsDb = await import("../../src/lib/db/models.ts");
 const contextOverrides = await import("../../src/lib/db/modelContextOverrides.ts");
 const capabilityOverrides = await import("../../src/lib/db/modelCapabilityOverrides.ts");
+const overrideRoute = await import("../../src/app/api/model-capability-overrides/route.ts");
 const catalog = await import("../../src/app/api/v1/models/catalog.ts");
 
 test.after(() => {
@@ -295,6 +296,140 @@ test("single-target combo respects registry reasoning overrides before specs", a
   assert.equal(capabilities.thinking, false);
   assert.equal(capabilities.supportsThinking, false);
   assert.equal(Object.hasOwn(capabilities, "effort_tiers"), false);
+});
+
+test("reasoning_efforts overrides project exact native tiers to direct models and combo intersections", async () => {
+  const openaiTarget = "openai/gpt-4o";
+  const anthropicTarget = "anthropic/claude-sonnet-4-5";
+  assert.equal(
+    capabilityOverrides.setModelCapabilityOverride(
+      openaiTarget,
+      "reasoning_efforts",
+      "low,max,ultra"
+    ),
+    true
+  );
+  assert.equal(
+    capabilityOverrides.setModelCapabilityOverride(
+      anthropicTarget,
+      "reasoning_efforts",
+      "medium,max,ultra"
+    ),
+    true
+  );
+
+  try {
+    await providersDb.createProviderConnection({
+      provider: "openai",
+      authType: "apikey",
+      name: "reasoning-efforts-openai-combo",
+      apiKey: "openai-test-key",
+      isActive: true,
+      testStatus: "active",
+    });
+    await providersDb.createProviderConnection({
+      provider: "anthropic",
+      authType: "apikey",
+      name: "reasoning-efforts-anthropic-combo",
+      apiKey: "anthropic-test-key",
+      isActive: true,
+      testStatus: "active",
+    });
+    await combosDb.createCombo({
+      name: "reasoning-efforts-override-combo",
+      strategy: "auto",
+      models: [openaiTarget, anthropicTarget],
+    });
+
+    const response = await catalog.getUnifiedModelsResponse(
+      new Request("http://localhost/api/v1/models")
+    );
+    const body = (await response.json()) as { data: Array<Record<string, unknown>> };
+    const direct = body.data.find((item) => item.id === openaiTarget);
+    const combo = body.data.find((item) => item.id === "reasoning-efforts-override-combo");
+
+    assert.equal(response.status, 200);
+    assert.ok(direct);
+    assert.ok(combo);
+    assert.deepEqual((direct.capabilities as Record<string, unknown>).effort_tiers, [
+      "low",
+      "max",
+      "ultra",
+    ]);
+    assert.deepEqual((combo.capabilities as Record<string, unknown>).effort_tiers, [
+      "max",
+      "ultra",
+    ]);
+  } finally {
+    capabilityOverrides.removeModelCapabilityOverride(openaiTarget, "reasoning_efforts");
+    capabilityOverrides.removeModelCapabilityOverride(anthropicTarget, "reasoning_efforts");
+  }
+});
+
+test("compatible provider-node override reaches direct and combo metadata through its public prefix", async () => {
+  const nodeId = "openai-compatible-chat-reasoning-override";
+  const prefix = "reasoning-override";
+  const modelId = "native-reasoning-model";
+  await providersDb.createProviderNode({
+    id: nodeId,
+    type: "openai-compatible",
+    prefix,
+    name: "Reasoning Override",
+    apiType: "chat",
+    baseUrl: "https://example.com/v1",
+  });
+  const connection = await providersDb.createProviderConnection({
+    provider: nodeId,
+    authType: "api_key",
+    name: "reasoning-override-connection",
+    apiKey: "sk-test",
+    isActive: true,
+    testStatus: "active",
+  });
+  await modelsDb.replaceSyncedAvailableModelsForConnection(nodeId, connection.id, [
+    { id: modelId, name: "Native Reasoning Model" },
+  ]);
+
+  const patch = await overrideRoute.PATCH(
+    new Request("http://localhost/api/model-capability-overrides", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        target: `${prefix}/${modelId}`,
+        key: "reasoning_efforts",
+        value: "low,max,ultra",
+      }),
+    })
+  );
+  assert.equal(patch.status, 200);
+  assert.deepEqual(capabilityOverrides.getReasoningEffortsOverride(nodeId, modelId), [
+    "low",
+    "max",
+    "ultra",
+  ]);
+
+  await combosDb.createCombo({
+    name: "provider-node-reasoning-override-combo",
+    strategy: "auto",
+    models: [`${prefix}/${modelId}`],
+  });
+  const response = await catalog.getUnifiedModelsResponse(
+    new Request("http://localhost/api/v1/models")
+  );
+  const body = (await response.json()) as { data: Array<Record<string, unknown>> };
+  const direct = body.data.find((item) => item.id === `${prefix}/${modelId}`);
+  const combo = body.data.find((item) => item.id === "provider-node-reasoning-override-combo");
+
+  assert.equal(response.status, 200);
+  assert.ok(direct);
+  assert.ok(combo);
+  for (const item of [direct, combo]) {
+    assert.deepEqual((item.capabilities as Record<string, unknown>).effort_tiers, [
+      "low",
+      "max",
+      "ultra",
+    ]);
+  }
 });
 
 test("single-target combo reflects unblocked Antigravity Gemini reasoning", async () => {

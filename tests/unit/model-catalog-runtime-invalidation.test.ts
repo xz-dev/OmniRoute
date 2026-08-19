@@ -153,6 +153,22 @@ test("#9199 capability data writes advance the model-catalog generation", () => 
       true
     );
   });
+  expectGenerationAdvance("set reasoning_efforts override", () => {
+    assert.equal(
+      capabilityOverrides.setModelCapabilityOverride(
+        "openai/gpt-5.4-mini",
+        "reasoning_efforts",
+        "low,max,ultra"
+      ),
+      true
+    );
+  });
+  expectGenerationAdvance("remove reasoning_efforts override", () => {
+    assert.equal(
+      capabilityOverrides.removeModelCapabilityOverride("openai/gpt-5.4-mini", "reasoning_efforts"),
+      true
+    );
+  });
   expectGenerationAdvance("setModelContextOverride", () => {
     assert.equal(contextOverrides.setModelContextOverride("openai", "gpt-5.4-mini", 400000), true);
   });
