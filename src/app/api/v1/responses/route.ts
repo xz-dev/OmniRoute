@@ -1,9 +1,9 @@
 import { handleChat } from "@/sse/handlers/chat";
 import {
   withEarlyStreamKeepalive,
-  RESPONSES_STARTUP_THINKING_FRAME,
   OPENAI_RESPONSES_ERROR_FRAME,
 } from "@omniroute/open-sse/utils/earlyStreamKeepalive";
+import { OPENAI_RESPONSES_IN_PROGRESS_FRAME } from "@omniroute/open-sse/utils/sseHeartbeat";
 import { withInjectionGuard } from "@/middleware/promptInjectionGuard";
 import { resolveResponsesApiModel } from "@/app/api/internal/codex-responses-ws/modelResolution";
 import { getModelInfo, getComboForModel } from "@/sse/services/model";
@@ -110,7 +110,8 @@ async function postHandler(request: any, context: any, preParsedBody: any = null
     return await withEarlyStreamKeepalive(handleChat(resolved, null, resolvedBody, correlationId), {
       signal: request.signal,
       thresholdMs,
-      startupFrame: RESPONSES_STARTUP_THINKING_FRAME,
+      keepaliveFrame: OPENAI_RESPONSES_IN_PROGRESS_FRAME,
+      startupFrame: OPENAI_RESPONSES_IN_PROGRESS_FRAME,
       errorFrame: OPENAI_RESPONSES_ERROR_FRAME,
       correlationId,
     });
