@@ -37,8 +37,11 @@ export { isPersistedResolvedLimitSource } from "@/lib/modelCapabilityLimits";
 export { createModelCapabilityResolutionSnapshot } from "@/lib/modelCapabilityResolutionSnapshot";
 
 /** Resolve a persisted context override by canonical id, then exact raw alias. */
-export function getResolvedModelContextOverride(input: CapabilityInput): number | null {
-  return getContextOverride(resolveCapabilityInput(input));
+export function getResolvedModelContextOverride(
+  input: CapabilityInput,
+  snapshot?: ModelCapabilityResolutionSnapshot | null
+): number | null {
+  return getContextOverride(resolveCapabilityInput(input), snapshot);
 }
 export { resolveAudioCapability } from "@/lib/modelCapabilityModalities";
 import { isVisionModelId } from "@/shared/constants/visionModels";

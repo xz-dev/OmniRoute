@@ -30,7 +30,6 @@ import {
   CANONICAL_EFFORT_VALUES,
   extendCodexGpt56EffortValues,
 } from "@/shared/reasoning/effortStandardization";
-import type { ModelCapabilityResolutionSnapshot } from "@/lib/modelCapabilityResolutionSnapshot";
 
 const MODEL_METADATA_SCHEMA_VERSION = "model-metadata-v1";
 
