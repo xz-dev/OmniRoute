@@ -655,9 +655,8 @@ export async function admitChatStructure(
   } = {}
 ): Promise<ChatStructureAdmission> {
   if (!body || typeof body !== "object" || Array.isArray(body)) return { admit: true, lease };
-
   const record = body as Record<string, unknown>;
-  const messages = Array.isArray(record.messages) ? record.messages : [];
+  const messages = [record.messages, record.input].flat().filter((item) => item != null);
   const tools = Array.isArray(record.tools) ? record.tools : [];
   const maxMessages = options.maxMessages ?? CHAT_HARD_MAX_MESSAGES;
   // Opt-in only: `0`/unset means no history cap, so oversized conversations reach the

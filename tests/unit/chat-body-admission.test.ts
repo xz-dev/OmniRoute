@@ -80,6 +80,24 @@ test("a byte-light request above the message threshold acquires heavyweight capa
   assert.equal(controller.activeHeavy, 0);
 });
 
+test("Responses input items count toward heavyweight admission", async () => {
+  const controller = new ChatAdmissionController(1);
+  const result = await admitChatStructure(
+    {
+      input: [
+        { role: "user", content: "one" },
+        { role: "user", content: "two" },
+      ],
+    },
+    null,
+    { controller, maxMessages: 10, heavyMessages: 2, heavyTools: 10, heavyTokens: 10_000 }
+  );
+
+  assert.equal(result.admit, true);
+  assert.equal(controller.activeHeavy, 1);
+  if (result.admit) result.lease?.release();
+});
+
 test("a byte-light request above the tool threshold is rejected when heavy capacity is busy AND the heap is genuinely under pressure (#10183/#10268)", async () => {
   const controller = new ChatAdmissionController(1);
   const occupied = controller.tryAcquireHeavy();
@@ -195,6 +213,21 @@ test("a conservative token estimate classifies string messages and tool schemas 
     null,
     { controller, maxMessages: 10, heavyMessages: 10, heavyTools: 10, heavyTokens: 4 }
   );
+
+  assert.equal(result.admit, true);
+  assert.equal(controller.activeHeavy, 1);
+  if (result.admit) result.lease?.release();
+});
+
+test("Responses string input contributes to the conservative token estimate", async () => {
+  const controller = new ChatAdmissionController(1);
+  const result = await admitChatStructure({ messages: [], input: "abcdefgh" }, null, {
+    controller,
+    maxMessages: 10,
+    heavyMessages: 10,
+    heavyTools: 10,
+    heavyTokens: 2,
+  });
 
   assert.equal(result.admit, true);
   assert.equal(controller.activeHeavy, 1);
