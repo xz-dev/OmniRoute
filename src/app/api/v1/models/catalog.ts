@@ -414,7 +414,10 @@ async function buildUnifiedModelsResponseCore(
     // single-stretch event-loop budget this file's own yield mechanism is meant to protect.
     const connectionsForProviderCache = new Map<string, typeof connections>();
     const getConnectionsForProvider = (...keys: Array<string | null | undefined>) => {
-      const cacheKey = keys.filter((k): k is string => Boolean(k)).sort().join(" ");
+      const cacheKey = keys
+        .filter((k): k is string => Boolean(k))
+        .sort()
+        .join(" ");
       const cached = connectionsForProviderCache.get(cacheKey);
       if (cached) return cached;
       const seen = new Set<string>();
@@ -510,13 +513,11 @@ async function buildUnifiedModelsResponseCore(
       const targetModel = getComboTargetModelId(target);
       if (!targetModel) return null;
 
-      const canonical = getCanonicalModelMetadata(
-        {
-          provider: targetModel.providerId,
-          model: targetModel.modelId,
-        },
-        capabilityResolutionSnapshot
-      );
+      const canonical = getCanonicalModelMetadata({
+        provider: targetModel.providerId,
+        model: targetModel.modelId,
+        snapshot: capabilityResolutionSnapshot,
+      });
       if (!canonical) return null;
 
       const providerId = canonical.provider || targetModel.providerId;

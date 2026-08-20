@@ -9,6 +9,7 @@ import {
 } from "@/lib/modelCapabilities";
 import { getModelCapabilityOverride } from "@/lib/db/modelCapabilityOverrides";
 import type { ModelCapabilityResolutionSnapshot } from "@/lib/modelCapabilityResolutionSnapshot";
+import type { ResolvedLimitSource } from "@/lib/modelCapabilityLimits";
 import {
   getAuthoritativeContextWindow,
   getAuthoritativeProviderContextWindow,
@@ -80,8 +81,11 @@ export interface CanonicalModelMetadata {
   };
   limits: {
     contextWindow: number | null;
+    contextWindowSource: ResolvedLimitSource | null;
     maxInputTokens: number | null;
+    maxInputTokensSource: ResolvedLimitSource | null;
     maxOutputTokens: number;
+    maxOutputTokensSource: ResolvedLimitSource | null;
     defaultThinkingBudget: number;
     thinkingBudgetCap: number | null;
     thinkingOverhead: number | null;
@@ -268,8 +272,11 @@ export function getCanonicalModelMetadata(input: {
     },
     limits: {
       contextWindow: resolved.contextWindow,
+      contextWindowSource: resolved.contextWindowSource,
       maxInputTokens: resolved.maxInputTokens,
+      maxInputTokensSource: resolved.maxInputTokensSource,
       maxOutputTokens: resolved.maxOutputTokens,
+      maxOutputTokensSource: resolved.maxOutputTokensSource,
       defaultThinkingBudget: resolved.defaultThinkingBudget,
       thinkingBudgetCap: resolved.thinkingBudgetCap,
       thinkingOverhead: resolved.thinkingOverhead,
@@ -555,15 +562,30 @@ export function enrichCatalogModelEntry<T extends JsonRecord>(
   }
 
   const persistedOutputLimit =
-    getModelCapabilityOverride(provider, model, "max_output_tokens", capabilitySnapshot?.maxTokenOverrides) ??
-    getModelCapabilityOverride(provider, model, "max_token", capabilitySnapshot?.maxTokenOverrides) ??
+    getModelCapabilityOverride(
+      provider,
+      model,
+      "max_output_tokens",
+      capabilitySnapshot?.maxTokenOverrides
+    ) ??
+    getModelCapabilityOverride(
+      provider,
+      model,
+      "max_token",
+      capabilitySnapshot?.maxTokenOverrides
+    ) ??
     getModelCapabilityOverride(
       publicProvider,
       model,
       "max_output_tokens",
       capabilitySnapshot?.maxTokenOverrides
     ) ??
-    getModelCapabilityOverride(publicProvider, model, "max_token", capabilitySnapshot?.maxTokenOverrides);
+    getModelCapabilityOverride(
+      publicProvider,
+      model,
+      "max_token",
+      capabilitySnapshot?.maxTokenOverrides
+    );
   if (persistedOutputLimit !== null) {
     nextEntry.max_output_tokens = persistedOutputLimit;
   } else if (
