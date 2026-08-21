@@ -73,7 +73,7 @@ type GlmEffortTier = {
  * `thinking.type=enabled` (5.3 no longer accepts thinking disabled).
  *
  * https://docs.z.ai/devpack/latest-model
- * https://z.ai/blog/glm-5.3
+ * https://docs.z.ai/guides/llm/glm-5.3
  */
 function parseGlmEffortTier(model: string): GlmEffortTier | null {
   switch (model) {
