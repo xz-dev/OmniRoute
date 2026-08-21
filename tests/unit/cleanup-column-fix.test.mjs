@@ -52,18 +52,21 @@ test("cleanup: proxy_logs is included in runAutoCleanup", () => {
   );
 });
 
-test("cleanup: has background scheduler (startCleanupScheduler)", () => {
+test("cleanup: background scheduler never runs blocking VACUUM", () => {
   assert.ok(
     source.includes("startCleanupScheduler"),
     "must export startCleanupScheduler for periodic background cleanup"
   );
+  assert.ok(source.includes("CLEANUP_INTERVAL_MS"), "must have a cleanup interval constant");
+
+  const schedulerSource = source.slice(source.indexOf("Background Cleanup Scheduler"));
   assert.ok(
-    source.includes("CLEANUP_INTERVAL_MS"),
-    "must have a cleanup interval constant"
+    !schedulerSource.includes('db.exec("VACUUM")'),
+    "automatic retention cleanup must leave full VACUUM to the dedicated scheduler or manual API"
   );
   assert.ok(
-    source.includes("VACUUM"),
-    "scheduler must run VACUUM after deletes to reclaim disk space"
+    !schedulerSource.includes("cleanupProxyLogs()"),
+    "scheduler must not bypass auto-cleanup settings by cleaning proxy logs a second time"
   );
 });
 
