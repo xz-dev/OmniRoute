@@ -156,6 +156,15 @@ test("#6848 cleanupXpAuditLog: deletes rows older than retention window", async 
   assert.strictEqual(remaining.cnt, 1);
 });
 
+test("#6848 cleanupCompressionRunTelemetry: skips an uninitialized lazy table", async () => {
+  const db = getDbInstance()!;
+  db.exec("DROP TABLE compression_run_telemetry");
+
+  const result = await cleanupCompressionRunTelemetry();
+
+  assert.deepEqual(result, { deleted: 0, errors: 0 });
+});
+
 test("#6848 cleanupCompressionRunTelemetry: deletes rows older than retention window", async () => {
   ensureTelemetryTable();
   const db = getDbInstance()!;
