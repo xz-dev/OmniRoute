@@ -457,6 +457,31 @@ export function enrichCatalogModelEntry<T extends JsonRecord>(
     { provider, model },
     capabilitySnapshot
   );
+  const existingCapabilities =
+    entry.capabilities && typeof entry.capabilities === "object"
+      ? (entry.capabilities as JsonRecord)
+      : {};
+  const declaredEffortTiers = Array.isArray(existingCapabilities.effort_tiers)
+    ? existingCapabilities.effort_tiers.filter(
+        (effort): effort is string => typeof effort === "string" && effort.length > 0
+      )
+    : [];
+  const sourceDeclaresThinking =
+    typeof existingCapabilities.thinking === "boolean" ||
+    typeof existingCapabilities.supportsThinking === "boolean";
+  const effortTiers =
+    metadata.capabilities.supportedThinkingEfforts &&
+    metadata.capabilities.supportedThinkingEfforts.length > 0
+      ? [...metadata.capabilities.supportedThinkingEfforts]
+      : declaredEffortTiers.length > 0
+        ? declaredEffortTiers
+        : sourceDeclaresThinking
+          ? undefined
+          : extendCodexGpt56EffortValues(
+              metadata.provider,
+              metadata.model,
+              CANONICAL_EFFORT_VALUES
+            );
   const capabilityFields = {
     ...(typeof metadata.capabilities.vision === "boolean"
       ? { vision: metadata.capabilities.vision }
@@ -482,18 +507,8 @@ export function enrichCatalogModelEntry<T extends JsonRecord>(
       ? {
           thinking: metadata.capabilities.supportsThinking,
           supportsThinking: metadata.capabilities.supportsThinking,
-          ...(metadata.capabilities.supportsThinking
-            ? {
-                effort_tiers:
-                  metadata.capabilities.supportedThinkingEfforts &&
-                  metadata.capabilities.supportedThinkingEfforts.length > 0
-                    ? [...metadata.capabilities.supportedThinkingEfforts]
-                    : extendCodexGpt56EffortValues(
-                        metadata.provider,
-                        metadata.model,
-                        CANONICAL_EFFORT_VALUES
-                      ),
-              }
+          ...(metadata.capabilities.supportsThinking && effortTiers
+            ? { effort_tiers: effortTiers }
             : {}),
         }
       : {}),
@@ -509,9 +524,7 @@ export function enrichCatalogModelEntry<T extends JsonRecord>(
   };
 
   nextEntry.capabilities = {
-    ...(entry.capabilities && typeof entry.capabilities === "object"
-      ? (entry.capabilities as JsonRecord)
-      : {}),
+    ...existingCapabilities,
     ...capabilityFields,
   };
 
