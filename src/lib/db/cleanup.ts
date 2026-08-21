@@ -692,7 +692,8 @@ let _cleanupSchedulerTimer: ReturnType<typeof setInterval> | null = null;
 
 /**
  * Start the background cleanup scheduler. Runs cleanup on startup
- * and then every 6 hours. Runs VACUUM after deletes to reclaim disk space.
+ * and then every 6 hours. Full VACUUM remains explicit or scheduled through
+ * vacuumScheduler.ts because better-sqlite3 blocks the event loop while it runs.
  *
  * Without this, tables grow unboundedly (compression_analytics 600K+ rows,
  * usage_history 250K+ rows) causing 1.4GB+ SQLite files and 3-8GB RSS
@@ -704,19 +705,7 @@ export function startCleanupScheduler(): void {
   // Run cleanup 30s after startup (let the server initialize first).
   setTimeout(async () => {
     try {
-      const result = await runAutoCleanup();
-      const proxyResult = await cleanupProxyLogs();
-      const totalDeleted = result.totalDeleted + proxyResult.deleted;
-      if (totalDeleted > 0) {
-        console.log(`[Cleanup] Startup cleanup freed ${totalDeleted} rows. Running VACUUM...`);
-        try {
-          const db = getDbInstance();
-          db.exec("VACUUM");
-          console.log("[Cleanup] VACUUM completed after startup cleanup.");
-        } catch (vacErr) {
-          console.error("[Cleanup] VACUUM after cleanup failed:", vacErr);
-        }
-      }
+      await runAutoCleanup();
     } catch (err) {
       console.error("[Cleanup] Startup cleanup failed:", err);
     }
@@ -725,19 +714,7 @@ export function startCleanupScheduler(): void {
   // Schedule periodic cleanup every 6 hours.
   _cleanupSchedulerTimer = setInterval(async () => {
     try {
-      const result = await runAutoCleanup();
-      const proxyResult = await cleanupProxyLogs();
-      const totalDeleted = result.totalDeleted + proxyResult.deleted;
-      if (totalDeleted > 0) {
-        console.log(`[Cleanup] Periodic cleanup freed ${totalDeleted} rows. Running VACUUM...`);
-        try {
-          const db = getDbInstance();
-          db.exec("VACUUM");
-          console.log("[Cleanup] VACUUM completed after periodic cleanup.");
-        } catch (vacErr) {
-          console.error("[Cleanup] VACUUM after cleanup failed:", vacErr);
-        }
-      }
+      await runAutoCleanup();
     } catch (err) {
       console.error("[Cleanup] Periodic cleanup failed:", err);
     }
