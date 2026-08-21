@@ -339,7 +339,7 @@
     "zod": "^4.4.3",
     "zustand": "^5.0.15",
     "@huggingface/transformers": "^4.2.0",
-    "onnxruntime-node": "~1.27.0"
+    "onnxruntime-node": "~1.24.3"
   },
   "optionalDependencies": {
     "@atjsh/llmlingua-2": "3.0.0",
