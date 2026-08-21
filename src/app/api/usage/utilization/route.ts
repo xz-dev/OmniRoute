@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAggregatedSnapshots } from "@/lib/db/quotaSnapshots";
-import { getConnection } from "@/lib/db/connections";
+import { getProviderConnectionById } from "@/lib/db/providers";
 import type {
   ProviderUtilizationResponse,
   UtilizationTimeRange,
@@ -67,7 +67,7 @@ export async function GET(request: Request) {
       );
       connectionMeta = {};
       for (const cid of uniqueConnectionIds) {
-        const conn = getConnection(cid);
+        const conn = await getProviderConnectionById(cid);
         connectionMeta[cid] = {
           email: conn?.email ?? null,
           name: conn?.name ?? null,
