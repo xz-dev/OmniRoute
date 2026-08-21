@@ -4,8 +4,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
 import {
   assembleStandalone,
+  markStandaloneEsmEntry,
+  patchStandalonePackageJson,
   patchTurbopackChunks,
   syncStandaloneNativeAssets,
   syncStandaloneExtraModules,
@@ -96,6 +99,36 @@ test("assembleStandalone copies standalone + static + public + sidecars into out
     "static is NOT placed under a literal .next (would 404 against distDir server)"
   );
   assert.ok(fs.existsSync(path.join(outDir, "public/logo.svg")), "public copied");
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+
+test("standalone keeps its CJS server while worker directories are ESM-scoped", () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "standalone-module-scope-"));
+  const worker = path.join(tmp, "src/lib/usage/callLogArtifactWorker.js");
+  const server = path.join(tmp, "server.js");
+  fs.mkdirSync(path.dirname(worker), { recursive: true });
+  fs.writeFileSync(path.join(tmp, "package.json"), '{"type":"module"}\n');
+  fs.writeFileSync(worker, "export const ready = true;\n");
+  fs.writeFileSync(
+    server,
+    'const path = require("node:path");\n' +
+      'import("./src/lib/usage/callLogArtifactWorker.js").then((m) => {\n' +
+      '  if (path.basename(__filename) !== "server.js" || m.ready !== true) process.exitCode = 1;\n' +
+      "});\n"
+  );
+
+  patchStandalonePackageJson(tmp);
+  markStandaloneEsmEntry(worker);
+
+  const rootPackage = JSON.parse(fs.readFileSync(path.join(tmp, "package.json"), "utf8"));
+  const workerPackage = JSON.parse(
+    fs.readFileSync(path.join(path.dirname(worker), "package.json"), "utf8")
+  );
+  assert.equal(rootPackage.type, undefined);
+  assert.equal(workerPackage.type, "module");
+
+  const result = spawnSync(process.execPath, [server], { cwd: tmp, encoding: "utf8" });
+  assert.equal(result.status, 0, result.stderr);
   fs.rmSync(tmp, { recursive: true, force: true });
 });
 

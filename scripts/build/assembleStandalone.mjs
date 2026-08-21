@@ -506,7 +506,7 @@ export function patchTurbopackChunks(outDir, distDir = ".next") {
  *
  * @param {string} resolvedOutDir - assembled standalone output directory
  */
-function patchStandalonePackageJson(resolvedOutDir) {
+export function patchStandalonePackageJson(resolvedOutDir) {
   const outDirPkgJson = path.join(resolvedOutDir, "package.json");
   if (!fsSync.existsSync(outDirPkgJson)) return;
   try {
@@ -520,6 +520,23 @@ function patchStandalonePackageJson(resolvedOutDir) {
   } catch (err) {
     console.warn(`[assembleStandalone] Could not patch standalone package.json: ${err.message}`);
   }
+}
+
+/**
+ * Scope one bundled ESM worker without turning the standalone CJS server into ESM.
+ * Node resolves package type from the nearest package.json, so the marker belongs
+ * beside the worker rather than at the standalone root.
+ *
+ * @param {string} entryPath - bundled worker entrypoint
+ */
+export function markStandaloneEsmEntry(entryPath) {
+  const packagePath = path.join(path.dirname(entryPath), "package.json");
+  const packageJson = fsSync.existsSync(packagePath)
+    ? JSON.parse(fsSync.readFileSync(packagePath, "utf8"))
+    : {};
+  if (packageJson.type === "module") return;
+  packageJson.type = "module";
+  fsSync.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2) + "\n");
 }
 
 /**
